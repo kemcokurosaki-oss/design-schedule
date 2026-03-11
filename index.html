@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>設計工程表 - 安定版</title>
+    
+    <!-- DHTMLX Gantt -->
+    <link rel="stylesheet" href="https://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.css">
+    <script src="https://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.js"></script>
+    <!-- Pro版（リソース機能）が必要な場合は、ライセンス版のJSを読み込む必要があります -->
+    <!-- 現在はCDNのedge版（通常はStandard版）を読み込んでいるため、一部のPro機能が制限されている可能性があります -->
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: "メイリオ", Meiryo, "MS PGothic", sans-serif; font-size: 12px; }
+        .main-container { display: flex; flex-direction: column; height: 100vh; }
+        .header-panel { background: #fff; padding: 10px; border-bottom: 1px solid #ccc; display: flex; flex-direction: column; gap: 10px; }
+        .header-row { display: flex; align-items: center; gap: 15px; width: 100%; }
+        .project-info { font-size: 16px; font-weight: bold; color: #333; }
+        .zoom-controls { display: flex; gap: 5px; }
+        .action-controls { margin-left: auto; display: flex; gap: 5px; }
+        .btn { padding: 5px 10px; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+        .zoom-btn { font-size: 13px; }
+        .btn-primary { background: #2ecc71; color: #fff; border-color: #27ae60; font-weight: bold; font-size: 13px; }
+        .btn-info { background: #3498db; color: #fff; border-color: #2980b9; font-weight: bold; font-size: 13px; }
+        .zoom-btn.active { background: #3498db; color: #fff; border-color: #3498db; }
+        
+        /* レイアウト用 */
+        #gantt_here {
+            flex: 1;
+            width: 100%;
+            /* height: 100% を削除して flexbox に任せる */
+            min-height: 0; 
+        }
+        
+        /* 独立したリソースパネル */
+        #resource_panel {
+            display: none;
+            height: 250px;
+            min-height: 50px;
+            border-top: 4px solid #ccc; /* 境界線を少し太く（2px -> 4px） */
+            background: #fff;
+            flex-direction: column;
+            position: relative;
+            z-index: 1000;
+        }
+        #resource_resizer {
+            height: 12px; /* 当たり判定も少し拡大 */
+            cursor: ns-resize;
+            background: transparent;
+            width: 100%;
+            position: absolute;
+            top: -8px; /* 境界線(4px)の上に重なるように調整 */
+            left: 0;
+            z-index: 1001;
+            transition: background 0.2s;
+        }
+        #resource_resizer::before {
+            content: "";
+            position: absolute;
+            top: 4px; 
+            left: 0;
+            width: 100%;
+            height: 4px; /* 境界線と同じ太さ（4px） */
+            background: transparent;
+            transition: background 0.2s;
+        }
+        #resource_resizer:hover::before {
+            background: #3498db; 
+        }
+        .resource-header-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 15px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #ddd;
+            font-size: 13px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .resource-header-close {
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+            color: #999;
+            border: none;
+            background: none;
+            padding: 0 5px;
+        }
+        .resource-header-close:hover {
+            color: #333;
+        }
+        .resource-content {
+            flex: 1;
+            overflow: auto;
+        }
+        .resource-content-inner {
+            position: relative;
+        }
+        
+        /* リソースバーのスタイル（index.htmlから移植） */
+        .resource-item { border-bottom: 1px solid #ebebeb !important; }
+        .resource-grid-container { background: #f9f9f9; }
+        .resource-cell { display: flex; align-items: center; padding: 0 4px; box-sizing: border-box; }
+        .resource-timeline { position: relative; background: #fff; }
+        .resource-today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #ff5252 !important; opacity: 1.0; z-index: 2 !important; pointer-events: none; }
+        .resource-cell-bar {
+            position: absolute;
+            border-radius: 3px;
+            opacity: 0.8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #222;
+            font-size: 13px;
+            font-weight: bold;
+            overflow: hidden;
+            white-space: nowrap;
+            text-shadow: none;
+            box-sizing: border-box;
+            border: 1px solid rgba(0,0,0,0.15);
+        }
+        .resource-bar-text { padding: 0 5px; overflow: hidden; text-overflow: ellipsis; }
+        
+        /* 担当者ごとのバーの色設定（区別しやすいように調整） */
+        .owner-fujiyama { background-color: #e74c3c !important; border-color: #c0392b !important; color: #fff !important; } /* 鮮やかな赤 */
+        .owner-tanaka { background-color: #3498db !important; border-color: #2980b9 !important; color: #fff !important; }   /* 鮮やかな青 */
+        .owner-yasuoka { background-color: #2ecc71 !important; border-color: #27ae60 !important; color: #fff !important; }  /* 鮮やかな緑 */
+        .owner-kawabe { background-color: #f39c12 !important; border-color: #d35400 !important; color: #fff !important; }  /* オレンジ */
+        .owner-dan { background-color: #9b59b6 !important; border-color: #8e44ad !important; color: #fff !important; }     /* 濃い紫 */
+        .owner-horii { background-color: #1abc9c !important; border-color: #16a085 !important; color: #fff !important; }   /* ターコイズ */
+        .owner-miyazaki { background-color: #e84393 !important; border-color: #d63031 !important; color: #fff !important; } /* 濃いピンク */
+        .owner-tsuda { background-color: #badc58 !important; border-color: #6ab04c !important; color: #222 !important; }   /* ライム */
+        .owner-komura { background-color: #2c3e50 !important; border-color: #1a252f !important; color: #fff !important; }   /* ネイビー */
+        .owner-shibata { background-color: #f1c40f !important; border-color: #f39c12 !important; color: #222 !important; }  /* 鮮やかな黄 */
+        .owner-hashimoto { background-color: #686de0 !important; border-color: #4834d4 !important; color: #fff !important; } /* ロイヤルブルー */
+        .owner-matsumoto { background-color: #7ed6df !important; border-color: #22a6b3 !important; color: #222 !important; } /* 明るい水色 */
+        .owner-default { background-color: #95a5a6 !important; border-color: #7f8c8d !important; color: #fff !important; }  /* グレー */
+
+        /* コンフリクト背景（無効化：透明に設定） */
+        .resource-cell-conflict-bg {
+            background: transparent !important;
+        }
+
+        /* 土日の背景色 */
+        .weekend { background: #f0f0f0 !important; }
+        /* 今日の赤線（マーカー）の強制表示 */
+        .today-line, .gantt_marker {
+            background-color: #ff4d4d !important;
+            width: 2px !important;
+            z-index: 9999 !important;
+            position: absolute !important;
+        }
+
+        /* マーカーが表示されない原因となる overflow を解除 */
+        .gantt_marker_area {
+            z-index: 5 !important;
+        }
+
+        /* マーカー上部の「今日」というラベルも強制表示 */
+        .gantt_marker_content {
+            background: #ff4d4d !important;
+            color: #fff !important;
+            z-index: 10000 !important;
+            font-weight: bold !important;
+            padding: 2px 5px !important;
+            border-radius: 3px !important;
+            font-size: 11px !important;
+        }
+        /* 日付がないタスクのバーを隠す */
+        .hidden_bar { display: none !important; }
+        
+        /* 標準的なタスクスタイル */
+        .gantt_task_line { border-radius: 4px; }
+        .gantt_task_content { font-size: 11px; font-family: "メイリオ", Meiryo, sans-serif; }
+
+        /* グリッドのフォント設定 */
+        .gantt_grid_data .gantt_cell {
+            font-family: "メイリオ", Meiryo, sans-serif !important;
+            font-size: 13px !important;
+            font-weight: bold !important;
+        }
+
+        .gantt_grid_scale .gantt_grid_head_cell {
+            font-family: "メイリオ", Meiryo, sans-serif !important;
+            font-size: 14px !important;
+            font-weight: bold !important;
+        }
+
+        /* グリッドヘッダーを青にする */
+        .gantt_grid_scale, .gantt_grid_head_cell {
+            background-color: #546e7a !important; /* くすんだ青（ブルーグレー） */
+            color: #ffffff !important;
+            border-right: 1px solid #455a64 !important;
+            line-height: normal !important; /* 改行を許可するために追加 */
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+        }
+
+        /* 組立図面名列の左端からアイコンまでの距離を短縮 */
+        .gantt_tree_indent {
+            width: 8px !important; /* デフォルト16pxから8pxに短縮 */
+        }
+        .gantt_tree_icon {
+            width: 16px !important;
+        }
+
+        /* タスクの背景色を水色とさらに薄い水色で交互にする */
+        .gantt_row {
+            background-color: #f8fafc !important; /* 非常に明るいグレーブルー */
+        }
+        .gantt_row.odd {
+            background-color: #e2e8f0 !important; /* 落ち着いた薄いブルーグレー */
+        }
+        /* ホバー時の色も調整 */
+        .gantt_row:hover {
+            background-color: #cbd5e1 !important; /* 少し濃いくすんだ青 */
+        }
+
+        /* 進捗列の背景色（グラデーションによる進捗表示） */
+        .progress-cell-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+            overflow: hidden; /* はみ出し防止 */
+        }
+        .progress-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background-color: #ffd54f; /* 鮮やかな山吹色（黄色とオレンジの中間） */
+            z-index: -1;
+        }
+        .progress-overdue {
+            background-color: #e53935 !important; /* 鮮やかさと落ち着きのバランスが良い赤 */
+        }
+
+        /* カレンダーヘッダーのフォント設定（サンセリフ体に戻す） */
+        .gantt_scale_line,
+        .gantt_scale_cell {
+            font-family: sans-serif !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            line-height: normal !important;
+        }
+
+        /* リソースの重なり（オーバーラップ）のスタイル（無効化） */
+        .overload-cell {
+            background: transparent !important;
+        }
+        /* リソースセル内のバー表示 */
+        .has-resource-bar {
+            position: relative !important;
+        }
+        .has-resource-bar::after {
+            content: "" !important;
+            position: absolute !important;
+            top: 6px !important;
+            bottom: 6px !important;
+            left: 0 !important;
+            right: 0 !important;
+            background-color: #FBAD4F !important;
+            border-radius: 4px !important;
+            z-index: 5 !important;
+            display: block !important;
+        }
+        /* 重複時は背景色を変えて強調（無効化） */
+        .overload-cell {
+            background-color: transparent !important;
+        }
+        .overload-cell::after {
+            background-color: #FBAD4F !important; /* 重複箇所もオレンジにする */
+        }
+        /* セル自体の枠線を見やすく */
+        .gantt_resource_cell {
+            border-right: 1px solid #ebebeb !important;
+            box-sizing: border-box !important;
+        }
+        .gantt_resource_marker.overtime, 
+        .gantt_resource_marker_overtime,
+        .gantt_resource_marker {
+            background-color: #FBAD4F !important;
+            background-image: none !important;
+            opacity: 1.0 !important;
+        }
+        
+        /* タイムライン上のリソースセルの背景パターンを完全に無効化 */
+        .gantt_resource_cell, 
+        .gantt_resource_marker, 
+        .gantt_resource_marker_overtime,
+        [class*="gantt_resource_marker"] {
+            background-image: none !important;
+        }
+        /* リソースタイムラインのヘッダーを完全に非表示にする */
+        .gantt_resource_timeline .gantt_scale_line,
+        .gantt_resource_timeline .gantt_task_scale {
+            display: none !important;
+            height: 0 !important;
+            border: none !important;
+        }
+        /* リソースグリッドのヘッダーを調整（1行のみ表示し、左寄せにする） */
+        .gantt_resource_grid .gantt_grid_scale {
+            background-color: #f8f9fa !important;
+            height: 30px !important;
+            line-height: 30px !important;
+            border-bottom: 2px solid #ccc !important;
+            position: relative;
+        }
+        .gantt_resource_grid .gantt_grid_scale::before {
+            content: "担当者別リソース";
+            position: absolute;
+            left: 15px;
+            top: 0;
+            font-weight: bold;
+            font-size: 13px;
+            color: #2c3e50;
+            z-index: 10;
+        }
+        /* グリッドヘッダー内の元のセルを隠す */
+        .gantt_resource_grid .gantt_grid_head_cell {
+            display: none !important;
+        }
+        /* リソースセルのスタイル調整 */
+        .gantt_matrix_cell {
+            overflow: visible !important; /* セルからはみ出しても隠さない */
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="header-panel">
+            <div class="header-row">
+                <div class="project-info" id="project_display">工事番号: 全表示</div>
+            </div>
+            <div class="header-row">
+                <div class="zoom-controls">
+                    <button class="btn zoom-btn active" onclick="setZoom('day', this)">日単位</button>
+                    <button class="btn zoom-btn" onclick="setZoom('week', this)">週単位</button>
+                </div>
+                <select id="project_select" style="padding: 5px; min-width: 150px; margin-left: 15px;"></select>
+                <button class="btn" onclick="loadData()">更新</button>
+                <div class="action-controls">
+                    <button class="btn btn-info" id="resource_toggle" onclick="toggleResourceView()">リソース表示</button>
+                    <button class="btn btn-primary" onclick="createTask()">+ 新規タスク追加</button>
+                </div>
+            </div>
+        </div>
+        <div id="gantt_here" style="width:100%; height:100%;"></div>
+
+        <!-- 独立したリソースパネル -->
+        <div id="resource_panel">
+            <div id="resource_resizer"></div>
+            <div class="resource-header-bar">
+                <span id="resource_title">担当者別リソース状況</span>
+                <button type="button" class="resource-header-close" id="resource_close_btn" title="リソース画面を閉じる">×</button>
+            </div>
+            <div class="resource-content">
+                <div id="resource_content_inner" class="resource-content-inner">
+                    <!-- ここにJSでHTMLが挿入される -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // リソース表示状態
+        let isResourceView = false;
+        let lastOwnerName = '';
+        let currentResourceOwnerFilter = "";
+        const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+        const GRID_WIDTH = 1000; // gantt_design.htmlの既存設定に合わせる
+        // 列幅（gantt_design.htmlの既存設定に合わせる）
+        const COLUMN_WIDTHS = [55, 55, 250, 50, 60, 30, 40, 40, 60, 60, 60, 60, 110, 44]; 
+
+        // 担当者とCSSクラスのマップ
+        const ownerColorMap = {
+            "藤山": "owner-fujiyama",
+            "田中(善)": "owner-tanaka",
+            "田中": "owner-tanaka",
+            "安岡": "owner-yasuoka",
+            "川邊": "owner-kawabe",
+            "檀": "owner-dan",
+            "堀井": "owner-horii",
+            "宮﨑": "owner-miyazaki",
+            "津田": "owner-tsuda",
+            "古村": "owner-komura",
+            "柴田": "owner-shibata",
+            "橋本": "owner-hashimoto",
+            "松本(英)": "owner-matsumoto"
+        };
+
+        function getOwnerColorClass(ownerStr) {
+            if (!ownerStr) return "owner-default";
+            const owners = String(ownerStr).split(/[,、\s]+/).map(o => o.trim());
+            for (const owner of owners) {
+                if (ownerColorMap[owner]) return ownerColorMap[owner];
+            }
+            return "owner-default";
+        }
+
+        // レイアウト定義
+        const mainLayout = {
+            css: "gantt_container",
+            rows: [
+                {
+                    cols: [
+                        { view: "grid", group: "grids", scrollY: "scrollVer" },
+                        { resizer: true, width: 1 },
+                        { view: "timeline", scrollX: "scrollHor", scrollY: "scrollVer" },
+                        { view: "scrollbar", id: "scrollVer" }
+                    ]
+                },
+                { view: "scrollbar", id: "scrollHor", height: 20 }
+            ]
+        };
+
+        // リサイズ機能
+        (function() {
+            let isResizing = false;
+            let animationFrameId = null;
+            const minHeight = 50;
+            const maxHeight = 800;
+
+            window.addEventListener('DOMContentLoaded', () => {
+                const resizer = document.getElementById('resource_resizer');
+                const panel = document.getElementById('resource_panel');
+                const ganttContainer = document.getElementById('gantt_here');
+
+                if (!resizer || !panel) return;
+
+                resizer.addEventListener('mousedown', (e) => {
+                    isResizing = true;
+                    document.body.style.cursor = 'ns-resize';
+                    document.body.style.userSelect = 'none';
+                    e.preventDefault();
+                });
+
+                window.addEventListener('mousemove', (e) => {
+                    if (!isResizing) return;
+                    
+                    if (animationFrameId) return; // すでに処理待ちならスキップ
+
+                    animationFrameId = requestAnimationFrame(() => {
+                        const windowHeight = window.innerHeight;
+                        let newHeight = windowHeight - e.clientY;
+                        
+                        if (newHeight < minHeight) newHeight = minHeight;
+                        if (newHeight > maxHeight) newHeight = maxHeight;
+                        if (newHeight > windowHeight * 0.8) newHeight = windowHeight * 0.8;
+                        
+                        // パネルの高さを更新（flexboxによりメインガントは自動で縮む）
+                        panel.style.height = newHeight + 'px';
+                        
+                        // ガントのサイズ調整（描画を伴うので負荷が高い）
+                        if (window.gantt) {
+                            gantt.setSizes();
+                        }
+                        
+                        animationFrameId = null;
+                    });
+                });
+
+                window.addEventListener('mouseup', () => {
+                    if (isResizing) {
+                        isResizing = false;
+                        document.body.style.cursor = 'default';
+                        document.body.style.userSelect = '';
+                        if (animationFrameId) {
+                            cancelAnimationFrame(animationFrameId);
+                            animationFrameId = null;
+                        }
+                        // 最後に確実にサイズを合わせる
+                        if (window.gantt) {
+                            gantt.setSizes();
+                        }
+                    }
+                });
+            });
+        })();
+
+        function updateResourceData() {
+            // 指定された担当者の並び順（藤山～松本(英)、外注は除外）
+            const targetOwners = ["藤山", "田中(善)", "安岡", "川邊", "檀", "堀井", "宮﨑", "津田", "古村", "柴田", "橋本", "松本(英)"];
+            
+            const activeOwners = [];
+            
+            // 各担当者について、該当するタスクがあるかチェック
+            targetOwners.forEach(ownerName => {
+                let hasTask = false;
+                gantt.eachTask(function(task){
+                    if (hasTask) return;
+                    const isDetailed = (task.is_detailed === true || String(task.is_detailed).toLowerCase() === "true" || String(task.is_detailed).toLowerCase() === "t" || String(task.is_detailed) === "1");
+                    if (isDetailed && task.owner) {
+                        const owners = String(task.owner).split(/[,、\s]+/).map(o => o.trim());
+                        // 田中(善)の場合、"田中(善)" または "田中" が含まれているかチェック
+                        if (ownerName === "田中(善)") {
+                            if (owners.includes("田中(善)") || owners.includes("田中")) {
+                                hasTask = true;
+                            }
+                        } else if (owners.includes(ownerName)) {
+                            hasTask = true;
+                        }
+                    }
+                });
+                
+                if (hasTask) {
+                    activeOwners.push(ownerName);
+                }
+            });
+
+            console.log("Found active owners for resource view:", activeOwners);
+            renderResourceTimeline(activeOwners);
+        }
+
+        function renderResourceTimeline(owners) {
+            const container = document.getElementById("resource_content_inner");
+            if (!container) return;
+            container.innerHTML = "";
+
+            if (owners.length === 0) {
+                container.innerHTML = `<div class="resource-placeholder" style="padding:20px; text-align:center; color:#999;">詳細タスク（is_detailed: true）に担当者が設定されていません</div>`;
+                return;
+            }
+
+            const scale = gantt.getScale();
+            const timelineWidth = scale.full_width;
+            const columnWidth = scale.col_width;
+            // メインガントのグリッド幅を取得（gantt.config.grid_width または実際の要素幅）
+            const actualGridWidth = gantt.config.grid_width || 1000;
+            const totalWidth = actualGridWidth + timelineWidth;
+            const firstPos = gantt.posFromDate(scale.trace_x[0]);
+            
+            const gridBackground = `repeating-linear-gradient(to right, transparent, transparent ${columnWidth - 1}px, #ebebeb ${columnWidth - 1}px, #ebebeb ${columnWidth}px), repeating-linear-gradient(to bottom, transparent, transparent 29px, #ebebeb 29px, #ebebeb 30px)`;
+            
+            let weekendBackgroundHtml = "";
+            if (gantt.getState().scale_unit === "day") {
+                scale.trace_x.forEach((date, i) => {
+                    if (date.getDay() === 0 || date.getDay() === 6) {
+                        weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; background: #f4f4f4; z-index: 0;"></div>`;
+                    }
+                });
+            }
+            
+            const backgroundStyle = `background-image: ${gridBackground}; background-position: ${-firstPos}px 0; background-size: ${columnWidth}px 30px; height: 100%;`;
+            const todayPos = gantt.posFromDate(new Date());
+            const todayLineHtml = `<div class="resource-today-line" style="left: ${todayPos}px;"></div>`;
+
+            let html = `<div style="width: ${totalWidth}px;">`; // 全体の幅を指定するコンテナを追加
+            owners.forEach((ownerName) => {
+                const ownerTasks = [];
+                gantt.eachTask(t => {
+                    const isDetailed = (t.is_detailed === true || String(t.is_detailed).toLowerCase() === "true" || String(t.is_detailed).toLowerCase() === "t" || String(t.is_detailed) === "1");
+                    
+                    let isMatch = false;
+                    if (isDetailed && t.owner) {
+                        const taskOwners = String(t.owner).split(/[,、\s]+/).map(o => o.trim());
+                        if (ownerName === "田中(善)") {
+                            isMatch = taskOwners.includes("田中(善)") || taskOwners.includes("田中");
+                        } else {
+                            isMatch = taskOwners.includes(ownerName);
+                        }
+                    }
+
+                    if (isMatch) {
+                        ownerTasks.push(t);
+                    }
+                });
+
+                let rowConflictBackgroundHtml = "";
+                scale.trace_x.forEach((date, i) => {
+                    const cellStart = date;
+                    const cellEnd = gantt.date.add(cellStart, 1, scale.unit);
+                    let count = 0;
+                    ownerTasks.forEach(t => {
+                        if (t.start_date < cellEnd && t.end_date > cellStart) count++;
+                    });
+                    if (count > 1) {
+                        rowConflictBackgroundHtml += `<div class="resource-cell-conflict-bg" style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; z-index: 1;"></div>`;
+                    }
+                });
+
+                html += `
+                    <div class="resource-item" style="display: flex; border-bottom: 1px solid #eee; min-height: 30px; height: 30px; align-items: stretch; width: ${totalWidth}px;">
+                        <div class="resource-grid-container" style="width: ${actualGridWidth}px; min-width: ${actualGridWidth}px; flex-shrink: 0; display: flex; border-right: 1px solid #ddd; background: #f9f9f9; position: sticky; left: 0; z-index: 5;">
+                            <div style="width: 100%; display: flex; align-items: center; justify-content: flex-end; padding-right: 5px; font-weight: bold; font-size: 12px; color: #333;">
+                                <div style="width: 120px; text-align: left;">${ownerName} (${ownerTasks.length}件)</div>
+                            </div>
+                        </div>
+                        <div class="resource-timeline" style="width: ${timelineWidth}px; flex-shrink: 0; position: relative; background: #fff;">
+                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 0;">${weekendBackgroundHtml}</div>
+                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; ${backgroundStyle} z-index: 1;"></div>
+                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1;">${rowConflictBackgroundHtml}</div>
+                            ${todayLineHtml}
+                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 2;">
+                `;
+
+                ownerTasks.forEach(t => {
+                    const left = gantt.posFromDate(t.start_date);
+                    const right = gantt.posFromDate(t.end_date);
+                    const width = Math.max(2, right - left);
+                    
+                    // 重複判定
+                    const isOverlapping = ownerTasks.some(other => {
+                        if (other.id === t.id) return false;
+                        return (t.start_date < other.end_date && t.end_date > other.start_date);
+                    });
+                    
+                    const colorClass = getOwnerColorClass(ownerName);
+                    const textColor = (["owner-tsuda", "owner-shibata", "owner-matsumoto"].includes(colorClass)) ? "#222" : "#fff";
+
+                    html += `
+                        <div class="resource-cell-bar ${colorClass}" 
+                             style="position: absolute; top: 4px; height: 22px; left: ${left}px; width: ${width}px; z-index: 10;" 
+                             title="${t.text} (${t.project_number})">
+                             <span class="resource-bar-text" style="color:${textColor}; font-size:11px; font-weight:bold;">${t.project_number || ""} ${t.text}</span>
+                        </div>
+                    `;
+                });
+
+                html += `
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += `</div>`; // 閉じタグを追加
+
+            container.innerHTML = html;
+            syncResourceScroll();
+        }
+
+        function syncResourceScroll() {
+            const left = gantt.getScrollState().x;
+            const resourceContent = document.querySelector(".resource-content");
+            if (resourceContent) resourceContent.scrollLeft = left;
+        }
+
+        function toggleResourceView() {
+            isResourceView = !isResourceView;
+            const btn = document.getElementById("resource_toggle");
+            const panel = document.getElementById("resource_panel");
+            
+            if (isResourceView) {
+                btn.innerText = "メイン表示に戻す";
+                panel.style.display = "flex";
+                updateResourceData();
+            } else {
+                btn.innerText = "リソース表示";
+                panel.style.display = "none";
+            }
+            
+            // flexbox により自動でサイズが変わるため、gantt.setSizes() を呼ぶだけでOK
+            if (window.gantt) {
+                gantt.setSizes();
+            }
+            gantt.render();
+        }
+
+        // スクロール同期のイベント登録
+        gantt.attachEvent("onGanttScroll", function (left, top){
+            const resourceContent = document.querySelector(".resource-content");
+            if (resourceContent) resourceContent.scrollLeft = left;
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const resourceContent = document.querySelector(".resource-content");
+            if (resourceContent) {
+                resourceContent.addEventListener('scroll', function() {
+                    const ganttScroll = gantt.getScrollState();
+                    if (Math.abs(ganttScroll.x - this.scrollLeft) > 1) {
+                        gantt.scrollTo(this.scrollLeft, null);
+                    }
+                });
+            }
+            document.getElementById('resource_close_btn').onclick = toggleResourceView;
+        });
+
+        // Supabase 設定
+        const S_URL = "https://dgekjzkrybrswsxlcbvh.supabase.co";
+        const S_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRnZWtqemtyeWJyc3dzeGxjYnZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4ODQ3MjIsImV4cCI6MjA4NDQ2MDcyMn0.BsEj53lV3p76yE9fMPTaLn7ocKTNzYPTqIAnBafYItU";
+        const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+        // Gantt 基本構成
+        gantt.config.date_format = "%Y-%m-%d";
+        gantt.config.auto_scheduling = true; // 自動スケジューリングを有効化
+        gantt.config.start_date = new Date(2025, 0, 1);  // 2025年1月1日
+        gantt.config.end_date = new Date(2027, 0, 1);    // 2026年12月31日まで含める
+        gantt.config.fit_tasks = false; // 自動調整を無効化
+        gantt.config.grid_width = 730; // 列の合計幅（約724px）に合わせて調整
+        gantt.config.min_column_width = 22; // カレンダーの列幅を22に設定
+        gantt.config.row_height = 30;
+        gantt.config.scale_height = 60; // 3段構成（20px * 3）に合わせて調整
+        // マーカープラグインは initialize() 内で有効化するため、ここでは行わない
+
+        // ズーム設定
+        const zoomConfig = {
+            levels: [
+                {
+                    name: "day",
+                    scale_height: 60, // 3段構成（20px * 3）
+                    min_column_width: 22,
+                    scales: [
+                        {unit: "month", step: 1, format: "%Y/%n"},
+                        {unit: "day", step: 1, format: "%j"},
+                        {unit: "day", step: 1, format: (date) => ["日", "月", "火", "水", "木", "金", "土"][date.getDay()]}
+                    ]
+                },
+                {
+                    name: "week",
+                    scale_height: 60, // 2段構成（30px * 2）
+                    min_column_width: 22,
+                    scales: [
+                        {unit: "month", step: 1, format: "%Y/%n"},
+                        {unit: "week", step: 1, format: "%j"}
+                    ]
+                }
+            ]
+        };
+        gantt.ext.zoom.init(zoomConfig);
+        gantt.ext.zoom.setLevel("day");
+
+        function setZoom(level, btn) {
+            gantt.ext.zoom.setLevel(level);
+            document.querySelectorAll('.zoom-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if (isResourceView) updateResourceData();
+        }
+
+        // 新規タスク追加
+        function createTask() {
+            const projectSelect = document.getElementById('project_select');
+            const projectNumber = projectSelect ? projectSelect.value : "";
+            
+            // 同じ工事番号のタスクを抽出
+            const tasks = gantt.getTaskByTime();
+            const projectTasks = tasks.filter(t => String(t.project_number) === String(projectNumber));
+            
+            let index = -1; // デフォルトは末尾
+            if (projectTasks.length > 0) {
+                // 同じ工事番号の最後のタスクのインデックスを取得
+                const lastTask = projectTasks[projectTasks.length - 1];
+                index = gantt.getTaskIndex(lastTask.id) + 1;
+            }
+
+            const id = gantt.createTask({
+                text: "新しいタスク",
+                start_date: new Date(),
+                duration: 1,
+                is_detailed: true,
+                project_number: projectNumber,
+                machine: "",
+                unit: "",
+                unit2: "",
+                model_type: "",
+                characteristic: "",
+                derivation: "",
+                owner: "",
+                total_sheets: 0,
+                completed_sheets: 0
+            }, null, index);
+            gantt.showLightbox(id);
+        }
+
+        // Supabase への保存処理
+        gantt.attachEvent("onAfterTaskAdd", async function(id, item) {
+            try {
+                // 開始日と終了日が同じ場合、終了日を翌日に設定して1日分の幅を確保する
+                let endDate = new Date(item.end_date);
+                if (item.start_date.getTime() === item.end_date.getTime()) {
+                    endDate = gantt.date.add(endDate, 1, "day");
+                }
+
+                const { data, error } = await supabaseClient
+                    .from('tasks')
+                    .insert([{
+                        text: item.text,
+                        start_date: item.start_date.toISOString(),
+                        end_date: endDate.toISOString(),
+                        project_number: item.project_number,
+                        machine: item.machine,
+                        unit: item.unit,
+                        unit2: item.unit2,
+                        model_type: item.model_type,
+                        characteristic: item.characteristic,
+                        derivation: item.derivation,
+                        owner: item.owner,
+                        total_sheets: Number(item.total_sheets) || 0,
+                        completed_sheets: Number(item.completed_sheets) || 0,
+                        is_detailed: true
+                    }])
+                    .select();
+                
+                if (error) {
+                    console.error("Error adding task:", error);
+                    alert("タスクの追加に失敗しました。\n" + error.message);
+                } else {
+                    loadData(); // IDを同期するために再読み込み
+                }
+            } catch (e) {
+                console.error("Exception in onAfterTaskAdd:", e);
+                alert("タスク追加中に予期せぬエラーが発生しました。");
+            }
+        });
+
+        gantt.attachEvent("onAfterTaskUpdate", async function(id, item) {
+            try {
+                // 開始日と終了日が同じ場合、終了日を翌日に設定して1日分の幅を確保する
+                let endDate = new Date(item.end_date);
+                if (item.start_date.getTime() === item.end_date.getTime()) {
+                    endDate = gantt.date.add(endDate, 1, "day");
+                }
+
+                const { error } = await supabaseClient
+                    .from('tasks')
+                    .update({
+                        text: item.text,
+                        start_date: item.start_date.toISOString(),
+                        end_date: endDate.toISOString(),
+                        project_number: item.project_number,
+                        machine: item.machine,
+                        unit: item.unit,
+                        unit2: item.unit2,
+                        model_type: item.model_type,
+                        characteristic: item.characteristic,
+                        derivation: item.derivation,
+                        owner: item.owner,
+                        total_sheets: Number(item.total_sheets) || 0,
+                        completed_sheets: Number(item.completed_sheets) || 0,
+                        duration: item.duration
+                    })
+                    .eq('id', id);
+                
+                if (error) {
+                    console.error("Error updating task:", error);
+                    alert("タスクの更新に失敗しました。\n" + error.message);
+                }
+            } catch (e) {
+                console.error("Exception in onAfterTaskUpdate:", e);
+                alert("タスク更新中に予期せぬエラーが発生しました。");
+            }
+        });
+
+        gantt.attachEvent("onAfterTaskDelete", async function(id, item) {
+            try {
+                const { error } = await supabaseClient
+                    .from('tasks')
+                    .delete()
+                    .eq('id', id);
+                
+                if (error) {
+                    console.error("Error deleting task:", error);
+                    alert("タスクの削除に失敗しました。\n" + error.message);
+                }
+            } catch (e) {
+                console.error("Exception in onAfterTaskDelete:", e);
+                alert("タスク削除中に予期せぬエラーが発生しました。");
+            }
+        });
+
+        // 編集画面（ライトボックス）の設定
+        gantt.config.lightbox.sections = [
+            { name: "project_number", height: 30, map_to: "project_number", type: "textarea" },
+            { name: "machine", height: 30, map_to: "machine", type: "textarea" },
+            { name: "unit", height: 30, map_to: "unit", type: "textarea" },
+            { name: "description", height: 30, map_to: "text", type: "textarea" },
+            { name: "model_type", height: 30, map_to: "model_type", type: "textarea" },
+            { name: "unit2", height: 30, map_to: "unit2", type: "textarea" },
+            { name: "characteristic", height: 30, map_to: "characteristic", type: "textarea" },
+            { name: "derivation", height: 30, map_to: "derivation", type: "textarea" },
+            { name: "owner", height: 30, map_to: "owner", type: "textarea" },
+            { name: "total_sheets", height: 30, map_to: "total_sheets", type: "textarea" },
+            { name: "completed_sheets", height: 30, map_to: "completed_sheets", type: "textarea" },
+            { name: "start_date", height: 30, map_to: "start_date", type: "template" },
+            { name: "end_date", height: 30, map_to: "end_date", type: "template" },
+            { name: "duration", height: 30, map_to: "duration", type: "textarea" }
+        ];
+
+        gantt.locale.labels.section_project_number = "工事番号";
+        gantt.locale.labels.section_machine = "機械";
+        gantt.locale.labels.section_unit = "ユニット";
+        gantt.locale.labels.section_description = "組立図面名";
+        gantt.locale.labels.section_model_type = "機種";
+        gantt.locale.labels.section_unit2 = "ユニット2";
+        gantt.locale.labels.section_characteristic = "特性";
+        gantt.locale.labels.section_derivation = "派生";
+        gantt.locale.labels.section_owner = "担当";
+        gantt.locale.labels.section_total_sheets = "総枚数";
+        gantt.locale.labels.section_completed_sheets = "完了枚数";
+        gantt.locale.labels.section_start_date = "出図開始日";
+        gantt.locale.labels.section_end_date = "完了予定日";
+        gantt.locale.labels.section_duration = "期間 (日)";
+
+        // カスタムテンプレート（input type="date"）
+        gantt.form_blocks["template"] = {
+            render: function(sns) {
+                return "<div class='gantt_cal_ltext'><input type='date' id='cal_" + sns.name + "' style='width:100%; height:30px; border:1px solid #ccc; border-radius:4px; padding:0 5px;'></div>";
+            },
+            set_value: function(node, value, task, sns) {
+                const input = node.querySelector("input");
+                if (value) {
+                    const date = new Date(value);
+                    const y = date.getFullYear();
+                    const m = ("0" + (date.getMonth() + 1)).slice(-2);
+                    const d = ("0" + date.getDate()).slice(-2);
+                    input.value = `${y}-${m}-${d}`;
+                }
+            },
+            get_value: function(node, task, sns) {
+                return node.querySelector("input").value;
+            },
+            focus: function(node) {
+                node.querySelector("input").focus();
+            }
+        };
+
+        // 完了予定日と期間から開始日を計算するロジック
+        gantt.attachEvent("onTaskLoading", function(task){
+            if (task.start_date && task.end_date) {
+                // 初期読み込み時はそのまま
+            }
+            return true;
+        });
+
+        // ライトボックス保存時の処理
+        gantt.attachEvent("onLightboxSave", function(id, task, is_new){
+            const startStr = document.getElementById("cal_start_date").value;
+            const endStr = document.getElementById("cal_end_date").value;
+            const duration = parseInt(task.duration) || 1;
+
+            if (startStr && endStr) {
+                task.start_date = new Date(startStr);
+                task.end_date = new Date(endStr);
+                // 終了日は翌日の00:00として扱う必要がある（DHTMLXの仕様）
+                task.end_date = gantt.date.add(task.end_date, 1, "day");
+                task.duration = gantt.calculateDuration(task.start_date, task.end_date);
+            } else if (startStr && duration) {
+                task.start_date = new Date(startStr);
+                task.end_date = gantt.date.add(task.start_date, duration, "day");
+            } else if (endStr && duration) {
+                task.end_date = new Date(endStr);
+                task.end_date = gantt.date.add(task.end_date, 1, "day");
+                task.start_date = gantt.date.add(task.end_date, -duration, "day");
+            }
+            
+            return true;
+        });
+
+        // ライトボックス表示前の処理
+        gantt.attachEvent("onBeforeLightbox", function(id) {
+            const task = gantt.getTask(id);
+
+            // 新規タスクの場合、工事番号フィルタの値をセットする
+            if (task.$new) {
+                const projectSelect = document.getElementById('project_select');
+                if (projectSelect && projectSelect.value) {
+                    task.project_number = projectSelect.value;
+                }
+            }
+            return true;
+        });
+
+        // ライトボックスを閉じた時の後処理
+        gantt.attachEvent("onAfterLightbox", function() {
+            return true;
+        });
+
+        // 列設定の設定
+        gantt.config.columns = [
+            { name: "machine", label: "機械", width: 40, align: "center" },
+            { name: "unit", label: "ユニ", width: 45, align: "center" },
+            { name: "text", label: "組立図面名", width: 250, tree: true },
+            { name: "model_type", label: "機種", width: 40, align: "center" },
+            { name: "unit2", label: "ユニ<br>2", width: 40, align: "center" },
+            { name: "dash", label: "-", width: 25, align: "center", template: () => "-" },
+            { name: "characteristic", label: "特性", width: 40, align: "center" },
+            { name: "derivation", label: "派生", width: 40, align: "center" },
+            { name: "owner", label: "担当", width: 50, align: "center" },
+            { name: "total_sheets", label: "総枚数", width: 45, align: "center" },
+            { name: "completed_sheets", label: "完了枚数", width: 45, align: "center" },
+            { name: "progress", label: "進捗", width: 60, align: "center", template: (obj) => {
+                const total = parseFloat(obj.total_sheets) || 0;
+                const completed = parseFloat(obj.completed_sheets) || 0;
+                let progress = 0;
+                if (total > 0) {
+                    progress = Math.min(100, Math.round((completed / total) * 100));
+                }
+
+                // 期限切れチェック（完了予定日を過ぎて進捗0%）
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const isOverdue = (progress === 0 && obj.end_date && obj.end_date < today);
+                
+                const fillClass = isOverdue ? "progress-fill progress-overdue" : "progress-fill";
+                const fillWidth = isOverdue ? "100%" : `${progress}%`;
+
+                return `<div class="progress-cell-container">
+                            <div class="${fillClass}" style="width:${fillWidth};"></div>
+                            <span style="position:relative; z-index:2; color:black; font-weight:normal;">${progress}%</span>
+                        </div>`;
+            }},
+            { name: "end_date", label: "完了予定日", width: 70, align: "center", template: (obj) => {
+                if (obj.has_no_date) return "";
+                const date = obj.end_date;
+                const y = String(date.getFullYear()).slice(-2);
+                const m = ("0" + (date.getMonth() + 1)).slice(-2);
+                const d = ("0" + date.getDate()).slice(-2);
+                return `${y}/${m}/${d}`;
+            }},
+            { name: "add", label: "", width: 44, align: "center", template: (obj) => {
+                return `<div class='gantt_add' onclick='createTask()'></div>`;
+            }}
+        ];
+
+        // スタイルとテンプレート
+        gantt.templates.task_text = function(start, end, task) {
+            const colorClass = getOwnerColorClass(task.owner);
+            const textColor = (["owner-tsuda", "owner-shibata", "owner-matsumoto"].includes(colorClass)) ? "#222" : "#fff";
+            return `<span style="color:${textColor};">${task.text}</span>`;
+        };
+
+        gantt.templates.task_class = function(start, end, task) {
+            let css = task.has_no_date ? "hidden_bar " : "";
+            css += getOwnerColorClass(task.owner);
+            return css;
+        };
+        gantt.templates.timeline_cell_class = function(task, date) {
+            if (date.getDay() === 0 || date.getDay() === 6) return "weekend";
+            return "";
+        };
+
+        gantt.templates.grid_row_class = function(start, end, task) {
+            return "";
+        };
+
+        // フィルタリング（is_detailedのみ表示、かつ工事番号フィルタ）
+        gantt.attachEvent("onBeforeTaskDisplay", function(id, task) {
+            // is_detailed が TRUE または "TRUE" のもののみ表示
+            const isDetailed = (task.is_detailed === true || String(task.is_detailed).toUpperCase() === 'TRUE');
+            if (!isDetailed) return false;
+
+            // 工事番号フィルタ
+            const pSelect = document.getElementById('project_select').value;
+            if (pSelect && String(task.project_number) !== String(pSelect)) return false;
+
+            return true;
+        });
+
+        // データ読み込み
+        async function loadData() {
+            const { data, error } = await supabaseClient
+                .from('tasks')
+                .select('*')
+                .order('project_number', { ascending: true })
+                .order('id', { ascending: true });
+            
+            if (error) {
+                console.error("Supabase error:", error);
+                return;
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+
+            const parsedTasks = data.map(t => {
+                const hasDates = (t.start_date && t.end_date);
+                
+                let startDate = hasDates ? new Date(t.start_date) : new Date(today);
+                let endDate = hasDates ? new Date(t.end_date) : gantt.date.add(new Date(today), 1, "day");
+
+                // 開始日と終了日が同じ場合、1日分の幅を確保するために終了日を翌日に調整
+                if (hasDates && startDate.getTime() === endDate.getTime()) {
+                    endDate = gantt.date.add(endDate, 1, "day");
+                }
+                
+                return {
+                    ...t,
+                    start_date: startDate,
+                    end_date: endDate,
+                    has_no_date: !hasDates
+                };
+            });
+
+            gantt.clearAll();
+            gantt.parse({ 
+                data: parsedTasks
+            });
+
+            // 追加：データ読み込み完了直後にリソースデータを更新
+            if (isResourceView) {
+                updateResourceData();
+                gantt.render();
+            }
+        }
+
+        // グローバル変数の定義
+        let projectMap = new Map();
+
+        // 工事番号セレクトボックスの表示更新
+        function updateDisplay() {
+            const select = document.getElementById('project_select');
+            const display = document.getElementById('project_display');
+            const pSelect = select.value;
+            if (pSelect) {
+                const info = projectMap.get(pSelect);
+                display.innerText = `${pSelect} ${info?.customer || ""} ${info?.details || ""}`;
+            } else {
+                display.innerText = "工事番号: 全表示";
+            }
+            
+            if (isResourceView) {
+                updateResourceData();
+            }
+            gantt.render();
+        }
+
+        // 工事番号セレクトボックスの初期化
+        async function initProjectSelect(projectParam) {
+            const { data } = await supabaseClient
+                .from('tasks')
+                .select('project_number, customer_name, project_details');
+            if (!data) return;
+
+            // 工事番号ごとの情報をマップに格納
+            projectMap = new Map();
+            data.forEach(item => {
+                if (item.project_number) {
+                    const existing = projectMap.get(item.project_number);
+                    const customer = item.customer_name || (existing ? existing.customer : "");
+                    const details = item.project_details || (existing ? existing.details : "");
+                    
+                    projectMap.set(item.project_number, {
+                        customer: customer,
+                        details: details
+                    });
+                }
+            });
+
+            const nums = Array.from(projectMap.keys()).sort();
+            const select = document.getElementById('project_select');
+            
+            let options = '<option value="">（全工事表示）</option>';
+            nums.forEach(n => {
+                const selected = String(n) === String(projectParam) ? ' selected' : '';
+                options += `<option value="${n}"${selected}>${n}</option>`;
+            });
+            select.innerHTML = options;
+
+            // 初期表示の同期
+            updateDisplay();
+            
+            select.addEventListener('change', () => {
+                updateDisplay();
+            });
+        }
+
+        // 初期化関数
+        async function initialize() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const projectParam = urlParams.get('project_no') || urlParams.get('project');
+            console.log("URLパラメータ:", projectParam);
+
+            // 0. プラグインの有効化
+            gantt.plugins({
+                marker: true
+            });
+
+            // 1. Gantt初期化
+            gantt.init("gantt_here");
+            
+            // 2. セレクトボックスを構築（パラメータがあれば selected になる）
+            await initProjectSelect(projectParam); 
+            
+            // 3. マーカー追加
+            const today = new Date();
+            gantt.addMarker({
+                start_date: today,
+                css: "today-line",
+                text: "今日",
+                title: "今日: " + gantt.templates.date_grid(today)
+            });
+
+            // 4. データを読み込む
+            await loadData();
+
+            // 5. フィルタ適用
+            updateDisplay();
+            
+            // 6. 再描画
+            gantt.render();
+        }
+
+        // 実行
+        initialize();
+    </script>
+</body>
+</html>
