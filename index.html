@@ -347,6 +347,31 @@
             color: #fff;
         }
 
+        /* カスタムグリッドリサイザー */
+        #custom_grid_resizer {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 8px;
+            cursor: col-resize;
+            z-index: 9999;
+            background: transparent;
+            transform: translateX(-50%);
+        }
+        #custom_grid_resizer:hover {
+            background: rgba(84, 110, 122, 0.3);
+        }
+        #grid_resize_preview {
+            display: none;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #546e7a;
+            z-index: 10000;
+            pointer-events: none;
+        }
+
         /* 列折りたたみバー */
         #col_toggle_bar {
             display: flex;
@@ -837,6 +862,64 @@
             gantt.render();
         }
 
+        // カスタムグリッドリサイザー
+        function _initGridResizer() {
+            const ganttEl = document.getElementById('gantt_here');
+            ganttEl.style.position = 'relative';
+
+            const handle = document.createElement('div');
+            handle.id = 'custom_grid_resizer';
+            ganttEl.appendChild(handle);
+
+            const preview = document.createElement('div');
+            preview.id = 'grid_resize_preview';
+            ganttEl.appendChild(preview);
+
+            function _positionHandle() {
+                handle.style.left = gantt.config.grid_width + 'px';
+            }
+            _positionHandle();
+            gantt.attachEvent("onGanttRender", function() {
+                _positionHandle();
+                _updateColToggleBar();
+            });
+
+            let isResizing = false, startX = 0, startWidth = 0;
+
+            handle.addEventListener('mousedown', e => {
+                isResizing = true;
+                startX = e.clientX;
+                startWidth = gantt.config.grid_width;
+                preview.style.left = handle.style.left;
+                preview.style.display = 'block';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', e => {
+                if (!isResizing) return;
+                const newW = Math.max(150, startWidth + (e.clientX - startX));
+                preview.style.left = newW + 'px';
+            });
+
+            document.addEventListener('mouseup', e => {
+                if (!isResizing) return;
+                isResizing = false;
+                preview.style.display = 'none';
+                document.body.style.userSelect = '';
+                const newW = Math.max(150, startWidth + (e.clientX - startX));
+                gantt.config.grid_width = newW;
+                gantt.render();
+                if (isResourceView) {
+                    if (_resourceDetailOwner) {
+                        renderOwnerDetailTimeline(_resourceDetailOwner);
+                    } else {
+                        updateResourceData();
+                    }
+                }
+            });
+        }
+
         // スクロール同期のイベント登録
         gantt.attachEvent("onGanttScroll", function (left, top){
             const resourceContent = document.querySelector(".resource-content");
@@ -868,6 +951,7 @@
         gantt.config.end_date = new Date(2027, 0, 1);    // 2026年12月31日まで含める
         gantt.config.fit_tasks = false; // 自動調整を無効化
         gantt.config.grid_width = 730; // 列の合計幅（約724px）に合わせて調整
+        // グリッドリサイズはカスタム実装を使用（_initGridResizer）
         gantt.config.min_column_width = 22; // カレンダーの列幅を22に設定
         gantt.config.row_height = 30;
         gantt.config.scale_height = 60; // 3段構成（20px * 3）に合わせて調整
@@ -1203,14 +1287,17 @@
             _colOrigWidths[col.name] = { width: col.width, label: col.label };
         });
 
-        // トグルバーを更新（列幅に合わせてセルを並べる）
+        // トグルバーを更新（DHtmlxの実際のレンダリング幅をDOMから読み取る）
         function _updateColToggleBar() {
             const bar = document.getElementById('col_toggle_bar');
             if (!bar) return;
             bar.innerHTML = '';
-            gantt.config.columns.forEach(col => {
+            // 実際に描画されたヘッダーセルの幅を取得
+            const headCells = [...document.querySelectorAll('#gantt_here .gantt_grid_head_cell')];
+            gantt.config.columns.forEach((col, index) => {
                 const cell = document.createElement('div');
-                const w = col.width + 'px';
+                const domW = headCells[index] ? headCells[index].offsetWidth : col.width;
+                const w = domW + 'px';
                 cell.style.width = w;
                 cell.style.minWidth = w;
                 if (_skipColToggle.has(col.name)) {
@@ -1400,6 +1487,7 @@
 
             // 1. Gantt初期化
             gantt.init("gantt_here");
+            _initGridResizer();
             _updateColToggleBar();
             
             // 2. セレクトボックスを構築（パラメータがあれば selected になる）
