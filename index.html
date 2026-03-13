@@ -920,8 +920,32 @@
             });
         }
 
+        // 今日の赤線：.gantt_task（ビューポート全高）に配置し、
+        // .gantt_data_area の offsetLeft でスクロール量を自動取得して位置補正
+        function _drawMainTodayLine() {
+            const taskEl = document.querySelector('#gantt_here .gantt_task');
+            if (!taskEl) return;
+            const dataArea = taskEl.querySelector('.gantt_data_area');
+            if (!dataArea) return;
+
+            let line = document.getElementById('main_today_line');
+            if (!line) {
+                line = document.createElement('div');
+                line.id = 'main_today_line';
+                line.style.cssText = 'position:absolute;bottom:0;width:2px;background:#ff4d4d;z-index:6;pointer-events:none;';
+                taskEl.appendChild(line);
+            }
+            // dataArea.offsetLeft = −スクロール量（DHTMLX がスクロール時に left を負に設定）
+            // posFromDate(today) = タイムライン絶対座標
+            // 合計 = .gantt_task 内でのビュー座標（正しい表示位置）
+            line.style.left = (dataArea.offsetLeft + gantt.posFromDate(new Date())) + 'px';
+            line.style.top = (gantt.config.scale_height || 60) + 'px';
+        }
+        gantt.attachEvent("onGanttRender", _drawMainTodayLine);
+
         // スクロール同期のイベント登録
         gantt.attachEvent("onGanttScroll", function (left, top){
+            _drawMainTodayLine(); // 横スクロール時に赤線位置を追従
             const resourceContent = document.querySelector(".resource-content");
             if (resourceContent) resourceContent.scrollLeft = left;
         });
