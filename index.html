@@ -332,6 +332,21 @@
             display: none !important;
         }
 
+        /* リソース担当者名リンク */
+        .resource-owner-link {
+            width: 120px;
+            text-align: left;
+            cursor: pointer;
+            color: #333;
+            border-radius: 3px;
+            padding: 2px 4px;
+            transition: background 0.15s, color 0.15s;
+        }
+        .resource-owner-link:hover {
+            background: #546e7a;
+            color: #fff;
+        }
+
         /* 列折りたたみバー */
         #col_toggle_bar {
             display: flex;
@@ -401,6 +416,7 @@
             <div id="resource_resizer"></div>
             <div class="resource-header-bar">
                 <span id="resource_title">担当者別リソース状況</span>
+                <button type="button" class="btn" id="resource_back_btn" onclick="showOwnerOverview()" style="display:none; font-size:11px; padding:2px 8px; margin-left:12px; font-family:'メイリオ',Meiryo,sans-serif;">← 一覧に戻る</button>
                 <button type="button" class="resource-header-close" id="resource_close_btn" title="リソース画面を閉じる">×</button>
             </div>
             <div class="resource-content">
@@ -416,6 +432,7 @@
         let isResourceView = false;
         let lastOwnerName = '';
         let currentResourceOwnerFilter = "";
+        let _resourceDetailOwner = null; // null=一覧表示, string=特定担当者の詳細表示
         const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
         const GRID_WIDTH = 1000; // gantt_design.htmlの既存設定に合わせる
         // 列幅（gantt_design.htmlの既存設定に合わせる）
@@ -558,7 +575,11 @@
             });
 
             console.log("Found active owners for resource view:", activeOwners);
-            renderResourceTimeline(activeOwners);
+            if (_resourceDetailOwner) {
+                renderOwnerDetailTimeline(_resourceDetailOwner);
+            } else {
+                renderResourceTimeline(activeOwners);
+            }
         }
 
         function renderResourceTimeline(owners) {
@@ -632,7 +653,7 @@
                     <div class="resource-item" style="display: flex; border-bottom: 1px solid #eee; min-height: 30px; height: 30px; align-items: stretch; width: ${totalWidth}px;">
                         <div class="resource-grid-container" style="width: ${actualGridWidth}px; min-width: ${actualGridWidth}px; flex-shrink: 0; display: flex; border-right: 1px solid #ddd; background: #f9f9f9; position: sticky; left: 0; z-index: 5;">
                             <div style="width: 100%; display: flex; align-items: center; justify-content: flex-end; padding-right: 5px; font-weight: bold; font-size: 12px; color: #333;">
-                                <div style="width: 120px; text-align: left;">${ownerName} (${ownerTasks.length}件)</div>
+                                <div class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="クリックして詳細表示">${ownerName} (${ownerTasks.length}件)</div>
                             </div>
                         </div>
                         <div class="resource-timeline" style="width: ${timelineWidth}px; flex-shrink: 0; position: relative; background: #fff;">
@@ -678,6 +699,113 @@
             syncResourceScroll();
         }
 
+        function renderOwnerDetailTimeline(ownerName) {
+            const container = document.getElementById("resource_content_inner");
+            if (!container) return;
+            container.innerHTML = "";
+
+            const scale = gantt.getScale();
+            const timelineWidth = scale.full_width;
+            const columnWidth = scale.col_width;
+            const actualGridWidth = gantt.config.grid_width || 1000;
+            const totalWidth = actualGridWidth + timelineWidth;
+            const firstPos = gantt.posFromDate(scale.trace_x[0]);
+
+            const gridBackground = `repeating-linear-gradient(to right, transparent, transparent ${columnWidth - 1}px, #ebebeb ${columnWidth - 1}px, #ebebeb ${columnWidth}px), repeating-linear-gradient(to bottom, transparent, transparent 29px, #ebebeb 29px, #ebebeb 30px)`;
+
+            let weekendBackgroundHtml = "";
+            if (gantt.getState().scale_unit === "day") {
+                scale.trace_x.forEach((date, i) => {
+                    if (date.getDay() === 0 || date.getDay() === 6) {
+                        weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; background: #f4f4f4; z-index: 0;"></div>`;
+                    }
+                });
+            }
+
+            const backgroundStyle = `background-image: ${gridBackground}; background-position: ${-firstPos}px 0; background-size: ${columnWidth}px 30px;`;
+            const todayPos = gantt.posFromDate(new Date());
+            const todayLineHtml = `<div class="resource-today-line" style="left: ${todayPos}px;"></div>`;
+
+            // 担当者のタスクを収集
+            const ownerTasks = [];
+            gantt.eachTask(t => {
+                const isDetailed = (t.is_detailed === true || String(t.is_detailed).toLowerCase() === "true" || String(t.is_detailed).toLowerCase() === "t" || String(t.is_detailed) === "1");
+                let isMatch = false;
+                if (isDetailed && t.owner) {
+                    const taskOwners = String(t.owner).split(/[,、\s]+/).map(o => o.trim());
+                    if (ownerName === "田中(善)") {
+                        isMatch = taskOwners.includes("田中(善)") || taskOwners.includes("田中");
+                    } else {
+                        isMatch = taskOwners.includes(ownerName);
+                    }
+                }
+                if (isMatch) ownerTasks.push(t);
+            });
+
+            // 工事番号順→タスク名順でソート
+            ownerTasks.sort((a, b) => {
+                const pa = String(a.project_number || '');
+                const pb = String(b.project_number || '');
+                if (pa !== pb) return pa.localeCompare(pb, 'ja');
+                return String(a.text || '').localeCompare(String(b.text || ''), 'ja');
+            });
+
+            if (ownerTasks.length === 0) {
+                container.innerHTML = `<div style="padding:20px; text-align:center; color:#999;">タスクがありません</div>`;
+                return;
+            }
+
+            const colorClass = getOwnerColorClass(ownerName);
+            const textColor = (["owner-tsuda", "owner-shibata", "owner-matsumoto"].includes(colorClass)) ? "#222" : "#fff";
+
+            let html = `<div style="width: ${totalWidth}px;">`;
+            ownerTasks.forEach(t => {
+                const hasDate = !t.has_no_date && t.start_date && t.end_date;
+                const left = hasDate ? gantt.posFromDate(t.start_date) : 0;
+                const right = hasDate ? gantt.posFromDate(t.end_date) : 0;
+                const barWidth = hasDate ? Math.max(2, right - left) : 0;
+
+                html += `
+                    <div class="resource-item" style="display: flex; border-bottom: 1px solid #eee; min-height: 30px; height: 30px; align-items: stretch; width: ${totalWidth}px;">
+                        <div class="resource-grid-container" style="width: ${actualGridWidth}px; min-width: ${actualGridWidth}px; flex-shrink: 0; display: flex; border-right: 1px solid #ddd; background: #f9f9f9; position: sticky; left: 0; z-index: 5; overflow: hidden;">
+                            <div style="display: flex; align-items: center; padding: 0 8px; font-size: 12px; color: #333; width: 100%; overflow: hidden; white-space: nowrap;">
+                                <span style="font-weight: bold; color: #546e7a; margin-right: 8px; flex-shrink: 0; min-width: 60px;">${t.project_number || '-'}</span>
+                                <span style="overflow: hidden; text-overflow: ellipsis;">${t.text}</span>
+                            </div>
+                        </div>
+                        <div class="resource-timeline" style="width: ${timelineWidth}px; flex-shrink: 0; position: relative; background: #fff; overflow: hidden; z-index: 2;">
+                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 0;">${weekendBackgroundHtml}</div>
+                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; ${backgroundStyle} z-index: 1;"></div>
+                            ${todayLineHtml}
+                            ${hasDate ? `
+                            <div class="resource-cell-bar ${colorClass}"
+                                 style="position: absolute; top: 4px; height: 22px; left: ${left}px; width: ${barWidth}px; z-index: 10;"
+                                 title="${t.text} (${t.project_number})">
+                                 <span class="resource-bar-text" style="color:${textColor}; font-size:11px; font-weight:bold;">${t.project_number || ""} ${t.text}</span>
+                            </div>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+            container.innerHTML = html;
+            syncResourceScroll();
+        }
+
+        function showOwnerDetail(ownerName) {
+            _resourceDetailOwner = ownerName;
+            document.getElementById('resource_title').textContent = `${ownerName}さんの詳細リソース状況`;
+            document.getElementById('resource_back_btn').style.display = '';
+            renderOwnerDetailTimeline(ownerName);
+        }
+
+        function showOwnerOverview() {
+            _resourceDetailOwner = null;
+            document.getElementById('resource_title').textContent = '担当者別リソース状況';
+            document.getElementById('resource_back_btn').style.display = 'none';
+            updateResourceData();
+        }
+
         function syncResourceScroll() {
             const left = gantt.getScrollState().x;
             const resourceContent = document.querySelector(".resource-content");
@@ -696,6 +824,10 @@
             } else {
                 btn.innerText = "リソース表示";
                 panel.style.display = "none";
+                // 詳細モードをリセット
+                _resourceDetailOwner = null;
+                document.getElementById('resource_title').textContent = '担当者別リソース状況';
+                document.getElementById('resource_back_btn').style.display = 'none';
             }
             
             // flexbox により自動でサイズが変わるため、gantt.setSizes() を呼ぶだけでOK
