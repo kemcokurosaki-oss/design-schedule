@@ -331,6 +331,40 @@
         .gantt_resource_grid .gantt_grid_head_cell {
             display: none !important;
         }
+
+        /* 列折りたたみバー */
+        #col_toggle_bar {
+            display: flex;
+            height: 16px;
+            background: #455a64;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        .col-toggle-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-right: 1px solid #546e7a;
+            cursor: pointer;
+            font-size: 9px;
+            color: rgba(255,255,255,0.5);
+            user-select: none;
+            transition: background 0.15s, color 0.15s;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        .col-toggle-cell:hover {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+        .col-toggle-cell.col-collapsed {
+            color: rgba(255,255,255,0.85);
+            background: rgba(255,255,255,0.1);
+        }
+        .col-toggle-spacer {
+            border-right: 1px solid #546e7a;
+            flex-shrink: 0;
+        }
         /* リソースセルのスタイル調整 */
         .gantt_matrix_cell {
             overflow: visible !important; /* セルからはみ出しても隠さない */
@@ -359,6 +393,7 @@
                 </div>
             </div>
         </div>
+        <div id="col_toggle_bar"></div>
         <div id="gantt_here" style="width:100%; height:100%;"></div>
 
         <!-- 独立したリソースパネル -->
@@ -1025,6 +1060,60 @@
             }}
         ];
 
+        // === 列折りたたみ機能 ===
+        const _colOrigWidths = {};  // { colName: { width, label } }
+        const _collapsedCols = new Set();
+        const _skipColToggle = new Set(['add', 'dash']); // 折りたたみ不要な列
+
+        // 各列のオリジナル情報を保存
+        gantt.config.columns.forEach(col => {
+            if (_skipColToggle.has(col.name)) return;
+            _colOrigWidths[col.name] = { width: col.width, label: col.label };
+        });
+
+        // トグルバーを更新（列幅に合わせてセルを並べる）
+        function _updateColToggleBar() {
+            const bar = document.getElementById('col_toggle_bar');
+            if (!bar) return;
+            bar.innerHTML = '';
+            gantt.config.columns.forEach(col => {
+                const cell = document.createElement('div');
+                const w = col.width + 'px';
+                cell.style.width = w;
+                cell.style.minWidth = w;
+                if (_skipColToggle.has(col.name)) {
+                    cell.className = 'col-toggle-spacer';
+                    bar.appendChild(cell);
+                    return;
+                }
+                const isCollapsed = _collapsedCols.has(col.name);
+                cell.className = 'col-toggle-cell' + (isCollapsed ? ' col-collapsed' : '');
+                cell.dataset.col = col.name;
+                const origLabel = (_colOrigWidths[col.name]?.label || '').replace(/<[^>]*>/g, '');
+                cell.title = origLabel;
+                cell.textContent = isCollapsed ? '▶' : '◀';
+                cell.addEventListener('click', () => _toggleColumn(col.name));
+                bar.appendChild(cell);
+            });
+        }
+
+        function _toggleColumn(colName) {
+            const col = gantt.config.columns.find(c => c.name === colName);
+            if (!col || !_colOrigWidths[colName]) return;
+
+            if (_collapsedCols.has(colName)) {
+                col.width = _colOrigWidths[colName].width;
+                _collapsedCols.delete(colName);
+            } else {
+                col.width = 16;
+                _collapsedCols.add(colName);
+            }
+
+            gantt.config.grid_width = gantt.config.columns.reduce((sum, c) => sum + (c.width || 0), 0);
+            gantt.render();
+            _updateColToggleBar();
+        }
+
         // スタイルとテンプレート
         gantt.templates.task_text = function(start, end, task) {
             const colorClass = getOwnerColorClass(task.owner);
@@ -1179,6 +1268,7 @@
 
             // 1. Gantt初期化
             gantt.init("gantt_here");
+            _updateColToggleBar();
             
             // 2. セレクトボックスを構築（パラメータがあれば selected になる）
             await initProjectSelect(projectParam); 
