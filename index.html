@@ -16,12 +16,12 @@
     <style>
         html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: "メイリオ", Meiryo, "MS PGothic", sans-serif; font-size: 12px; }
         .main-container { display: flex; flex-direction: column; height: 100vh; }
-        .header-panel { background: #fff; padding: 10px; border-bottom: 1px solid #ccc; display: flex; flex-direction: column; gap: 10px; }
+        .header-panel { background: #fff; padding: 5px 10px; border-bottom: 1px solid #ccc; display: flex; flex-direction: column; gap: 5px; }
         .header-row { display: flex; align-items: center; gap: 15px; width: 100%; }
         .project-info { font-size: 16px; font-weight: bold; color: #333; }
         .zoom-controls { display: flex; gap: 5px; }
         .action-controls { margin-left: auto; display: flex; gap: 5px; }
-        .btn { padding: 5px 10px; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: "メイリオ", Meiryo, sans-serif; }
+        .btn { padding: 2px 10px; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: "メイリオ", Meiryo, sans-serif; }
         .zoom-btn { font-size: 13px; }
         .btn-primary { background: #2ecc71; color: #fff; border-color: #27ae60; font-weight: bold; font-size: 13px; }
         .btn-info { background: #3498db; color: #fff; border-color: #2980b9; font-weight: bold; font-size: 13px; }
@@ -1360,7 +1360,11 @@
             _initColWidths();
             gantt.config.grid_width = gantt.config.columns.reduce((sum, c) => sum + (c.width || 0), 0);
             gantt.render();
-            _updateColToggleBar();
+            // grid_width変更後のレイアウト確定とカレンダーヘッダーの再描画
+            requestAnimationFrame(() => {
+                gantt.updateSize();
+                _updateColToggleBar();
+            });
         }
 
         // トグルバーを更新（DHtmlxの実際のレンダリング幅をDOMから読み取る）
@@ -1505,10 +1509,22 @@
             document.getElementById('trip_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'business_trip');
         }
 
+        function _colSetName(filterType) {
+            return filterType === 'long_lead_item' ? 'longterm' : 'default';
+        }
+
         function setTaskTypeFilter(type) {
+            const prevColSet = _colSetName(currentTaskTypeFilter);
             currentTaskTypeFilter = (currentTaskTypeFilter === type) ? null : type;
             updateFilterButtons();
-            switchColumns(currentTaskTypeFilter);
+
+            if (_colSetName(currentTaskTypeFilter) !== prevColSet) {
+                // 列セットが変わる場合のみフル再描画
+                switchColumns(currentTaskTypeFilter);
+            } else {
+                // 列セットが同じ場合はタスク行のみ再描画（ヘッダー維持）
+                gantt.refreshData();
+            }
         }
 
         function togglePlanFilter()     { setTaskTypeFilter('planning'); }
