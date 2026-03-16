@@ -21,10 +21,12 @@
         .project-info { font-size: 16px; font-weight: bold; color: #333; }
         .zoom-controls { display: flex; gap: 5px; }
         .action-controls { margin-left: auto; display: flex; gap: 5px; }
-        .btn { padding: 5px 10px; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; }
+        .btn { padding: 5px 10px; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: "メイリオ", Meiryo, sans-serif; }
         .zoom-btn { font-size: 13px; }
         .btn-primary { background: #2ecc71; color: #fff; border-color: #27ae60; font-weight: bold; font-size: 13px; }
         .btn-info { background: #3498db; color: #fff; border-color: #2980b9; font-weight: bold; font-size: 13px; }
+        .btn-filter { background: #f0f0f0; color: #333; border-color: #ccc; font-weight: bold; font-size: 13px; }
+        .btn-filter.active { background: #e74c3c; color: #fff; border-color: #c0392b; }
         .zoom-btn.active { background: #3498db; color: #fff; border-color: #3498db; }
         
         /* レイアウト用 */
@@ -358,8 +360,15 @@
             background: transparent;
             transform: translateX(-50%);
         }
-        #custom_grid_resizer:hover {
-            background: rgba(84, 110, 122, 0.3);
+        #custom_grid_resizer:hover::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            background: rgba(84, 110, 122, 0.6);
         }
         #grid_resize_preview {
             display: none;
@@ -419,6 +428,12 @@
         <div class="header-panel">
             <div class="header-row">
                 <div class="project-info" id="project_display">工事番号: 全表示</div>
+            </div>
+            <div class="header-row">
+                <button class="btn btn-filter" id="plan_filter_btn" onclick="togglePlanFilter()">計画</button>
+                <button class="btn btn-filter" id="drawing_filter_btn" onclick="toggleDrawingFilter()">図面</button>
+                <button class="btn btn-filter" id="longterm_filter_btn" onclick="toggleLongtermFilter()">長納期品</button>
+                <button class="btn btn-filter" id="trip_filter_btn" onclick="toggleTripFilter()">出張</button>
             </div>
             <div class="header-row">
                 <div class="zoom-controls">
@@ -1253,63 +1268,100 @@
             return true;
         });
 
-        // 列設定の設定
-        gantt.config.columns = [
-            { name: "machine", label: "機械", width: 40, align: "center" },
-            { name: "unit", label: "ユニ", width: 45, align: "center" },
-            { name: "text", label: "組立図面名", width: 250, tree: true },
-            { name: "model_type", label: "機種", width: 40, align: "center" },
-            { name: "unit2", label: "ユニ<br>2", width: 40, align: "center" },
-            { name: "dash", label: "-", width: 25, align: "center", template: () => "-" },
-            { name: "characteristic", label: "特性", width: 40, align: "center" },
-            { name: "derivation", label: "派生", width: 40, align: "center" },
-            { name: "owner", label: "担当", width: 50, align: "center" },
-            { name: "total_sheets", label: "総枚数", width: 45, align: "center" },
-            { name: "completed_sheets", label: "完了枚数", width: 45, align: "center" },
-            { name: "progress", label: "進捗", width: 60, align: "center", template: (obj) => {
-                const total = parseFloat(obj.total_sheets) || 0;
-                const completed = parseFloat(obj.completed_sheets) || 0;
-                let progress = 0;
-                if (total > 0) {
-                    progress = Math.min(100, Math.round((completed / total) * 100));
-                }
+        // 日付フォーマット共通テンプレート
+        function _fmtDate(obj) {
+            if (obj.has_no_date) return "";
+            const date = obj.end_date;
+            const y = String(date.getFullYear()).slice(-2);
+            const m = ("0" + (date.getMonth() + 1)).slice(-2);
+            const d = ("0" + date.getDate()).slice(-2);
+            return `${y}/${m}/${d}`;
+        }
 
-                // 期限切れチェック（完了予定日を過ぎて進捗0%）
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const isOverdue = (progress === 0 && obj.end_date && obj.end_date < today);
-                
-                const fillClass = isOverdue ? "progress-fill progress-overdue" : "progress-fill";
-                const fillWidth = isOverdue ? "100%" : `${progress}%`;
+        // 進捗テンプレート
+        function _progressTemplate(obj) {
+            const total = parseFloat(obj.total_sheets) || 0;
+            const completed = parseFloat(obj.completed_sheets) || 0;
+            let progress = 0;
+            if (total > 0) {
+                progress = Math.min(100, Math.round((completed / total) * 100));
+            }
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const isOverdue = (progress === 0 && obj.end_date && obj.end_date < today);
+            const fillClass = isOverdue ? "progress-fill progress-overdue" : "progress-fill";
+            const fillWidth = isOverdue ? "100%" : `${progress}%`;
+            return `<div class="progress-cell-container">
+                        <div class="${fillClass}" style="width:${fillWidth};"></div>
+                        <span style="position:relative; z-index:2; color:black; font-weight:normal;">${progress}%</span>
+                    </div>`;
+        }
 
-                return `<div class="progress-cell-container">
-                            <div class="${fillClass}" style="width:${fillWidth};"></div>
-                            <span style="position:relative; z-index:2; color:black; font-weight:normal;">${progress}%</span>
-                        </div>`;
-            }},
-            { name: "end_date", label: "完了予定日", width: 70, align: "center", template: (obj) => {
-                if (obj.has_no_date) return "";
-                const date = obj.end_date;
-                const y = String(date.getFullYear()).slice(-2);
-                const m = ("0" + (date.getMonth() + 1)).slice(-2);
-                const d = ("0" + date.getDate()).slice(-2);
-                return `${y}/${m}/${d}`;
-            }},
-            { name: "add", label: "", width: 44, align: "center", template: (obj) => {
-                return `<div class='gantt_add' onclick='createTask()'></div>`;
-            }}
-        ];
+        // 図面列定義（デフォルト）
+        function _getDrawingColumns() {
+            return [
+                { name: "machine", label: "機械", width: 40, align: "center" },
+                { name: "unit", label: "ユニ", width: 45, align: "center" },
+                { name: "text", label: "組立図面名", width: 250, tree: true },
+                { name: "model_type", label: "機種", width: 40, align: "center" },
+                { name: "unit2", label: "ユニ<br>2", width: 40, align: "center" },
+                { name: "dash", label: "-", width: 25, align: "center", template: () => "-" },
+                { name: "characteristic", label: "特性", width: 40, align: "center" },
+                { name: "derivation", label: "派生", width: 40, align: "center" },
+                { name: "owner", label: "担当", width: 50, align: "center" },
+                { name: "total_sheets", label: "総枚数", width: 45, align: "center" },
+                { name: "completed_sheets", label: "完了枚数", width: 45, align: "center" },
+                { name: "progress", label: "進捗", width: 60, align: "center", template: _progressTemplate },
+                { name: "end_date", label: "完了予定日", width: 70, align: "center", template: _fmtDate },
+                { name: "add", label: "", width: 44, align: "center", template: () => `<div class='gantt_add' onclick='createTask()'></div>` }
+            ];
+        }
+
+        // 長納期品列定義
+        function _getLongtermColumns() {
+            return [
+                { name: "machine", label: "機械", width: 50, align: "center" },
+                { name: "unit", label: "ユニット", width: 55, align: "center" },
+                { name: "text", label: "品名", width: 180, tree: true },
+                { name: "model_type", label: "型式・図番", width: 100, align: "center" },
+                { name: "quantity", label: "個数", width: 45, align: "center" },
+                { name: "maker", label: "メーカー", width: 90, align: "center" },
+                { name: "owner", label: "担当", width: 50, align: "center" },
+                { name: "end_date", label: "手配予定日", width: 70, align: "center", template: _fmtDate },
+                { name: "add", label: "", width: 44, align: "center", template: () => `<div class='gantt_add' onclick='createTask()'></div>` }
+            ];
+        }
+
+        // 列設定の初期化
+        gantt.config.columns = _getDrawingColumns();
 
         // === 列折りたたみ機能 ===
         const _colOrigWidths = {};  // { colName: { width, label } }
         const _collapsedCols = new Set();
         const _skipColToggle = new Set(['add', 'dash']); // 折りたたみ不要な列
 
-        // 各列のオリジナル情報を保存
-        gantt.config.columns.forEach(col => {
-            if (_skipColToggle.has(col.name)) return;
-            _colOrigWidths[col.name] = { width: col.width, label: col.label };
-        });
+        function _initColWidths() {
+            Object.keys(_colOrigWidths).forEach(k => delete _colOrigWidths[k]);
+            gantt.config.columns.forEach(col => {
+                if (_skipColToggle.has(col.name)) return;
+                _colOrigWidths[col.name] = { width: col.width, label: col.label };
+            });
+        }
+        _initColWidths();
+
+        // 列セット切り替え
+        function switchColumns(filterType) {
+            _collapsedCols.clear();
+            if (filterType === 'long_lead_item') {
+                gantt.config.columns = _getLongtermColumns();
+            } else {
+                gantt.config.columns = _getDrawingColumns();
+            }
+            _initColWidths();
+            gantt.config.grid_width = gantt.config.columns.reduce((sum, c) => sum + (c.width || 0), 0);
+            gantt.render();
+            _updateColToggleBar();
+        }
 
         // トグルバーを更新（DHtmlxの実際のレンダリング幅をDOMから読み取る）
         function _updateColToggleBar() {
@@ -1388,6 +1440,11 @@
             const pSelect = document.getElementById('project_select').value;
             if (pSelect && String(task.project_number) !== String(pSelect)) return false;
 
+            // task_typeフィルタ
+            if (currentTaskTypeFilter) {
+                if (String(task.task_type) !== currentTaskTypeFilter) return false;
+            }
+
             return true;
         });
 
@@ -1439,6 +1496,25 @@
 
         // グローバル変数の定義
         let projectMap = new Map();
+        let currentTaskTypeFilter = null; // null = 全表示
+
+        function updateFilterButtons() {
+            document.getElementById('plan_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'planning');
+            document.getElementById('drawing_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'drawing');
+            document.getElementById('longterm_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'long_lead_item');
+            document.getElementById('trip_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'business_trip');
+        }
+
+        function setTaskTypeFilter(type) {
+            currentTaskTypeFilter = (currentTaskTypeFilter === type) ? null : type;
+            updateFilterButtons();
+            switchColumns(currentTaskTypeFilter);
+        }
+
+        function togglePlanFilter()     { setTaskTypeFilter('planning'); }
+        function toggleDrawingFilter()  { setTaskTypeFilter('drawing'); }
+        function toggleLongtermFilter() { setTaskTypeFilter('long_lead_item'); }
+        function toggleTripFilter()     { setTaskTypeFilter('business_trip'); }
 
         // 工事番号セレクトボックスの表示更新
         function updateDisplay() {
