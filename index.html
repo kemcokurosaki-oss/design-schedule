@@ -26,7 +26,7 @@
         .btn-primary { background: #2ecc71; color: #fff; border-color: #27ae60; font-weight: bold; font-size: 13px; }
         .btn-info { background: #3498db; color: #fff; border-color: #2980b9; font-weight: bold; font-size: 13px; }
         .btn-filter { background: #f0f0f0; color: #333; border-color: #ccc; font-weight: bold; font-size: 13px; }
-        .btn-filter.active { background: #e74c3c; color: #fff; border-color: #c0392b; }
+        .btn-filter.active { background: #3498db; color: #fff; border-color: #2980b9; }
         .zoom-btn.active { background: #3498db; color: #fff; border-color: #3498db; }
         
         /* レイアウト用 */
@@ -42,11 +42,21 @@
             display: none;
             height: 250px;
             min-height: 50px;
-            border-top: 4px solid #ccc; /* 境界線を少し太く（2px -> 4px） */
+            border-top: 4px solid #ccc;
             background: #fff;
             flex-direction: column;
             position: relative;
             z-index: 1000;
+        }
+        /* リソース全画面モード */
+        #resource_panel.resource-fullscreen {
+            flex: 1 !important;
+            height: auto !important;
+            min-height: 0 !important;
+            border-top: none !important;
+        }
+        #resource_panel.resource-fullscreen #resource_resizer {
+            display: none;
         }
         #resource_resizer {
             height: 12px; /* 当たり判定も少し拡大 */
@@ -101,6 +111,50 @@
         }
         .resource-content-inner {
             position: relative;
+        }
+
+        /* リソースカレンダーヘッダー */
+        #resource_calendar_header {
+            flex-shrink: 0;
+            overflow: hidden;
+            background: #546e7a;
+            border-bottom: 2px solid #455a64;
+            font-family: "メイリオ", Meiryo, sans-serif;
+        }
+        #resource_calendar_header .cal-row {
+            display: flex;
+            overflow: hidden;
+        }
+        #resource_calendar_header .cal-spacer {
+            flex-shrink: 0;
+            border-right: 2px solid #37474f;
+            background: #546e7a;
+        }
+        #resource_cal_scroll {
+            overflow: hidden;
+            flex: 1;
+        }
+        .resource-cal-cell {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-family: "メイリオ", Meiryo, sans-serif;
+            color: #fff;
+            box-sizing: border-box;
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: 1px solid #607d8b;
+        }
+        .resource-cal-month {
+            background: #455a64;
+            font-weight: bold;
+            font-size: 12px;
+            border-right: 1px solid #37474f;
+        }
+        .resource-cal-weekend {
+            background: #607d8b;
         }
         
         /* リソースバーのスタイル（index.htmlから移植） */
@@ -160,6 +214,11 @@
         /* マーカーが表示されない原因となる overflow を解除 */
         .gantt_marker_area {
             z-index: 5 !important;
+        }
+
+        /* ライトボックス（編集ダイアログ）を常に最前面に表示 */
+        .gantt_cal_light, .gantt_modal_box, .gantt_cal_cover {
+            z-index: 99999 !important;
         }
 
         /* マーカー上部の「今日」というラベルも強制表示 */
@@ -247,14 +306,46 @@
             background-color: #e53935 !important; /* 鮮やかさと落ち着きのバランスが良い赤 */
         }
 
-        /* カレンダーヘッダーのフォント設定（サンセリフ体に戻す） */
-        .gantt_scale_line,
-        .gantt_scale_cell {
-            font-family: sans-serif !important;
+        /* タイムラインカレンダーヘッダーをリソースヘッダーと統一 */
+        #gantt_here .gantt_task_scale {
+            background: #546e7a !important;
+            border-bottom: 2px solid #455a64 !important;
+        }
+        #gantt_here .gantt_scale_line {
+            background: #546e7a !important;
+            border-bottom: none !important;
+        }
+        #gantt_here .gantt_scale_line:first-child {
+            background: #455a64 !important;
+            border-bottom: 1px solid #37474f !important;
+        }
+        #gantt_here .gantt_scale_cell {
+            color: #fff !important;
+            border-right: 1px solid #607d8b !important;
+            font-family: "メイリオ", Meiryo, sans-serif !important;
+            font-size: 11px !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
             line-height: normal !important;
+        }
+        #gantt_here .gantt_scale_line:first-child .gantt_scale_cell {
+            font-size: 12px !important;
+            font-weight: bold !important;
+            border-right: 1px solid #37474f !important;
+            background: #455a64 !important;
+        }
+        /* 日・曜日行(2行目以降)の土日背景 */
+        #gantt_here .gantt_scale_line:nth-child(n+2) .gantt_scale_cell.gantt-scale-sun,
+        #gantt_here .gantt_scale_line:nth-child(n+2) .gantt_scale_cell.gantt-scale-sat {
+            background: #607d8b !important;
+        }
+        /* 日付行・曜日行(2行目以降)の土日文字色 */
+        #gantt_here .gantt_scale_line:nth-child(n+2) .gantt_scale_cell.gantt-scale-sun {
+            color: #ffcccc !important;
+        }
+        #gantt_here .gantt_scale_line:nth-child(n+2) .gantt_scale_cell.gantt-scale-sat {
+            color: #cce0ff !important;
         }
 
         /* リソースの重なり（オーバーラップ）のスタイル（無効化） */
@@ -430,6 +521,7 @@
                 <div class="project-info" id="project_display">工事番号: 全表示</div>
             </div>
             <div class="header-row">
+                <button class="btn btn-filter" id="resource_home_btn" onclick="returnToResourceView()">担当別</button>
                 <button class="btn btn-filter" id="plan_filter_btn" onclick="togglePlanFilter()">計画</button>
                 <button class="btn btn-filter" id="drawing_filter_btn" onclick="toggleDrawingFilter()">図面</button>
                 <button class="btn btn-filter" id="longterm_filter_btn" onclick="toggleLongtermFilter()">長納期品</button>
@@ -455,10 +547,13 @@
         <div id="resource_panel">
             <div id="resource_resizer"></div>
             <div class="resource-header-bar">
-                <span id="resource_title">担当者別リソース状況</span>
-                <button type="button" class="btn" id="resource_back_btn" onclick="showOwnerOverview()" style="display:none; font-size:11px; padding:2px 8px; margin-left:12px; font-family:'メイリオ',Meiryo,sans-serif;">← 一覧に戻る</button>
+                <div style="display:flex; align-items:center;">
+                    <span id="resource_title">担当者別リソース状況</span>
+                    <button type="button" class="btn" id="resource_back_btn" onclick="showOwnerOverview()" style="display:none; font-size:11px; padding:2px 8px; margin-left:50px; font-family:'メイリオ',Meiryo,sans-serif;">← 一覧に戻る</button>
+                </div>
                 <button type="button" class="resource-header-close" id="resource_close_btn" title="リソース画面を閉じる">×</button>
             </div>
+            <div id="resource_calendar_header"></div>
             <div class="resource-content">
                 <div id="resource_content_inner" class="resource-content-inner">
                     <!-- ここにJSでHTMLが挿入される -->
@@ -584,6 +679,19 @@
             });
         })();
 
+        // リソース表示の列幅定数（担当者名 / 詳細タスク名）
+        const RESOURCE_OVERVIEW_COL_WIDTH = 120;  // 担当者名列
+        const RESOURCE_DETAIL_COL_WIDTH   = 350;  // 詳細表示（工事番号＋タスク名列）
+
+        // ガントのタイムライン開始位置を取得（グリッド幅＋リサイザー幅を含む正確な値）
+        function _getRenderedGanttGridWidth() {
+            // .gantt_task の offsetLeft がタイムライン開始ピクセルと完全一致する
+            const taskEl = document.querySelector('#gantt_here .gantt_task');
+            if (taskEl && taskEl.offsetLeft > 0) return taskEl.offsetLeft;
+            const gridEl = document.querySelector('#gantt_here .gantt_grid');
+            return gridEl ? gridEl.offsetWidth : (gantt.config.grid_width || 834);
+        }
+
         function updateResourceData() {
             // 指定された担当者の並び順（藤山～松本(英)、外注は除外）
             const targetOwners = ["藤山", "田中(善)", "安岡", "川邊", "檀", "堀井", "宮﨑", "津田", "古村", "柴田", "橋本", "松本(英)"];
@@ -635,11 +743,11 @@
             const scale = gantt.getScale();
             const timelineWidth = scale.full_width;
             const columnWidth = scale.col_width;
-            // メインガントのグリッド幅を取得（gantt.config.grid_width または実際の要素幅）
-            const actualGridWidth = gantt.config.grid_width || 1000;
+            // 全画面時は専用幅、ボトムパネル時はガントのグリッド幅に合わせる
+            const actualGridWidth = isResourceFullscreen ? RESOURCE_OVERVIEW_COL_WIDTH : (_getRenderedGanttGridWidth());
             const totalWidth = actualGridWidth + timelineWidth;
             const firstPos = gantt.posFromDate(scale.trace_x[0]);
-            
+
             const gridBackground = `repeating-linear-gradient(to right, transparent, transparent ${columnWidth - 1}px, #ebebeb ${columnWidth - 1}px, #ebebeb ${columnWidth}px), repeating-linear-gradient(to bottom, transparent, transparent 29px, #ebebeb 29px, #ebebeb 30px)`;
             
             let weekendBackgroundHtml = "";
@@ -719,9 +827,10 @@
                     const textColor = (["owner-tsuda", "owner-shibata", "owner-matsumoto"].includes(colorClass)) ? "#222" : "#fff";
 
                     html += `
-                        <div class="resource-cell-bar ${colorClass}" 
-                             style="position: absolute; top: 4px; height: 22px; left: ${left}px; width: ${width}px; z-index: 10;" 
-                             title="${t.text} (${t.project_number})">
+                        <div class="resource-cell-bar ${colorClass}"
+                             style="position: absolute; top: 4px; height: 22px; left: ${left}px; width: ${width}px; z-index: 10; cursor: pointer;"
+                             title="${t.text} (${t.project_number})　クリックで編集"
+                             onclick="_showResourceLightbox(${t.id})">
                              <span class="resource-bar-text" style="color:${textColor}; font-size:11px; font-weight:bold;">${t.project_number || ""} ${t.text}</span>
                         </div>
                     `;
@@ -736,6 +845,7 @@
             html += `</div>`; // 閉じタグを追加
 
             container.innerHTML = html;
+            renderResourceCalendarHeader();
             syncResourceScroll();
         }
 
@@ -747,7 +857,8 @@
             const scale = gantt.getScale();
             const timelineWidth = scale.full_width;
             const columnWidth = scale.col_width;
-            const actualGridWidth = gantt.config.grid_width || 1000;
+            // 全画面時は専用幅、ボトムパネル時はガントのグリッド幅に合わせる
+            const actualGridWidth = isResourceFullscreen ? RESOURCE_DETAIL_COL_WIDTH : (_getRenderedGanttGridWidth());
             const totalWidth = actualGridWidth + timelineWidth;
             const firstPos = gantt.posFromDate(scale.trace_x[0]);
 
@@ -819,8 +930,9 @@
                             ${todayLineHtml}
                             ${hasDate ? `
                             <div class="resource-cell-bar ${colorClass}"
-                                 style="position: absolute; top: 4px; height: 22px; left: ${left}px; width: ${barWidth}px; z-index: 10;"
-                                 title="${t.text} (${t.project_number})">
+                                 style="position: absolute; top: 4px; height: 22px; left: ${left}px; width: ${barWidth}px; z-index: 10; cursor: pointer;"
+                                 title="${t.text} (${t.project_number})　クリックで編集"
+                                 onclick="_showResourceLightbox(${t.id})">
                                  <span class="resource-bar-text" style="color:${textColor}; font-size:11px; font-weight:bold;">${t.project_number || ""} ${t.text}</span>
                             </div>` : ''}
                         </div>
@@ -829,7 +941,94 @@
             });
             html += `</div>`;
             container.innerHTML = html;
+            renderResourceCalendarHeader();
             syncResourceScroll();
+        }
+
+        const _DOW_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
+
+        function renderResourceCalendarHeader() {
+            const header = document.getElementById('resource_calendar_header');
+            if (!header) return;
+            // ボトムパネル時はカレンダーヘッダー不要
+            if (!isResourceFullscreen) {
+                header.style.display = 'none';
+                return;
+            }
+            header.style.display = '';
+
+            const scale = gantt.getScale();
+            const timelineWidth = scale.full_width;
+            const columnWidth = scale.col_width;
+            // 全画面時は専用幅、ボトムパネル時はガントのグリッド幅に合わせる
+            const actualGridWidth = isResourceFullscreen
+                ? (_resourceDetailOwner ? RESOURCE_DETAIL_COL_WIDTH : RESOURCE_OVERVIEW_COL_WIDTH)
+                : (_getRenderedGanttGridWidth());
+            const dates = scale.trace_x;
+            const unit = gantt.getState().scale_unit;
+
+            // 月グループを作成
+            const months = [];
+            let curMonth = -1, curYear = -1, monthStart = 0;
+            dates.forEach((date, i) => {
+                const m = date.getMonth(), y = date.getFullYear();
+                if (m !== curMonth || y !== curYear) {
+                    if (curMonth !== -1) months.push({ month: curMonth, year: curYear, count: i - monthStart });
+                    curMonth = m; curYear = y; monthStart = i;
+                }
+            });
+            if (dates.length > 0) months.push({ month: curMonth, year: curYear, count: dates.length - monthStart });
+
+            // 月行HTML
+            let monthHtml = '';
+            months.forEach(m => {
+                const w = m.count * columnWidth;
+                monthHtml += `<div class="resource-cal-cell resource-cal-month" style="width:${w}px;min-width:${w}px;height:22px;">${m.year}年${m.month + 1}月</div>`;
+            });
+
+            // 日/週行HTML・曜日行HTML（日単位のみ曜日行あり）
+            let dayHtml = '';
+            let dowHtml = '';
+            dates.forEach(date => {
+                const dow = date.getDay();
+                const isSun = dow === 0;
+                const isSat = dow === 6;
+                const wkCls = (isSun || isSat) ? ' resource-cal-weekend' : '';
+                const dowColor = isSun ? 'color:#ffcccc;' : isSat ? 'color:#cce0ff;' : '';
+                const d = date.getDate();
+
+                if (unit === 'day') {
+                    dayHtml += `<div class="resource-cal-cell${wkCls}" style="width:${columnWidth}px;min-width:${columnWidth}px;height:18px;${dowColor}">${d}</div>`;
+                    dowHtml += `<div class="resource-cal-cell${wkCls}" style="width:${columnWidth}px;min-width:${columnWidth}px;height:18px;${dowColor}">${_DOW_NAMES[dow]}</div>`;
+                } else {
+                    // 週単位：日付のみ表示（曜日行なし）
+                    dayHtml += `<div class="resource-cal-cell" style="width:${columnWidth}px;min-width:${columnWidth}px;height:18px;">${d}</div>`;
+                }
+            });
+
+            const dowRow = unit === 'day' ? `
+                <div class="cal-row" style="height:18px;">
+                    <div class="cal-spacer" style="width:${actualGridWidth}px;min-width:${actualGridWidth}px;height:18px;"></div>
+                    <div id="resource_cal_scroll3" style="overflow:hidden;flex:1;">
+                        <div style="display:flex;width:${timelineWidth}px;">${dowHtml}</div>
+                    </div>
+                </div>` : '';
+
+            header.innerHTML = `
+                <div class="cal-row" style="height:22px;">
+                    <div class="cal-spacer" style="width:${actualGridWidth}px;min-width:${actualGridWidth}px;height:22px;"></div>
+                    <div id="resource_cal_scroll" style="overflow:hidden;flex:1;">
+                        <div style="display:flex;width:${timelineWidth}px;">${monthHtml}</div>
+                    </div>
+                </div>
+                <div class="cal-row" style="height:18px;">
+                    <div class="cal-spacer" style="width:${actualGridWidth}px;min-width:${actualGridWidth}px;height:18px;"></div>
+                    <div id="resource_cal_scroll2" style="overflow:hidden;flex:1;">
+                        <div style="display:flex;width:${timelineWidth}px;">${dayHtml}</div>
+                    </div>
+                </div>
+                ${dowRow}
+            `;
         }
 
         function showOwnerDetail(ownerName) {
@@ -850,13 +1049,62 @@
             const left = gantt.getScrollState().x;
             const resourceContent = document.querySelector(".resource-content");
             if (resourceContent) resourceContent.scrollLeft = left;
+            _syncCalendarHeaderScroll(left);
+        }
+
+        function _syncCalendarHeaderScroll(left) {
+            const s1 = document.getElementById('resource_cal_scroll');
+            const s2 = document.getElementById('resource_cal_scroll2');
+            const s3 = document.getElementById('resource_cal_scroll3');
+            if (s1) s1.scrollLeft = left;
+            if (s2) s2.scrollLeft = left;
+            if (s3) s3.scrollLeft = left;
+        }
+
+        // リソース全画面モードに入る（フィルターなし初期表示用）
+        function _enterResourceFullscreen() {
+            isResourceFullscreen = true;
+            isResourceView = true;
+            const panel = document.getElementById("resource_panel");
+            const ganttEl = document.getElementById("gantt_here");
+            const ctb = document.getElementById("col_toggle_bar");
+            const btn = document.getElementById("resource_toggle");
+            ganttEl.style.display = "none";
+            if (ctb) ctb.style.display = "none";
+            panel.classList.add('resource-fullscreen');
+            panel.style.display = "flex";
+            btn.style.display = "none"; // フィルター未選択時はボタン不要
+            document.getElementById("resource_close_btn").style.display = "none";
+            updateFilterButtons();
+            updateResourceData();
+        }
+
+        // リソース全画面モードを抜けてガントビューへ
+        function _exitResourceFullscreen() {
+            isResourceFullscreen = false;
+            isResourceView = false;
+            const panel = document.getElementById("resource_panel");
+            const ganttEl = document.getElementById("gantt_here");
+            const ctb = document.getElementById("col_toggle_bar");
+            const btn = document.getElementById("resource_toggle");
+            panel.classList.remove('resource-fullscreen');
+            panel.style.display = "none";
+            ganttEl.style.display = "";
+            if (ctb) ctb.style.display = "";
+            btn.style.display = ""; // リソースボタンを復元
+            btn.innerText = "リソース表示";
+            document.getElementById("resource_close_btn").style.display = "";
+            updateFilterButtons();
+            gantt.setSizes();
+            gantt.render();
         }
 
         function toggleResourceView() {
+            if (isResourceFullscreen) return; // 全画面モード中は通常トグル不可
             isResourceView = !isResourceView;
             const btn = document.getElementById("resource_toggle");
             const panel = document.getElementById("resource_panel");
-            
+
             if (isResourceView) {
                 btn.innerText = "メイン表示に戻す";
                 panel.style.display = "flex";
@@ -869,8 +1117,7 @@
                 document.getElementById('resource_title').textContent = '担当者別リソース状況';
                 document.getElementById('resource_back_btn').style.display = 'none';
             }
-            
-            // flexbox により自動でサイズが変わるため、gantt.setSizes() を呼ぶだけでOK
+
             if (window.gantt) {
                 gantt.setSizes();
             }
@@ -956,22 +1203,50 @@
             line.style.left = (dataArea.offsetLeft + gantt.posFromDate(new Date())) + 'px';
             line.style.top = (gantt.config.scale_height || 60) + 'px';
         }
+        function _applyGanttScaleWeekendClasses() {
+            const scale = gantt.getScale();
+            if (!scale || !scale.trace_x) return;
+            const dates = scale.trace_x;
+            const scaleLines = document.querySelectorAll('#gantt_here .gantt_scale_line');
+            scaleLines.forEach((line, lineIdx) => {
+                if (lineIdx === 0) return; // 月行はスキップ
+                const cells = line.querySelectorAll('.gantt_scale_cell');
+                cells.forEach((cell, i) => {
+                    const date = dates[i];
+                    if (!date) return;
+                    const dow = date.getDay();
+                    cell.classList.remove('gantt-scale-sun', 'gantt-scale-sat');
+                    if (dow === 0) cell.classList.add('gantt-scale-sun');
+                    else if (dow === 6) cell.classList.add('gantt-scale-sat');
+                });
+            });
+        }
         gantt.attachEvent("onGanttRender", _drawMainTodayLine);
+        gantt.attachEvent("onGanttRender", _applyGanttScaleWeekendClasses);
 
         // スクロール同期のイベント登録
         gantt.attachEvent("onGanttScroll", function (left, top){
             _drawMainTodayLine(); // 横スクロール時に赤線位置を追従
-            const resourceContent = document.querySelector(".resource-content");
-            if (resourceContent) resourceContent.scrollLeft = left;
+            if (!isResourceFullscreen) {
+                // ガント表示中のみリソースパネルと同期（全画面モード中は干渉しない）
+                const resourceContent = document.querySelector(".resource-content");
+                if (resourceContent) resourceContent.scrollLeft = left;
+                _syncCalendarHeaderScroll(left);
+            }
         });
 
         window.addEventListener('DOMContentLoaded', () => {
             const resourceContent = document.querySelector(".resource-content");
             if (resourceContent) {
                 resourceContent.addEventListener('scroll', function() {
-                    const ganttScroll = gantt.getScrollState();
-                    if (Math.abs(ganttScroll.x - this.scrollLeft) > 1) {
-                        gantt.scrollTo(this.scrollLeft, null);
+                    // カレンダーヘッダーは常に同期
+                    _syncCalendarHeaderScroll(this.scrollLeft);
+                    // ガント表示中のみガントと同期（全画面モード中は非表示のガントに触らない）
+                    if (!isResourceFullscreen) {
+                        const ganttScroll = gantt.getScrollState();
+                        if (Math.abs(ganttScroll.x - this.scrollLeft) > 1) {
+                            gantt.scrollTo(this.scrollLeft, null);
+                        }
                     }
                 });
             }
@@ -1137,6 +1412,9 @@
                 if (error) {
                     console.error("Error updating task:", error);
                     alert("タスクの更新に失敗しました。\n" + error.message);
+                } else if (isResourceView) {
+                    // リソース表示中は保存後に再描画して変更を反映
+                    updateResourceData();
                 }
             } catch (e) {
                 console.error("Exception in onAfterTaskUpdate:", e);
@@ -1501,12 +1779,39 @@
         // グローバル変数の定義
         let projectMap = new Map();
         let currentTaskTypeFilter = null; // null = 全表示
+        let isResourceFullscreen = false;
 
         function updateFilterButtons() {
+            document.getElementById('resource_home_btn').classList.toggle('active', isResourceFullscreen);
             document.getElementById('plan_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'planning');
             document.getElementById('drawing_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'drawing');
             document.getElementById('longterm_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'long_lead_item');
             document.getElementById('trip_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'business_trip');
+        }
+
+        // 担当別全画面モード中でもライトボックスを表示するラッパー
+        function _showResourceLightbox(id) {
+            const ganttEl = document.getElementById('gantt_here');
+            if (isResourceFullscreen) {
+                // ガントを0サイズで一時表示（ライトボックスはその中に生成されるため必要）
+                ganttEl.style.cssText = 'display:block;position:fixed;top:0;left:0;width:0;height:0;overflow:visible;z-index:99998;';
+            }
+            gantt.showLightbox(id);
+        }
+
+        gantt.attachEvent('onAfterLightbox', function() {
+            if (isResourceFullscreen) {
+                // ライトボックスを閉じたらガントを再び非表示に戻す
+                const ganttEl = document.getElementById('gantt_here');
+                ganttEl.style.cssText = 'display:none;';
+            }
+        });
+
+        function returnToResourceView() {
+            if (isResourceFullscreen) return; // すでに担当別表示中
+            currentTaskTypeFilter = null;
+            updateFilterButtons();
+            _enterResourceFullscreen();
         }
 
         function _colSetName(filterType) {
@@ -1518,12 +1823,19 @@
             currentTaskTypeFilter = (currentTaskTypeFilter === type) ? null : type;
             updateFilterButtons();
 
-            if (_colSetName(currentTaskTypeFilter) !== prevColSet) {
-                // 列セットが変わる場合のみフル再描画
-                switchColumns(currentTaskTypeFilter);
+            if (currentTaskTypeFilter === null) {
+                // フィルター全オフ → リソース全画面に戻す
+                _enterResourceFullscreen();
             } else {
-                // 列セットが同じ場合はタスク行のみ再描画（ヘッダー維持）
-                gantt.refreshData();
+                // フィルターON → ガントビューに切り替え
+                if (isResourceFullscreen) {
+                    _exitResourceFullscreen();
+                }
+                if (_colSetName(currentTaskTypeFilter) !== prevColSet) {
+                    switchColumns(currentTaskTypeFilter);
+                } else {
+                    gantt.refreshData();
+                }
             }
         }
 
@@ -1623,9 +1935,12 @@
 
             // 5. フィルタ適用
             updateDisplay();
-            
+
             // 6. 再描画
             gantt.render();
+
+            // 7. 初期表示をリソース全画面（担当別）ビューにする
+            _enterResourceFullscreen();
         }
 
         // 実行
