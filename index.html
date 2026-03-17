@@ -1207,7 +1207,13 @@
                 rows: [
                     {
                         cols: [
-                            { view: "grid",     width: gridWidth, min_width: 80, max_width: gridWidth, scrollX: "scrollHor", scrollY: "scrollVer" },
+                            {
+                                width: gridWidth,
+                                min_width: 80,
+                                rows: [
+                                    { view: "grid", scrollX: "scrollHor", scrollY: "scrollVer" }
+                                ]
+                            },
                             { resizer: true, width: 1 },
                             { view: "timeline", scrollX: "scrollHor", scrollY: "scrollVer" },
                             { view: "scrollbar", id: "scrollVer" }
