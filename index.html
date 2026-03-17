@@ -238,6 +238,21 @@
         .gantt_task_line { border-radius: 4px; }
         .gantt_task_content { font-size: 11px; font-family: "メイリオ", Meiryo, sans-serif; }
 
+        /* wish_date ▼マーク */
+        .wish-date-mark {
+            position: absolute;
+            font-size: 14px;
+            color: #000000;
+            transform: translateX(-50%);
+            top: 2px;
+            pointer-events: auto;
+            z-index: 2;
+            line-height: 1;
+            cursor: pointer;
+            user-select: none;
+        }
+        .wish-date-mark.dragging { opacity: 0.6; }
+
         /* グリッドのフォント設定 */
         .gantt_grid_data .gantt_cell {
             font-family: "メイリオ", Meiryo, sans-serif !important;
@@ -1158,6 +1173,80 @@
         }
         gantt.attachEvent("onGanttRender", _drawMainTodayLine);
         gantt.attachEvent("onGanttRender", _applyGanttScaleWeekendClasses);
+        gantt.attachEvent("onGanttRender", _renderWishDateMarks);
+        gantt.attachEvent("onGanttScroll",  function() { _renderWishDateMarks(); });
+
+        function _toDateStr(d) {
+            return d.getFullYear() + '-' +
+                String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                String(d.getDate()).padStart(2, '0');
+        }
+
+        async function _saveWishDate(taskId, dateStr) {
+            const { error } = await supabaseClient
+                .from('tasks')
+                .update({ wish_date: dateStr })
+                .eq('id', taskId);
+            if (error) console.error('wish_date 保存エラー:', error);
+        }
+
+        function _renderWishDateMarks() {
+            const dataArea = document.querySelector('#gantt_here .gantt_data_area');
+            if (!dataArea) return;
+            dataArea.querySelectorAll('.wish-date-mark').forEach(el => el.remove());
+
+            const label = currentTaskTypeFilter === 'long_lead_item' ? '手配期日' : '出希望日';
+            gantt.eachTask(function(task) {
+                if (!task.wish_date) return;
+                if (!gantt.isTaskVisible(task.id)) return;
+                const parts = String(task.wish_date).split('-');
+                if (parts.length !== 3) return;
+                const wishDate = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+                if (isNaN(wishDate.getTime())) return;
+
+                const taskNode = gantt.getTaskNode(task.id);
+                if (!taskNode) return;
+
+                const x = gantt.posFromDate(wishDate);
+                const el = document.createElement('div');
+                el.className = 'wish-date-mark';
+                el.style.left = x + 'px';
+                el.style.top  = taskNode.offsetTop + 'px';
+                el.title = label + ': ' + task.wish_date;
+                el.textContent = '▼';
+                dataArea.appendChild(el);
+
+                // ドラッグで wish_date を変更
+                el.addEventListener('mousedown', function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const startClientX = e.clientX;
+                    const startLeft    = parseFloat(el.style.left);
+                    let   currentLeft  = startLeft;
+                    el.classList.add('dragging');
+
+                    function onMove(e) {
+                        currentLeft = startLeft + (e.clientX - startClientX);
+                        el.style.left = currentLeft + 'px';
+                    }
+                    function onUp() {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup',   onUp);
+                        el.classList.remove('dragging');
+                        const newDate = gantt.dateFromPos
+                            ? gantt.dateFromPos(currentLeft)
+                            : null;
+                        if (!newDate) return;
+                        const dateStr = _toDateStr(newDate);
+                        task.wish_date = dateStr;
+                        el.title = label + ': ' + dateStr;
+                        _saveWishDate(task.id, dateStr);
+                    }
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup',   onUp);
+                });
+            });
+        }
 
         // スクロール同期のイベント登録
         gantt.attachEvent("onGanttScroll", function (left, top){
@@ -1837,6 +1926,7 @@
             // 1. Gantt初期化
             gantt.config.columns = _getDrawingColumns();
             _setLayout(_getColsSum(gantt.config.columns));
+
             gantt.init("gantt_here");
 
             // === グリッド操作設定 ===
