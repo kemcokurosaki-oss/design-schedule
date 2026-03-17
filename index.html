@@ -243,12 +243,41 @@
             font-family: "メイリオ", Meiryo, sans-serif !important;
             font-size: 13px !important;
             font-weight: normal !important;
+            padding: 0 !important;
+        }
+        /* グリッド内カスタム追加ボタン */
+        .custom_add_btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            line-height: 1;
+            font-size: 16px;
+            color: #546e7a;
+            cursor: pointer;
+            border-radius: 3px;
+            user-select: none;
+        }
+        .custom_add_btn:hover { color: #2ecc71; }
+        /* インラインエディタ入力欄 */
+        .gantt_grid_data .gantt_cell .gantt_tree_content input,
+        .gantt_grid_data .gantt_cell input {
+            width: 100% !important;
+            height: 100% !important;
+            box-sizing: border-box !important;
+            border: 1px solid #7986cb !important;
+            padding: 0 2px !important;
+            font-family: "メイリオ", Meiryo, sans-serif !important;
+            font-size: 13px !important;
+            outline: none !important;
         }
 
         .gantt_grid_scale .gantt_grid_head_cell {
             font-family: "メイリオ", Meiryo, sans-serif !important;
             font-size: 14px !important;
             font-weight: normal !important;
+            padding: 0 !important;
         }
 
         /* グリッドヘッダーを青にする */
@@ -263,12 +292,13 @@
             text-align: center !important;
         }
 
-        /* 組立図面名列の左端からアイコンまでの距離を短縮 */
+        /* 階層構造を使用しないためインデントとアイコンのスペースをゼロに */
         .gantt_tree_indent {
-            width: 8px !important; /* デフォルト16pxから8pxに短縮 */
+            width: 0 !important;
         }
         .gantt_tree_icon {
-            width: 16px !important;
+            width: 0 !important;
+            display: none !important;
         }
 
         /* タスクの背景色を水色とさらに薄い水色で交互にする */
@@ -440,71 +470,7 @@
             color: #fff;
         }
 
-        /* カスタムグリッドリサイザー */
-        #custom_grid_resizer {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 8px;
-            cursor: col-resize;
-            z-index: 9999;
-            background: transparent;
-            transform: translateX(-50%);
-        }
-        #custom_grid_resizer:hover::after {
-            content: "";
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 4px;
-            background: rgba(84, 110, 122, 0.6);
-        }
-        #grid_resize_preview {
-            display: none;
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background: #546e7a;
-            z-index: 10000;
-            pointer-events: none;
-        }
 
-        /* 列折りたたみバー */
-        #col_toggle_bar {
-            display: flex;
-            height: 16px;
-            background: #455a64;
-            flex-shrink: 0;
-            overflow: hidden;
-        }
-        .col-toggle-cell {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-right: 1px solid #546e7a;
-            cursor: pointer;
-            font-size: 9px;
-            color: rgba(255,255,255,0.5);
-            user-select: none;
-            transition: background 0.15s, color 0.15s;
-            flex-shrink: 0;
-            overflow: hidden;
-        }
-        .col-toggle-cell:hover {
-            background: rgba(255,255,255,0.2);
-            color: #fff;
-        }
-        .col-toggle-cell.col-collapsed {
-            color: rgba(255,255,255,0.85);
-            background: rgba(255,255,255,0.1);
-        }
-        .col-toggle-spacer {
-            border-right: 1px solid #546e7a;
-            flex-shrink: 0;
-        }
         /* リソースセルのスタイル調整 */
         .gantt_matrix_cell {
             overflow: visible !important; /* セルからはみ出しても隠さない */
@@ -512,6 +478,37 @@
             align-items: center !important;
             justify-content: center !important;
         }
+        /* 右クリックコンテキストメニュー */
+        #gantt_ctx_menu {
+            display: none;
+            position: fixed;
+            z-index: 99999;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 2px 4px 8px rgba(0,0,0,0.2);
+            min-width: 150px;
+            padding: 4px 0;
+            font-family: "メイリオ", Meiryo, sans-serif;
+        }
+        .gantt_ctx_item {
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        #gantt_ctx_copy { color: #1565c0; }
+        #gantt_ctx_copy:hover { background: #e3f2fd; }
+        #gantt_ctx_delete { color: #c62828; }
+        #gantt_ctx_delete:hover { background: #ffebee; }
+        /* 複数選択削除ボタン */
+        #multi_delete_btn {
+            display: none;
+            background: #e53935;
+            color: #fff;
+            border-color: #c62828;
+            font-weight: bold;
+        }
+        #multi_delete_btn:hover { background: #c62828; }
     </style>
 </head>
 <body>
@@ -537,10 +534,10 @@
                 <div class="action-controls">
                     <button class="btn btn-info" id="resource_toggle" onclick="toggleResourceView()">リソース表示</button>
                     <button class="btn btn-primary" onclick="createTask()">+ 新規タスク追加</button>
+                    <button class="btn" id="multi_delete_btn" onclick="deleteSelectedTasks()">選択削除 (<span id="multi_delete_count">0</span>件)</button>
                 </div>
             </div>
         </div>
-        <div id="col_toggle_bar"></div>
         <div id="gantt_here" style="width:100%; height:100%;"></div>
 
         <!-- 独立したリソースパネル -->
@@ -1067,10 +1064,8 @@
             isResourceView = true;
             const panel = document.getElementById("resource_panel");
             const ganttEl = document.getElementById("gantt_here");
-            const ctb = document.getElementById("col_toggle_bar");
             const btn = document.getElementById("resource_toggle");
             ganttEl.style.display = "none";
-            if (ctb) ctb.style.display = "none";
             panel.classList.add('resource-fullscreen');
             panel.style.display = "flex";
             btn.style.display = "none"; // フィルター未選択時はボタン不要
@@ -1085,12 +1080,10 @@
             isResourceView = false;
             const panel = document.getElementById("resource_panel");
             const ganttEl = document.getElementById("gantt_here");
-            const ctb = document.getElementById("col_toggle_bar");
             const btn = document.getElementById("resource_toggle");
             panel.classList.remove('resource-fullscreen');
             panel.style.display = "none";
             ganttEl.style.display = "";
-            if (ctb) ctb.style.display = "";
             btn.style.display = ""; // リソースボタンを復元
             btn.innerText = "リソース表示";
             document.getElementById("resource_close_btn").style.display = "";
@@ -1122,64 +1115,6 @@
                 gantt.setSizes();
             }
             gantt.render();
-        }
-
-        // カスタムグリッドリサイザー
-        function _initGridResizer() {
-            const ganttEl = document.getElementById('gantt_here');
-            ganttEl.style.position = 'relative';
-
-            const handle = document.createElement('div');
-            handle.id = 'custom_grid_resizer';
-            ganttEl.appendChild(handle);
-
-            const preview = document.createElement('div');
-            preview.id = 'grid_resize_preview';
-            ganttEl.appendChild(preview);
-
-            function _positionHandle() {
-                handle.style.left = gantt.config.grid_width + 'px';
-            }
-            _positionHandle();
-            gantt.attachEvent("onGanttRender", function() {
-                _positionHandle();
-                _updateColToggleBar();
-            });
-
-            let isResizing = false, startX = 0, startWidth = 0;
-
-            handle.addEventListener('mousedown', e => {
-                isResizing = true;
-                startX = e.clientX;
-                startWidth = gantt.config.grid_width;
-                preview.style.left = handle.style.left;
-                preview.style.display = 'block';
-                document.body.style.userSelect = 'none';
-                e.preventDefault();
-            });
-
-            document.addEventListener('mousemove', e => {
-                if (!isResizing) return;
-                const newW = Math.max(150, startWidth + (e.clientX - startX));
-                preview.style.left = newW + 'px';
-            });
-
-            document.addEventListener('mouseup', e => {
-                if (!isResizing) return;
-                isResizing = false;
-                preview.style.display = 'none';
-                document.body.style.userSelect = '';
-                const newW = Math.max(150, startWidth + (e.clientX - startX));
-                gantt.config.grid_width = newW;
-                gantt.render();
-                if (isResourceView) {
-                    if (_resourceDetailOwner) {
-                        renderOwnerDetailTimeline(_resourceDetailOwner);
-                    } else {
-                        updateResourceData();
-                    }
-                }
-            });
         }
 
         // 今日の赤線：.gantt_task（ビューポート全高）に配置し、
@@ -1264,9 +1199,39 @@
         gantt.config.start_date = new Date(2025, 0, 1);  // 2025年1月1日
         gantt.config.end_date = new Date(2027, 0, 1);    // 2026年12月31日まで含める
         gantt.config.fit_tasks = false; // 自動調整を無効化
-        gantt.config.grid_width = 730; // 列の合計幅（約724px）に合わせて調整
-        // グリッドリサイズはカスタム実装を使用（_initGridResizer）
+
+        // グリッド幅をレイアウトで固定する関数（dhtmlxGanttの自動スケーリングを防ぐ）
+        function _setLayout(gridWidth) {
+            gantt.config.layout = {
+                css: "gantt_container",
+                cols: [
+                    {
+                        width: gridWidth,
+                        min_width: 80,
+                        rows: [
+                            { view: "grid", scrollX: "scrollHor", scrollY: "scrollVer" }
+                        ]
+                    },
+                    { resizer: true, width: 1 },
+                    {
+                        rows: [
+                            { view: "timeline", scrollX: "scrollHor", scrollY: "scrollVer" },
+                            { view: "scrollbar", id: "scrollHor" }
+                        ]
+                    },
+                    { view: "scrollbar", id: "scrollVer" }
+                ]
+            };
+            gantt.config.grid_width = gridWidth;
+        }
+
+        function _getColsSum(cols) {
+            return cols.reduce((sum, c) => sum + (c.width || 0), 0);
+        }
+
+        _setLayout(_getColsSum(_getDrawingColumns()));
         gantt.config.min_column_width = 22; // カレンダーの列幅を22に設定
+        gantt.config.inline_editors_save_on_blur = true; // フォーカスが外れたとき自動保存
         gantt.config.row_height = 30;
         gantt.config.scale_height = 60; // 3段構成（20px * 3）に合わせて調整
         // マーカープラグインは initialize() 内で有効化するため、ここでは行わない
@@ -1305,80 +1270,112 @@
             if (isResourceView) updateResourceData();
         }
 
-        // 新規タスク追加
-        function createTask() {
-            const projectSelect = document.getElementById('project_select');
-            const projectNumber = projectSelect ? projectSelect.value : "";
-            
-            // 同じ工事番号のタスクを抽出
-            const tasks = gantt.getTaskByTime();
-            const projectTasks = tasks.filter(t => String(t.project_number) === String(projectNumber));
-            
-            let index = -1; // デフォルトは末尾
-            if (projectTasks.length > 0) {
-                // 同じ工事番号の最後のタスクのインデックスを取得
-                const lastTask = projectTasks[projectTasks.length - 1];
-                index = gantt.getTaskIndex(lastTask.id) + 1;
+        // 選択削除ボタンの表示更新
+        function _updateMultiDeleteBtn() {
+            const ids = gantt.getSelectedTasks ? gantt.getSelectedTasks() : [];
+            const btn = document.getElementById('multi_delete_btn');
+            if (!btn) return;
+            if (ids.length >= 1) {
+                document.getElementById('multi_delete_count').textContent = ids.length;
+                btn.style.display = '';
+            } else {
+                btn.style.display = 'none';
             }
-
-            const id = gantt.createTask({
-                text: "新しいタスク",
-                start_date: new Date(),
-                duration: 1,
-                is_detailed: true,
-                project_number: projectNumber,
-                machine: "",
-                unit: "",
-                unit2: "",
-                model_type: "",
-                characteristic: "",
-                derivation: "",
-                owner: "",
-                total_sheets: 0,
-                completed_sheets: 0
-            }, null, index);
-            gantt.showLightbox(id);
         }
 
-        // Supabase への保存処理
-        gantt.attachEvent("onAfterTaskAdd", async function(id, item) {
-            try {
-                // 開始日と終了日が同じ場合、終了日を翌日に設定して1日分の幅を確保する
-                let endDate = new Date(item.end_date);
-                if (item.start_date.getTime() === item.end_date.getTime()) {
-                    endDate = gantt.date.add(endDate, 1, "day");
-                }
+        // 複数タスク一括削除
+        async function deleteSelectedTasks() {
+            const ids = gantt.getSelectedTasks ? gantt.getSelectedTasks() : [];
+            if (ids.length === 0) return;
+            if (!confirm(`選択した ${ids.length} 件のタスクを削除しますか？`)) return;
 
-                const { data, error } = await supabaseClient
-                    .from('tasks')
-                    .insert([{
-                        text: item.text,
-                        start_date: item.start_date.toISOString(),
-                        end_date: endDate.toISOString(),
-                        project_number: item.project_number,
-                        machine: item.machine,
-                        unit: item.unit,
-                        unit2: item.unit2,
-                        model_type: item.model_type,
-                        characteristic: item.characteristic,
-                        derivation: item.derivation,
-                        owner: item.owner,
-                        total_sheets: Number(item.total_sheets) || 0,
-                        completed_sheets: Number(item.completed_sheets) || 0,
-                        is_detailed: true
-                    }])
-                    .select();
-                
-                if (error) {
-                    console.error("Error adding task:", error);
-                    alert("タスクの追加に失敗しました。\n" + error.message);
-                } else {
-                    loadData(); // IDを同期するために再読み込み
-                }
-            } catch (e) {
-                console.error("Exception in onAfterTaskAdd:", e);
-                alert("タスク追加中に予期せぬエラーが発生しました。");
+            const { error } = await supabaseClient
+                .from('tasks')
+                .delete()
+                .in('id', ids);
+
+            if (error) {
+                console.error("Error deleting tasks:", error);
+                alert("削除に失敗しました。\n" + error.message);
+                return;
             }
+
+            await loadData();
+            document.getElementById('multi_delete_btn').style.display = 'none';
+        }
+
+        // 新規タスク追加
+        // gantt.createTask() を使わず Supabase に直接保存して loadData() でリフレッシュする
+        async function createTask() {
+            const projectSelect = document.getElementById('project_select');
+            const projectNumber = projectSelect ? projectSelect.value : "";
+
+            // 現在表示中のタスク一覧（onBeforeTaskDisplayと同じ条件でフィルタ）
+            const visibleTasks = gantt.getTaskByTime().filter(t => {
+                const isDetailed = (t.is_detailed === true || String(t.is_detailed).toUpperCase() === 'TRUE');
+                if (!isDetailed) return false;
+                if (projectNumber && String(t.project_number) !== String(projectNumber)) return false;
+                if (currentTaskTypeFilter && String(t.task_type) !== currentTaskTypeFilter) return false;
+                return true;
+            });
+
+            // 工事番号フィルタ選択中は最後の表示行から machine を引き継ぎ
+            let inheritMachine = "";
+            if (projectNumber && visibleTasks.length > 0) {
+                inheritMachine = visibleTasks[visibleTasks.length - 1].machine || "";
+            }
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const endDate = new Date(today);
+            endDate.setDate(endDate.getDate() + 1);
+
+            const { data, error } = await supabaseClient
+                .from('tasks')
+                .insert([{
+                    text: "",
+                    start_date: today.toISOString(),
+                    end_date: endDate.toISOString(),
+                    project_number: projectNumber,
+                    machine: inheritMachine,
+                    unit: "",
+                    unit2: "",
+                    model_type: "",
+                    characteristic: "",
+                    derivation: "",
+                    owner: "",
+                    total_sheets: 0,
+                    completed_sheets: 0,
+                    task_type: currentTaskTypeFilter || "drawing",
+                    is_detailed: true
+                }])
+                .select();
+
+            if (error) {
+                console.error("Error adding task:", error);
+                alert("タスクの追加に失敗しました。\n" + error.message);
+                return;
+            }
+
+            // データ再読み込みしてからインライン編集を起動
+            await loadData();
+
+            if (data && data[0]) {
+                const newId = data[0].id;
+                gantt.showTask(newId);
+                const editCol = gantt.config.columns.find(c => c.name === "text");
+                if (editCol && editCol.editor) {
+                    setTimeout(() => {
+                        gantt.ext.inlineEditors.startEdit(newId, "text");
+                    }, 100);
+                }
+            }
+        }
+
+        // Supabase への保存処理（バーのドラッグ等、gantt内部でタスクが追加された場合の安全網）
+        gantt.attachEvent("onAfterTaskAdd", async function(id, item) {
+            // createTask() からは呼ばれない（直接Supabase保存のため）
+            // ライトボックス経由の追加など他の経路で使われる場合のみ動作
         });
 
         gantt.attachEvent("onAfterTaskUpdate", async function(id, item) {
@@ -1527,17 +1524,8 @@
             return true;
         });
 
-        // ライトボックス表示前の処理
+        // ライトボックス表示前の処理（バーのダブルクリック時のみ表示）
         gantt.attachEvent("onBeforeLightbox", function(id) {
-            const task = gantt.getTask(id);
-
-            // 新規タスクの場合、工事番号フィルタの値をセットする
-            if (task.$new) {
-                const projectSelect = document.getElementById('project_select');
-                if (projectSelect && projectSelect.value) {
-                    task.project_number = projectSelect.value;
-                }
-            }
             return true;
         });
 
@@ -1578,117 +1566,49 @@
         // 図面列定義（デフォルト）
         function _getDrawingColumns() {
             return [
-                { name: "machine", label: "機械", width: 40, align: "center" },
-                { name: "unit", label: "ユニ", width: 45, align: "center" },
-                { name: "text", label: "組立図面名", width: 250, tree: true },
-                { name: "model_type", label: "機種", width: 40, align: "center" },
-                { name: "unit2", label: "ユニ<br>2", width: 40, align: "center" },
-                { name: "dash", label: "-", width: 25, align: "center", template: () => "-" },
-                { name: "characteristic", label: "特性", width: 40, align: "center" },
-                { name: "derivation", label: "派生", width: 40, align: "center" },
-                { name: "owner", label: "担当", width: 50, align: "center" },
-                { name: "total_sheets", label: "総枚数", width: 45, align: "center" },
-                { name: "completed_sheets", label: "完了枚数", width: 45, align: "center" },
-                { name: "progress", label: "進捗", width: 60, align: "center", template: _progressTemplate },
-                { name: "end_date", label: "完了予定日", width: 70, align: "center", template: _fmtDate },
-                { name: "add", label: "", width: 44, align: "center", template: () => `<div class='gantt_add' onclick='createTask()'></div>` }
+                { name: "machine",          label: "機械",           width: 35, align: "center", editor: { type: "text",   map_to: "machine" } },
+                { name: "unit",             label: "ユニ",           width: 35, align: "center", editor: { type: "text",   map_to: "unit" } },
+                { name: "text",             label: "組立図面名",     width: 150, tree: true,      editor: { type: "text",   map_to: "text" } },
+                { name: "model_type",       label: "機種",           width: 30, align: "center", editor: { type: "text",   map_to: "model_type" } },
+                { name: "unit2",            label: "ユニ<br>2",      width: 30, align: "center", editor: { type: "text",   map_to: "unit2" } },
+                { name: "dash",             label: "-",              width: 25, align: "center", template: () => "-" },
+                { name: "characteristic",   label: "特性",           width: 30, align: "center", editor: { type: "text",   map_to: "characteristic" } },
+                { name: "derivation",       label: "派生",           width: 30, align: "center", editor: { type: "text",   map_to: "derivation" } },
+                { name: "owner",            label: "担当",           width: 30, align: "center", editor: { type: "text",   map_to: "owner" } },
+                { name: "total_sheets",     label: "総<br>枚数",     width: 30, align: "center", editor: { type: "number", map_to: "total_sheets",     min: 0 } },
+                { name: "completed_sheets", label: "完了<br>枚数",   width: 30, align: "center", editor: { type: "number", map_to: "completed_sheets", min: 0 } },
+                { name: "progress",         label: "進捗",           width: 40, align: "center", template: _progressTemplate },
+                { name: "end_date",         label: "完了<br>予定日", width: 80, align: "center", template: _fmtDate, editor: { type: "date", map_to: "end_date" } },
+                { name: "add_btn",          label: "",               width: 30, align: "center", template: () => `<div class='custom_add_btn' onclick='createTask()'>+</div>` }
             ];
         }
+        // 図面列合計: 18+18+120+16+16+14+16+16+16+16+16+20+20+20 = 342px
 
         // 長納期品列定義
         function _getLongtermColumns() {
             return [
-                { name: "machine", label: "機械", width: 50, align: "center" },
-                { name: "unit", label: "ユニット", width: 55, align: "center" },
-                { name: "text", label: "品名", width: 180, tree: true },
-                { name: "model_type", label: "型式・図番", width: 100, align: "center" },
-                { name: "quantity", label: "個数", width: 45, align: "center" },
-                { name: "maker", label: "メーカー", width: 90, align: "center" },
-                { name: "owner", label: "担当", width: 50, align: "center" },
-                { name: "end_date", label: "手配予定日", width: 70, align: "center", template: _fmtDate },
-                { name: "add", label: "", width: 44, align: "center", template: () => `<div class='gantt_add' onclick='createTask()'></div>` }
+                { name: "machine",    label: "機械",           width: 32,  align: "center", editor: { type: "text",   map_to: "machine" } },
+                { name: "unit",       label: "ユニット",       width: 42,  align: "left",   editor: { type: "text",   map_to: "unit" } },
+                { name: "text",       label: "品名",           width: 190, tree: true,      editor: { type: "text",   map_to: "text" } },
+                { name: "model_type", label: "型式・図番",     width: 85,  align: "left",   editor: { type: "text",   map_to: "model_type" } },
+                { name: "quantity",   label: "個数",           width: 28,  align: "left",   editor: { type: "number", map_to: "quantity", min: 0 } },
+                { name: "maker",      label: "メーカー",       width: 70,  align: "left",   editor: { type: "text",   map_to: "maker" } },
+                { name: "owner",      label: "担当",           width: 32,  align: "left",   editor: { type: "text",   map_to: "owner" } },
+                { name: "end_date",   label: "手配<br>予定日", width: 60,  align: "center", template: _fmtDate, editor: { type: "date", map_to: "end_date" } },
+                { name: "add_btn",    label: "",               width: 20,  align: "center", template: () => `<div class='custom_add_btn' onclick='createTask()'>+</div>` }
             ];
         }
+        // 長納期品列合計: 32+42+190+85+28+70+32+60+20 = 559px
 
         // 列設定の初期化
         gantt.config.columns = _getDrawingColumns();
 
-        // === 列折りたたみ機能 ===
-        const _colOrigWidths = {};  // { colName: { width, label } }
-        const _collapsedCols = new Set();
-        const _skipColToggle = new Set(['add', 'dash']); // 折りたたみ不要な列
-
-        function _initColWidths() {
-            Object.keys(_colOrigWidths).forEach(k => delete _colOrigWidths[k]);
-            gantt.config.columns.forEach(col => {
-                if (_skipColToggle.has(col.name)) return;
-                _colOrigWidths[col.name] = { width: col.width, label: col.label };
-            });
-        }
-        _initColWidths();
-
         // 列セット切り替え
         function switchColumns(filterType) {
-            _collapsedCols.clear();
-            if (filterType === 'long_lead_item') {
-                gantt.config.columns = _getLongtermColumns();
-            } else {
-                gantt.config.columns = _getDrawingColumns();
-            }
-            _initColWidths();
-            gantt.config.grid_width = gantt.config.columns.reduce((sum, c) => sum + (c.width || 0), 0);
+            const cols = filterType === 'long_lead_item' ? _getLongtermColumns() : _getDrawingColumns();
+            gantt.config.columns = cols;
+            _setLayout(_getColsSum(cols));
             gantt.render();
-            // grid_width変更後のレイアウト確定とカレンダーヘッダーの再描画
-            requestAnimationFrame(() => {
-                gantt.updateSize();
-                _updateColToggleBar();
-            });
-        }
-
-        // トグルバーを更新（DHtmlxの実際のレンダリング幅をDOMから読み取る）
-        function _updateColToggleBar() {
-            const bar = document.getElementById('col_toggle_bar');
-            if (!bar) return;
-            bar.innerHTML = '';
-            // 実際に描画されたヘッダーセルの幅を取得
-            const headCells = [...document.querySelectorAll('#gantt_here .gantt_grid_head_cell')];
-            gantt.config.columns.forEach((col, index) => {
-                const cell = document.createElement('div');
-                const domW = headCells[index] ? headCells[index].offsetWidth : col.width;
-                const w = domW + 'px';
-                cell.style.width = w;
-                cell.style.minWidth = w;
-                if (_skipColToggle.has(col.name)) {
-                    cell.className = 'col-toggle-spacer';
-                    bar.appendChild(cell);
-                    return;
-                }
-                const isCollapsed = _collapsedCols.has(col.name);
-                cell.className = 'col-toggle-cell' + (isCollapsed ? ' col-collapsed' : '');
-                cell.dataset.col = col.name;
-                const origLabel = (_colOrigWidths[col.name]?.label || '').replace(/<[^>]*>/g, '');
-                cell.title = origLabel;
-                cell.textContent = isCollapsed ? '▶' : '◀';
-                cell.addEventListener('click', () => _toggleColumn(col.name));
-                bar.appendChild(cell);
-            });
-        }
-
-        function _toggleColumn(colName) {
-            const col = gantt.config.columns.find(c => c.name === colName);
-            if (!col || !_colOrigWidths[colName]) return;
-
-            if (_collapsedCols.has(colName)) {
-                col.width = _colOrigWidths[colName].width;
-                _collapsedCols.delete(colName);
-            } else {
-                col.width = 16;
-                _collapsedCols.add(colName);
-            }
-
-            gantt.config.grid_width = gantt.config.columns.reduce((sum, c) => sum + (c.width || 0), 0);
-            gantt.render();
-            _updateColToggleBar();
         }
 
         // スタイルとテンプレート
@@ -1910,14 +1830,134 @@
 
             // 0. プラグインの有効化
             gantt.plugins({
-                marker: true
+                marker: true,
+                multiselect: true
             });
 
             // 1. Gantt初期化
+            gantt.config.columns = _getDrawingColumns();
+            _setLayout(_getColsSum(gantt.config.columns));
             gantt.init("gantt_here");
-            _initGridResizer();
-            _updateColToggleBar();
-            
+
+            // === グリッド操作設定 ===
+
+            // タスク選択が変わるたびに選択削除ボタンを更新
+            gantt.attachEvent("onTaskClick", function(id, e) {
+                setTimeout(_updateMultiDeleteBtn, 0);
+                return true;
+            });
+            gantt.attachEvent("onEmptyClick", function(e) {
+                setTimeout(_updateMultiDeleteBtn, 0);
+                return true;
+            });
+
+            // キャプチャフェーズでグリッドセルのクリックを横取り
+            // → dhtmlxGanttのバブルリスナー（インライン編集起動）に届かせない
+            // シングルクリック: バーが見えるようタイムラインをスクロール
+            // ＋ボタン（.custom_add_btn）は横取りせずそのまま通過させる
+            document.getElementById("gantt_here").addEventListener("click", function(e) {
+                if (e.target.closest(".custom_add_btn")) return;
+                const cell = e.target.closest(".gantt_cell");
+                if (!cell) return;
+                e.stopImmediatePropagation();
+                const row = cell.closest("[task_id]");
+                if (row) gantt.showTask(row.getAttribute("task_id"));
+            }, true);
+
+            // ダブルクリック: インラインエディタを開く（ライトボックスはブロック）
+            // バーのダブルクリックは .gantt_cell を持たないため通過し、デフォルトのライトボックスが開く
+            document.getElementById("gantt_here").addEventListener("dblclick", function(e) {
+                const cell = e.target.closest(".gantt_cell");
+                if (!cell) return;
+                e.stopImmediatePropagation();
+                const row = cell.closest("[task_id]");
+                if (!row) return;
+                const taskId = row.getAttribute("task_id");
+                if (!taskId) return;
+                const cells = [...row.querySelectorAll(".gantt_cell")];
+                const colIndex = cells.indexOf(cell);
+                const col = gantt.config.columns[colIndex];
+                if (col && col.editor) {
+                    gantt.ext.inlineEditors.startEdit(taskId, col.name);
+                }
+            }, true);
+
+            // 右クリックコンテキストメニュー（コピー・削除）
+            const _ctxMenu = document.createElement('div');
+            _ctxMenu.id = 'gantt_ctx_menu';
+            _ctxMenu.innerHTML =
+                '<div id="gantt_ctx_copy"  class="gantt_ctx_item">このタスクをコピー</div>' +
+                '<div id="gantt_ctx_delete" class="gantt_ctx_item">このタスクを削除</div>';
+            document.body.appendChild(_ctxMenu);
+
+            let _ctxTaskId = null;
+            document.getElementById("gantt_here").addEventListener("contextmenu", function(e) {
+                const row = e.target.closest("[task_id]");
+                if (!row) return;
+                e.preventDefault();
+                _ctxTaskId = row.getAttribute("task_id");
+                _ctxMenu.style.left = e.pageX + 'px';
+                _ctxMenu.style.top = e.pageY + 'px';
+                _ctxMenu.style.display = 'block';
+            });
+
+            // コピー
+            document.getElementById("gantt_ctx_copy").addEventListener("click", async function() {
+                const taskId = _ctxTaskId;
+                _ctxMenu.style.display = 'none';
+                _ctxTaskId = null;
+                if (!taskId || !gantt.isTaskExists(taskId)) return;
+
+                const src = gantt.getTask(taskId);
+                const { data, error } = await supabaseClient
+                    .from('tasks')
+                    .insert([{
+                        text:              src.text              || "",
+                        start_date:        src.start_date instanceof Date ? src.start_date.toISOString() : src.start_date,
+                        end_date:          src.end_date   instanceof Date ? src.end_date.toISOString()   : src.end_date,
+                        project_number:    src.project_number    || "",
+                        machine:           src.machine           || "",
+                        unit:              src.unit              || "",
+                        unit2:             src.unit2             || "",
+                        model_type:        src.model_type        || "",
+                        characteristic:    src.characteristic    || "",
+                        derivation:        src.derivation        || "",
+                        owner:             src.owner             || "",
+                        total_sheets:      Number(src.total_sheets)      || 0,
+                        completed_sheets:  Number(src.completed_sheets)  || 0,
+                        task_type:         src.task_type         || "drawing",
+                        is_detailed:       true
+                    }])
+                    .select();
+
+                if (error) {
+                    console.error("Error copying task:", error);
+                    alert("タスクのコピーに失敗しました。\n" + error.message);
+                    return;
+                }
+
+                await loadData();
+
+                if (data && data[0]) {
+                    gantt.showTask(data[0].id);
+                }
+            });
+
+            // 削除
+            document.getElementById("gantt_ctx_delete").addEventListener("click", function() {
+                if (_ctxTaskId && confirm("このタスクを削除しますか？")) {
+                    gantt.deleteTask(_ctxTaskId);
+                }
+                _ctxMenu.style.display = 'none';
+                _ctxTaskId = null;
+            });
+
+            document.addEventListener("click", function(e) {
+                if (!e.target.closest('#gantt_ctx_menu')) {
+                    _ctxMenu.style.display = 'none';
+                }
+            });
+
             // 2. セレクトボックスを構築（パラメータがあれば selected になる）
             await initProjectSelect(projectParam); 
             
