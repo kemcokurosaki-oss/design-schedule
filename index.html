@@ -1861,7 +1861,11 @@
                 if (!cell) return;
                 e.stopImmediatePropagation();
                 const row = cell.closest("[task_id]");
-                if (row) gantt.showTask(row.getAttribute("task_id"));
+                if (row) {
+                    const scrollY = gantt.getScrollState().y;
+                    gantt.showTask(row.getAttribute("task_id"));
+                    gantt.scrollTo(null, scrollY);
+                }
             }, true);
 
             // ダブルクリック: インラインエディタを開く（ライトボックスはブロック）
