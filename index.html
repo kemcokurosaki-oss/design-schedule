@@ -1204,22 +1204,16 @@
         function _setLayout(gridWidth) {
             gantt.config.layout = {
                 css: "gantt_container",
-                cols: [
+                rows: [
                     {
-                        width: gridWidth,
-                        min_width: 80,
-                        rows: [
-                            { view: "grid", scrollX: "scrollHor", scrollY: "scrollVer" }
-                        ]
-                    },
-                    { resizer: true, width: 1 },
-                    {
-                        rows: [
+                        cols: [
+                            { view: "grid",     width: gridWidth, min_width: 80, max_width: gridWidth, scrollX: "scrollHor", scrollY: "scrollVer" },
+                            { resizer: true, width: 1 },
                             { view: "timeline", scrollX: "scrollHor", scrollY: "scrollVer" },
-                            { view: "scrollbar", id: "scrollHor" }
+                            { view: "scrollbar", id: "scrollVer" }
                         ]
                     },
-                    { view: "scrollbar", id: "scrollVer" }
+                    { view: "scrollbar", id: "scrollHor" }
                 ]
             };
             gantt.config.grid_width = gridWidth;
