@@ -1309,6 +1309,33 @@
         // Gantt 基本構成
         gantt.config.date_format = "%Y-%m-%d";
 
+        // 担当者プルダウン用インラインエディタ
+        const OWNER_OPTIONS = ['藤山','田中','安岡','川邊','檀','堀井','宮﨑','津田','古村','柴田','橋本','松本(英)'];
+        gantt.config.editor_types.owner_select = {
+            show: function(id, column, config, placeholder) {
+                const opts = OWNER_OPTIONS.map(n =>
+                    `<option value="${n}">${n}</option>`
+                ).join('');
+                placeholder.innerHTML = `<select style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:13px;box-sizing:border-box;"><option value=""></option>${opts}</select>`;
+            },
+            hide: function() {},
+            set_value: function(value, id, column, node) {
+                node.querySelector('select').value = value || '';
+            },
+            get_value: function(id, column, node) {
+                return node.querySelector('select').value;
+            },
+            is_changed: function(value, id, column, node) {
+                return value !== this.get_value(id, column, node);
+            },
+            is_valid: function() { return true; },
+            save: function() {},
+            focus: function(node) {
+                var sel = node.querySelector('select');
+                if (sel) sel.focus();
+            }
+        };
+
         // 完了予定日専用インラインエディタ
         // Supabaseには実際の完了日(YYYY-MM-DD)を保存し、gantt内部では+1日した排他的終了日を使う
         gantt.config.editor_types.completion_date = {
@@ -1742,7 +1769,7 @@
                 { name: "dash",             label: "-",              width: 25, align: "center", template: () => "-" },
                 { name: "characteristic",   label: "特性",           width: 30, align: "center", editor: { type: "text",   map_to: "characteristic" } },
                 { name: "derivation",       label: "派生",           width: 30, align: "center", editor: { type: "text",   map_to: "derivation" } },
-                { name: "owner",            label: "担当",           width: 30, align: "center", editor: { type: "text",   map_to: "owner" } },
+                { name: "owner",            label: "担当",           width: 30, align: "center", editor: { type: "owner_select", map_to: "owner" } },
                 { name: "total_sheets",     label: "総<br>枚数",     width: 30, align: "center", editor: { type: "number", map_to: "total_sheets",     min: 0 } },
                 { name: "completed_sheets", label: "完了<br>枚数",   width: 30, align: "center", editor: { type: "number", map_to: "completed_sheets", min: 0 } },
                 { name: "progress",         label: "進捗",           width: 40, align: "center", template: _progressTemplate },
@@ -1761,7 +1788,7 @@
                 { name: "model_type", label: "型式・図番",     width: 85,  align: "left",   editor: { type: "text",   map_to: "model_type" } },
                 { name: "quantity",   label: "個数",           width: 28,  align: "left",   editor: { type: "number", map_to: "quantity", min: 0 } },
                 { name: "maker",      label: "メーカー",       width: 70,  align: "left",   editor: { type: "text",   map_to: "maker" } },
-                { name: "owner",      label: "担当",           width: 32,  align: "left",   editor: { type: "text",   map_to: "owner" } },
+                { name: "owner",      label: "担当",           width: 32,  align: "left",   editor: { type: "owner_select", map_to: "owner" } },
                 { name: "end_date",   label: "手配<br>予定日", width: 60,  align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
                 { name: "add_btn",    label: "",               width: 20,  align: "center", template: () => `<div class='custom_add_btn' onclick='createTask()'>+</div>` }
             ];
