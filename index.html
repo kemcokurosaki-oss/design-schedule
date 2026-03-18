@@ -1244,7 +1244,7 @@
         }
         gantt.attachEvent("onGanttRender", _drawMainTodayLine);
         gantt.attachEvent("onGanttRender", _applyGanttScaleWeekendClasses);
-        gantt.attachEvent("onGanttRender", _renderWishDateMarks);
+        gantt.attachEvent("onGanttRender", function() { requestAnimationFrame(_renderWishDateMarks); });
         gantt.attachEvent("onGanttScroll",  function() { _renderWishDateMarks(); });
 
         function _toDateStr(d) {
@@ -1267,16 +1267,20 @@
             dataArea.querySelectorAll('.wish-date-mark').forEach(el => el.remove());
 
             const label = currentTaskTypeFilter === 'long_lead_item' ? '手配期日' : '出希望日';
-            gantt.eachTask(function(task) {
-                if (!task.wish_date) return;
-                if (!gantt.isTaskVisible(task.id)) return;
+
+            // gantt.eachTask はフィルター非表示タスクも含むため、実際にDOMに存在する
+            // .gantt_task_line ノードを直接反復することで重複表示を防ぐ
+            dataArea.querySelectorAll('.gantt_task_line[task_id]').forEach(function(taskNode) {
+                const taskId = taskNode.getAttribute('task_id');
+                if (!taskId) return;
+                let task;
+                try { task = gantt.getTask(taskId); } catch(e) { return; }
+                if (!task || !task.wish_date) return;
+
                 const parts = String(task.wish_date).split('-');
                 if (parts.length !== 3) return;
                 const wishDate = new Date(+parts[0], +parts[1] - 1, +parts[2]);
                 if (isNaN(wishDate.getTime())) return;
-
-                const taskNode = gantt.getTaskNode(task.id);
-                if (!taskNode) return;
 
                 const x = gantt.posFromDate(wishDate);
                 const el = document.createElement('div');
@@ -1873,14 +1877,14 @@
         function _getLongtermColumns() {
             return [
                 { name: "machine",    label: "機械",           width: 32,  align: "center", editor: { type: "text",   map_to: "machine" } },
-                { name: "unit",       label: "ユニット",       width: 42,  align: "left",   editor: { type: "text",   map_to: "unit" } },
-                { name: "text",       label: "品名",           width: 190, tree: true,      editor: { type: "text",   map_to: "text" } },
-                { name: "model_type", label: "型式・図番",     width: 85,  align: "left",   editor: { type: "text",   map_to: "model_type" } },
-                { name: "quantity",   label: "個数",           width: 28,  align: "left",   editor: { type: "number", map_to: "quantity", min: 0 } },
-                { name: "maker",      label: "メーカー",       width: 70,  align: "left",   editor: { type: "text",   map_to: "maker" } },
-                { name: "owner",      label: "担当",           width: 32,  align: "left",   editor: { type: "owner_select", map_to: "owner" } },
+                { name: "unit",       label: "ユニ",           width: 32,  align: "center", editor: { type: "text",   map_to: "unit" } },
+                { name: "text",       label: "品名",           width: 170, tree: true,      editor: { type: "text",   map_to: "text" } },
+                { name: "model_type", label: "型式・図番",     width: 85,  align: "center", editor: { type: "text",   map_to: "model_type" } },
+                { name: "quantity",   label: "個数",           width: 28,  align: "center", editor: { type: "number", map_to: "quantity", min: 0 } },
+                { name: "maker",      label: "メーカー",       width: 70,  align: "center", editor: { type: "text",   map_to: "maker" } },
+                { name: "owner",      label: "担当",           width: 32,  align: "center", editor: { type: "owner_select", map_to: "owner" } },
                 { name: "end_date",   label: "手配<br>予定日", width: 60,  align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
-                { name: "add_btn",    label: "",               width: 20,  align: "center", template: () => `<div class='custom_add_btn' onclick='createTask()'>+</div>` }
+                { name: "add_btn",    label: "",               width: 25,  align: "center", template: () => `<div class='custom_add_btn' onclick='createTask()'>+</div>` }
             ];
         }
         // 長納期品列合計: 32+42+190+85+28+70+32+60+20 = 559px
