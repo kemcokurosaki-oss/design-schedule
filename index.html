@@ -793,11 +793,19 @@
             const todayLineHtml = `<div class="resource-today-line" style="left: ${todayPos}px;"></div>`;
 
             let html = `<div style="width: ${totalWidth}px;">`; // 全体の幅を指定するコンテナを追加
+            // 担当者1人につき4行（計画・図面・長納期品・出張）で表示
+            const TASK_TYPE_ROWS = [
+                { type: 'planning',       label: '計画' },
+                { type: 'drawing',        label: '図面' },
+                { type: 'long_lead_item', label: '長納期品' },
+                { type: 'business_trip',  label: '出張' },
+            ];
+
             owners.forEach((ownerName) => {
-                const ownerTasks = [];
+                // この担当者の全タスクを収集
+                const allOwnerTasks = [];
                 gantt.eachTask(t => {
                     const isDetailed = (t.is_detailed === true || String(t.is_detailed).toLowerCase() === "true" || String(t.is_detailed).toLowerCase() === "t" || String(t.is_detailed) === "1");
-                    
                     let isMatch = false;
                     if (isDetailed && t.owner) {
                         const taskOwners = String(t.owner).split(/[,、\s]+/).map(o => o.trim());
@@ -807,68 +815,63 @@
                             isMatch = taskOwners.includes(ownerName);
                         }
                     }
-
-                    if (isMatch) {
-                        ownerTasks.push(t);
-                    }
+                    if (isMatch) allOwnerTasks.push(t);
                 });
 
-                let rowConflictBackgroundHtml = "";
-                scale.trace_x.forEach((date, i) => {
-                    const cellStart = date;
-                    const cellEnd = gantt.date.add(cellStart, 1, scale.unit);
-                    let count = 0;
-                    ownerTasks.forEach(t => {
-                        if (t.start_date < cellEnd && t.end_date > cellStart) count++;
-                    });
-                    if (count > 1) {
-                        rowConflictBackgroundHtml += `<div class="resource-cell-conflict-bg" style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; z-index: 1;"></div>`;
-                    }
-                });
+                const colorClass = getOwnerColorClass(ownerName);
+                const textColor = (["owner-tsuda", "owner-shibata", "owner-matsumoto"].includes(colorClass)) ? "#222" : "#fff";
 
-                html += `
-                    <div class="resource-item" style="display: flex; border-bottom: 1px solid #eee; min-height: 30px; height: 30px; align-items: stretch; width: ${totalWidth}px;">
-                        <div class="resource-grid-container" style="width: ${actualGridWidth}px; min-width: ${actualGridWidth}px; flex-shrink: 0; display: flex; border-right: 1px solid #ddd; background: #f9f9f9; position: sticky; left: 0; z-index: 5;">
-                            <div style="width: 100%; display: flex; align-items: center; justify-content: flex-end; padding-right: 5px; font-weight: bold; font-size: 12px; color: #333;">
-                                <div class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="クリックして詳細表示">${ownerName} (${ownerTasks.length}件)</div>
-                            </div>
-                        </div>
-                        <div class="resource-timeline" style="width: ${timelineWidth}px; flex-shrink: 0; position: relative; background: #fff;">
-                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 0;">${weekendBackgroundHtml}</div>
-                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; ${backgroundStyle} z-index: 1;"></div>
-                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1;">${rowConflictBackgroundHtml}</div>
-                            ${todayLineHtml}
-                            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 2;">
-                `;
+                // 4行（タスク種別ごと）を描画
+                TASK_TYPE_ROWS.forEach((rowDef, rowIndex) => {
+                    const rowTasks = allOwnerTasks.filter(t => String(t.task_type) === rowDef.type);
+                    const isFirstRow = rowIndex === 0;
+                    const isLastRow  = rowIndex === TASK_TYPE_ROWS.length - 1;
 
-                ownerTasks.forEach(t => {
-                    const left = gantt.posFromDate(t.start_date);
-                    const right = gantt.posFromDate(t.end_date);
-                    const width = Math.max(2, right - left);
-                    
-                    // 重複判定
-                    const isOverlapping = ownerTasks.some(other => {
-                        if (other.id === t.id) return false;
-                        return (t.start_date < other.end_date && t.end_date > other.start_date);
-                    });
-                    
-                    const colorClass = getOwnerColorClass(ownerName);
-                    const textColor = (["owner-tsuda", "owner-shibata", "owner-matsumoto"].includes(colorClass)) ? "#222" : "#fff";
+                    // 担当者の区切り線（先頭行の上に太線）
+                    const borderTop    = isFirstRow ? 'border-top: 2px solid #aaa;' : '';
+                    const borderBottom = isLastRow  ? 'border-bottom: 2px solid #aaa;' : 'border-bottom: 1px solid #eee;';
+
+                    // 左セル：先頭行は担当者名＋ラベル、2行目以降はラベルのみ
+                    const leftCellContent = isFirstRow
+                        ? `<div style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:0 5px;box-sizing:border-box;">
+                               <div class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="クリックして詳細表示" style="font-weight:bold;font-size:11px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${ownerName}</div>
+                               <div style="font-size:10px;color:#555;background:#ddd;border-radius:2px;padding:1px 4px;margin-left:3px;white-space:nowrap;">${rowDef.label}</div>
+                           </div>`
+                        : `<div style="width:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:5px;">
+                               <div style="font-size:10px;color:#555;background:#eee;border-radius:2px;padding:1px 4px;white-space:nowrap;">${rowDef.label}</div>
+                           </div>`;
 
                     html += `
-                        <div class="resource-cell-bar ${colorClass}"
-                             style="position: absolute; top: 4px; height: 22px; left: ${left}px; width: ${width}px; z-index: 10;"
-                             title="${t.text} (${t.project_number})">
-                             <span class="resource-bar-text" style="color:${textColor}; font-size:11px; font-weight:bold;">${t.project_number || ""} ${t.text}</span>
+                        <div class="resource-item" style="display:flex;${borderTop}${borderBottom}min-height:30px;height:30px;align-items:stretch;width:${totalWidth}px;">
+                            <div class="resource-grid-container" style="width:${actualGridWidth}px;min-width:${actualGridWidth}px;flex-shrink:0;display:flex;border-right:1px solid #ddd;background:${isFirstRow ? '#efefef' : '#f9f9f9'};position:sticky;left:0;z-index:5;">
+                                ${leftCellContent}
+                            </div>
+                            <div class="resource-timeline" style="width:${timelineWidth}px;flex-shrink:0;position:relative;background:#fff;">
+                                <div style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:0;">${weekendBackgroundHtml}</div>
+                                <div style="position:absolute;top:0;left:0;right:0;bottom:0;${backgroundStyle}z-index:1;"></div>
+                                ${todayLineHtml}
+                                <div style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:2;">
+                    `;
+
+                    rowTasks.forEach(t => {
+                        const left  = gantt.posFromDate(t.start_date);
+                        const right = gantt.posFromDate(t.end_date);
+                        const width = Math.max(2, right - left);
+                        html += `
+                            <div class="resource-cell-bar ${colorClass}"
+                                 style="position:absolute;top:4px;height:22px;left:${left}px;width:${width}px;z-index:10;"
+                                 title="${t.text} (${t.project_number})">
+                                 <span class="resource-bar-text" style="color:${textColor};font-size:11px;font-weight:bold;">${t.project_number || ""} ${t.text}</span>
+                            </div>
+                        `;
+                    });
+
+                    html += `
+                                </div>
+                            </div>
                         </div>
                     `;
                 });
-
-                html += `
-                            </div>
-                        </div>
-                    </div>
-                `;
             });
             html += `</div>`; // 閉じタグを追加
 
@@ -1062,6 +1065,7 @@
             _resourceDetailOwner = ownerName;
             document.getElementById('resource_title').textContent = `${ownerName}さんの詳細リソース状況`;
             document.getElementById('resource_back_btn').style.display = '';
+            document.querySelector(".resource-header-bar").style.display = '';
             renderOwnerDetailTimeline(ownerName);
         }
 
@@ -1069,6 +1073,7 @@
             _resourceDetailOwner = null;
             document.getElementById('resource_title').textContent = '担当者別リソース状況';
             document.getElementById('resource_back_btn').style.display = 'none';
+            document.querySelector(".resource-header-bar").style.display = 'none';
             updateResourceData();
         }
 
@@ -1106,6 +1111,7 @@
             void panel.offsetHeight; // 強制リフロー：レイアウトを確定させる
             btn.style.display = "none";
             document.getElementById("resource_close_btn").style.display = "none";
+            document.querySelector(".resource-header-bar").style.display = "none";
             updateFilterButtons();
             // レイアウト確定後にスクロール位置を設定
             setTimeout(() => {
