@@ -15,7 +15,8 @@
 
     <style>
         html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: "メイリオ", Meiryo, "MS PGothic", sans-serif; font-size: 12px; }
-        .main-container { display: flex; flex-direction: column; height: 100vh; }
+        .main-container { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        #gantt_here { flex: 1 !important; min-height: 0; overflow: hidden; }
         .header-panel { background: #fff; padding: 5px 10px; border-bottom: 1px solid #ccc; display: flex; flex-direction: column; gap: 5px; }
         .header-row { display: flex; align-items: center; gap: 15px; width: 100%; }
         .project-info { font-size: 16px; font-weight: bold; color: #333; }
@@ -553,13 +554,13 @@
                 <button class="btn btn-filter" id="drawing_filter_btn" onclick="toggleDrawingFilter()">図面</button>
                 <button class="btn btn-filter" id="longterm_filter_btn" onclick="toggleLongtermFilter()">長納期品</button>
                 <button class="btn btn-filter" id="trip_filter_btn" onclick="toggleTripFilter()">出張</button>
-            </div>
-            <div class="header-row">
-                <div class="zoom-controls">
+                <div class="zoom-controls" style="margin-left: auto;">
                     <button class="btn zoom-btn active" onclick="setZoom('day', this)">日単位</button>
                     <button class="btn zoom-btn" onclick="setZoom('week', this)">週単位</button>
                 </div>
-                <select id="project_select" style="padding: 5px; min-width: 150px; margin-left: 15px;"></select>
+            </div>
+            <div class="header-row">
+                <select id="project_select" style="padding: 5px; min-width: 150px;"></select>
                 <button class="btn" onclick="loadData()">更新</button>
                 <div class="action-controls">
                     <button class="btn btn-info" id="resource_toggle" onclick="toggleResourceView()">リソース表示</button>
@@ -856,9 +857,8 @@
 
                     html += `
                         <div class="resource-cell-bar ${colorClass}"
-                             style="position: absolute; top: 4px; height: 22px; left: ${left}px; width: ${width}px; z-index: 10; cursor: pointer;"
-                             title="${t.text} (${t.project_number})　クリックで編集"
-                             onclick="_showResourceLightbox(${t.id})">
+                             style="position: absolute; top: 4px; height: 22px; left: ${left}px; width: ${width}px; z-index: 10;"
+                             title="${t.text} (${t.project_number})">
                              <span class="resource-bar-text" style="color:${textColor}; font-size:11px; font-weight:bold;">${t.project_number || ""} ${t.text}</span>
                         </div>
                     `;
@@ -958,9 +958,8 @@
                             ${todayLineHtml}
                             ${hasDate ? `
                             <div class="resource-cell-bar ${colorClass}"
-                                 style="position: absolute; top: 4px; height: 22px; left: ${left}px; width: ${barWidth}px; z-index: 10; cursor: pointer;"
-                                 title="${t.text} (${t.project_number})　クリックで編集"
-                                 onclick="_showResourceLightbox(${t.id})">
+                                 style="position: absolute; top: 4px; height: 22px; left: ${left}px; width: ${barWidth}px; z-index: 10;"
+                                 title="${t.text} (${t.project_number})">
                                  <span class="resource-bar-text" style="color:${textColor}; font-size:11px; font-weight:bold;">${t.project_number || ""} ${t.text}</span>
                             </div>` : ''}
                         </div>
@@ -1097,19 +1096,25 @@
             const ganttEl = document.getElementById("gantt_here");
             const btn = document.getElementById("resource_toggle");
             panel.classList.add('resource-fullscreen');
-            // ガント表示中にコンテンツを全て描画してからパネルを表示する
+            // ガントを一時的に表示したままリサイズを確定させてからリソース描画
+            ganttEl.style.visibility = "hidden";
+            gantt.setSizes();
             updateResourceData();
-            // 今日の日付位置にスクロール（パネル表示前に設定するのでフラッシュなし）
-            const todayX = gantt.posFromDate(new Date());
-            const scrollX = Math.max(0, todayX - 300);
-            const resourceContent = document.querySelector('.resource-content');
-            if (resourceContent) resourceContent.scrollLeft = scrollX;
-            _syncCalendarHeaderScroll(scrollX);
+            ganttEl.style.visibility = "";
             ganttEl.style.display = "none";
             panel.style.display = "flex";
-            btn.style.display = "none"; // フィルター未選択時はボタン不要
+            void panel.offsetHeight; // 強制リフロー：レイアウトを確定させる
+            btn.style.display = "none";
             document.getElementById("resource_close_btn").style.display = "none";
             updateFilterButtons();
+            // レイアウト確定後にスクロール位置を設定
+            setTimeout(() => {
+                const todayX = gantt.posFromDate(new Date());
+                const scrollX = Math.max(0, todayX - 300);
+                const resourceContent = document.querySelector('.resource-content');
+                if (resourceContent) resourceContent.scrollLeft = scrollX;
+                _syncCalendarHeaderScroll(scrollX);
+            }, 50);
         }
 
         // リソース全画面モードを抜けてガントビューへ
@@ -1718,8 +1723,9 @@
             return true;
         });
 
-        // ライトボックス表示前の処理（バーのダブルクリック時のみ表示）
+        // ライトボックス表示前の処理（担当別モード時は非表示）
         gantt.attachEvent("onBeforeLightbox", function(id) {
+            if (isResourceFullscreen) return false;
             return true;
         });
 
@@ -1925,15 +1931,14 @@
             document.getElementById('drawing_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'drawing');
             document.getElementById('longterm_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'long_lead_item');
             document.getElementById('trip_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'business_trip');
+            // 担当別モード中は新規タスク追加ボタンを非表示
+            const addBtn = document.querySelector('button[onclick="createTask()"]');
+            if (addBtn) addBtn.style.display = isResourceFullscreen ? 'none' : '';
         }
 
-        // 担当別全画面モード中でもライトボックスを表示するラッパー
+        // タスクバークリック時の編集（担当別モードでは無効）
         function _showResourceLightbox(id) {
-            const ganttEl = document.getElementById('gantt_here');
-            if (isResourceFullscreen) {
-                // ガントを0サイズで一時表示（ライトボックスはその中に生成されるため必要）
-                ganttEl.style.cssText = 'display:block;position:fixed;top:0;left:0;width:0;height:0;overflow:visible;z-index:99998;';
-            }
+            if (isResourceFullscreen) return;
             gantt.showLightbox(id);
         }
 
@@ -2207,7 +2212,10 @@
             gantt.showDate(new Date());
 
             // 7. 初期表示をリソース全画面（担当別）ビューにする
-            _enterResourceFullscreen();
+            // レイアウト確定後（1フレーム後）に切り替えることで垂直ずれを防ぐ
+            requestAnimationFrame(() => {
+                _enterResourceFullscreen();
+            });
         }
 
         // 実行
