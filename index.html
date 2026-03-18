@@ -21,6 +21,19 @@
         .header-row { display: flex; align-items: center; gap: 15px; width: 100%; }
         .project-info { font-size: 16px; font-weight: bold; color: #333; }
         .zoom-controls { display: flex; gap: 5px; }
+        .header-select {
+            padding: 5px 24px 5px 8px;
+            font-size: 13px;
+            font-family: 'メイリオ', Meiryo, sans-serif;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23555'/%3E%3C/svg%3E") no-repeat right 8px center;
+            background-size: 8px 5px;
+            appearance: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+            min-width: 150px;
+        }
         .action-controls { margin-left: auto; display: flex; gap: 5px; }
         .btn { padding: 2px 10px; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: "メイリオ", Meiryo, sans-serif; }
         .zoom-btn { font-size: 13px; }
@@ -560,22 +573,17 @@
                 <div class="project-info" id="project_display">工事番号: 全表示</div>
             </div>
             <div class="header-row" id="dropdowns_row">
-                <select id="project_select" style="padding:5px; font-size:13px; font-family:'メイリオ',Meiryo,sans-serif; border:1px solid #ccc; border-radius:3px; min-width:150px;"></select>
-                <select id="owner_filter_select" onchange="applyOwnerFilter()" style="padding:5px; font-size:13px; font-family:'メイリオ',Meiryo,sans-serif; border:1px solid #ccc; border-radius:3px; display:none;">
-                    <option value="">担当者: 全員</option>
-                    <option value="藤山">藤山</option>
-                    <option value="田中">田中</option>
-                    <option value="安岡">安岡</option>
-                    <option value="川邊">川邊</option>
-                    <option value="檀">檀</option>
-                    <option value="堀井">堀井</option>
-                    <option value="宮﨑">宮﨑</option>
-                    <option value="津田">津田</option>
-                    <option value="古村">古村</option>
-                    <option value="柴田">柴田</option>
-                    <option value="橋本">橋本</option>
-                    <option value="松本(英)">松本(英)</option>
-                </select>
+                <select id="project_select" class="header-select"></select>
+                <div id="owner_filter_wrap" style="position:relative; display:none;">
+                    <button type="button" id="owner_filter_btn" onclick="toggleOwnerFilterDropdown()" class="header-select" style="white-space:nowrap; text-align:left;">担当者: 全員</button>
+                    <div id="owner_filter_dropdown" style="display:none; position:absolute; top:calc(100% + 2px); left:0; background:#fff; border:1px solid #ccc; border-radius:3px; z-index:9999; padding:4px 0; min-width:130px; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+                        <label style="display:block; padding:4px 10px; cursor:pointer; white-space:nowrap; font-size:13px; font-family:'メイリオ',Meiryo,sans-serif;">
+                            <input type="checkbox" id="owner_chk_all" onchange="ownerFilterAllChanged(this)" checked> 全員
+                        </label>
+                        <div style="border-top:1px solid #eee; margin:2px 0;"></div>
+                        <div id="owner_chk_list"></div>
+                    </div>
+                </div>
                 <div class="action-controls">
                     <button class="btn btn-info" id="resource_toggle" onclick="toggleResourceView()">リソース表示</button>
                     <button class="btn btn-primary" onclick="createTask()">+ 新規タスク追加</button>
@@ -1120,9 +1128,11 @@
             isResourceFullscreen = true;
             isResourceView = true;
             // 担当者フィルターをリセット
-            currentOwnerFilter = null;
-            const ownerSel = document.getElementById('owner_filter_select');
-            if (ownerSel) ownerSel.value = '';
+            currentOwnerFilter = [];
+            document.querySelectorAll('.owner-chk-item').forEach(chk => { chk.checked = false; });
+            const allChk = document.getElementById('owner_chk_all');
+            if (allChk) allChk.checked = true;
+            _updateOwnerFilterBtn();
             const panel = document.getElementById("resource_panel");
             const ganttEl = document.getElementById("gantt_here");
             const btn = document.getElementById("resource_toggle");
@@ -1378,25 +1388,38 @@
         gantt.config.editor_types.completion_date = {
             show: function(id, column, config, placeholder) {
                 placeholder.innerHTML = '<input type="date" name="' + column.name + '">';
+                placeholder.querySelector('input').addEventListener('change', function() {
+                    if (!this.value) _completionDateClear(id);
+                });
             },
             hide: function() {},
             set_value: function(value, id, column, node) {
-                if (!value) { node.querySelector('input').value = ''; return; }
-                // ganttのend_date(排他的)から1日引いた完了日を表示
+                var inp = node.querySelector('input');
+                if (!value || gantt.getTask(id).has_no_date) { inp.value = ''; return; }
                 var d = gantt.date.add(new Date(value), -1, 'day');
-                node.querySelector('input').value = _toDateStr(d);
+                inp.value = _toDateStr(d);
             },
             get_value: function(id, column, node) {
                 var val = node.querySelector('input').value;
-                if (!val) return null;
+                if (!val) {
+                    _clearingEndDateId = id;
+                    var task = gantt.getTask(id);
+                    var base = (task.start_date instanceof Date) ? task.start_date : new Date();
+                    return gantt.date.add(base, 1, 'day');
+                }
+                _clearingEndDateId = null;
+                gantt.getTask(id).has_no_date = false; // 日付再入力時にフラグリセット
                 var parts = val.split('-').map(Number);
                 var completion = new Date(parts[0], parts[1] - 1, parts[2]);
-                // 完了日+1日をganttのexclusive end_dateとして返す
                 return gantt.date.add(completion, 1, 'day');
             },
             is_changed: function(value, id, column, node) {
+                var val = node.querySelector('input').value;
+                var origNoDate = !!gantt.getTask(id).has_no_date;
+                var newNoDate  = !val;
+                if (origNoDate && newNoDate) return false;
+                if (origNoDate !== newNoDate) return true;
                 var nv = this.get_value(id, column, node);
-                if (!value && !nv) return false;
                 if (!value || !nv) return true;
                 return value.getTime() !== nv.getTime();
             },
@@ -1409,6 +1432,24 @@
                 if (inp.showPicker) try { inp.showPicker(); } catch(e) {}
             }
         };
+
+        // 完了予定日クリアボタン：エディタAPIを使わずタスクを直接更新
+        function _completionDateClear(taskId) {
+            // インラインエディターを閉じる（APIがあれば使う）
+            try {
+                if (gantt.ext && gantt.ext.inlineEditors) {
+                    gantt.ext.inlineEditors.hide();
+                }
+            } catch(e) {}
+
+            var task = gantt.getTask(taskId);
+            if (!task) return;
+            var base = (task.start_date instanceof Date) ? task.start_date : new Date();
+            task.end_date = gantt.date.add(base, 1, 'day');
+            task.has_no_date = true;
+            _clearingEndDateId = taskId;
+            gantt.updateTask(taskId);
+        }
         gantt.config.auto_scheduling = true; // 自動スケジューリングを有効化
         gantt.config.start_date = new Date(2025, 0, 1);  // 2025年1月1日
         gantt.config.end_date = new Date(2027, 0, 1);    // 2026年12月31日まで含める
@@ -1586,6 +1627,15 @@
             }
         }
 
+        // 完了予定日クリア時：フラグを元にhas_no_dateを設定
+        gantt.attachEvent("onBeforeTaskUpdate", function(id, task) {
+            if (_clearingEndDateId === id) {
+                task.has_no_date = true;
+                _clearingEndDateId = null;
+            }
+            return true;
+        });
+
         // Supabase への保存処理（バーのドラッグ等、gantt内部でタスクが追加された場合の安全網）
         gantt.attachEvent("onAfterTaskAdd", async function(id, item) {
             // createTask() からは呼ばれない（直接Supabase保存のため）
@@ -1594,15 +1644,17 @@
 
         gantt.attachEvent("onAfterTaskUpdate", async function(id, item) {
             try {
-                // ganttのend_dateは排他的終了日なので-1日して実際の完了日をSupabaseに保存
-                const completionDate = gantt.date.add(new Date(item.end_date), -1, 'day');
+                // has_no_dateの場合はend_dateをnullで保存、それ以外は-1日して完了日を保存
+                const endDateStr = item.has_no_date
+                    ? null
+                    : _toDateStr(gantt.date.add(new Date(item.end_date), -1, 'day'));
 
                 const { error } = await supabaseClient
                     .from('tasks')
                     .update({
                         text: item.text,
                         start_date: _toDateStr(item.start_date),
-                        end_date: _toDateStr(completionDate),
+                        end_date: endDateStr,
                         project_number: item.project_number,
                         machine: item.machine,
                         unit: item.unit,
@@ -1768,7 +1820,7 @@
 
         // 日付フォーマット共通テンプレート
         function _fmtDate(obj) {
-            if (obj.has_no_date) return "";
+            if (obj.has_no_date || !obj.end_date) return "";
             // end_dateはdhtmlxGanttの排他的終了（完了日の翌日0時）なので1日引いて完了日を表示
             const date = new Date(obj.end_date.getTime() - 24 * 60 * 60 * 1000);
             const y = String(date.getFullYear()).slice(-2);
@@ -1880,10 +1932,10 @@
                 if (String(task.task_type) !== currentTaskTypeFilter) return false;
             }
 
-            // 担当者フィルタ
-            if (currentOwnerFilter) {
+            // 担当者フィルタ（複数選択対応）
+            if (currentOwnerFilter.length > 0) {
                 const taskOwners = String(task.owner || '').split(/[,、\s]+/).map(o => o.trim());
-                if (!taskOwners.includes(currentOwnerFilter)) return false;
+                if (!currentOwnerFilter.some(f => taskOwners.includes(f))) return false;
             }
 
             return true;
@@ -1930,19 +1982,22 @@
             const today = new Date().toISOString().split('T')[0];
 
             const parsedTasks = data.map(t => {
-                const hasDates = (t.start_date && t.end_date);
+                // end_dateがnullの場合はバー非表示（has_no_date=true）
+                const hasNoDate = !t.end_date;
 
-                let startDate = hasDates ? _parseSupabaseDate(t.start_date) : new Date(today + 'T00:00:00Z');
-                // Supabaseのend_dateは実際の完了日なので+1日してganttの排他的終了日にする
-                let endDate = hasDates
+                const startDate = t.start_date
+                    ? _parseSupabaseDate(t.start_date)
+                    : new Date(today + 'T00:00:00Z');
+                // end_dateがnullの場合はダミーの終了日を設定（gantt内部用、バーは非表示）
+                const endDate = t.end_date
                     ? gantt.date.add(_parseSupabaseDate(t.end_date), 1, 'day')
-                    : gantt.date.add(new Date(today + 'T00:00:00Z'), 1, 'day');
-                
+                    : gantt.date.add(startDate, 1, 'day');
+
                 return {
                     ...t,
                     start_date: startDate,
-                    end_date: endDate,
-                    has_no_date: !hasDates
+                    end_date:   endDate,
+                    has_no_date: hasNoDate
                 };
             });
 
@@ -1961,14 +2016,62 @@
         // グローバル変数の定義
         let projectMap = new Map();
         let currentTaskTypeFilter = null; // null = 全表示
-        let currentOwnerFilter = null;   // null = 全担当者
+        let currentOwnerFilter = [];      // 空配列 = 全担当者
+        let _clearingEndDateId = null;   // 完了予定日クリア中のタスクID
         let isResourceFullscreen = false;
 
-        function applyOwnerFilter() {
-            const sel = document.getElementById('owner_filter_select');
-            currentOwnerFilter = sel.value || null;
-            gantt.render();
+        function _initOwnerFilterDropdown() {
+            const list = document.getElementById('owner_chk_list');
+            if (!list) return;
+            list.innerHTML = OWNER_OPTIONS.map(name => `
+                <label style="display:block; padding:4px 10px; cursor:pointer; white-space:nowrap; font-size:13px; font-family:'メイリオ',Meiryo,sans-serif;">
+                    <input type="checkbox" class="owner-chk-item" value="${name}" onchange="ownerFilterItemChanged()"> ${name}
+                </label>
+            `).join('');
         }
+
+        function toggleOwnerFilterDropdown() {
+            const dd = document.getElementById('owner_filter_dropdown');
+            if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+        }
+
+        function ownerFilterAllChanged(checkbox) {
+            document.querySelectorAll('.owner-chk-item').forEach(chk => { chk.checked = false; });
+            currentOwnerFilter = [];
+            gantt.render();
+            _updateOwnerFilterBtn();
+        }
+
+        function ownerFilterItemChanged() {
+            const selected = [];
+            document.querySelectorAll('.owner-chk-item:checked').forEach(chk => selected.push(chk.value));
+            currentOwnerFilter = selected;
+            const allChk = document.getElementById('owner_chk_all');
+            if (allChk) allChk.checked = selected.length === 0;
+            gantt.render();
+            _updateOwnerFilterBtn();
+        }
+
+        function _updateOwnerFilterBtn() {
+            const btn = document.getElementById('owner_filter_btn');
+            if (!btn) return;
+            if (currentOwnerFilter.length === 0) {
+                btn.textContent = '担当者: 全員';
+            } else if (currentOwnerFilter.length === 1) {
+                btn.textContent = currentOwnerFilter[0];
+            } else {
+                btn.textContent = currentOwnerFilter[0] + ' 他' + (currentOwnerFilter.length - 1) + '名';
+            }
+        }
+
+        // ドロップダウン外クリックで閉じる
+        document.addEventListener('click', function(e) {
+            const wrap = document.getElementById('owner_filter_wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                const dd = document.getElementById('owner_filter_dropdown');
+                if (dd) dd.style.display = 'none';
+            }
+        });
 
         function updateFilterButtons() {
             document.getElementById('resource_home_btn').classList.toggle('active', isResourceFullscreen);
@@ -1987,8 +2090,8 @@
             const dropdownsRow = document.getElementById('dropdowns_row');
             if (dropdownsRow) dropdownsRow.style.display = isResourceFullscreen ? 'none' : '';
             // 担当者フィルターは非担当別モードのみ表示
-            const ownerSel = document.getElementById('owner_filter_select');
-            if (ownerSel) ownerSel.style.display = isResourceFullscreen ? 'none' : '';
+            const ownerWrap = document.getElementById('owner_filter_wrap');
+            if (ownerWrap) ownerWrap.style.display = isResourceFullscreen ? 'none' : '';
             const addBtn = document.querySelector('button[onclick="createTask()"]');
             if (addBtn) addBtn.style.display = isResourceFullscreen ? 'none' : '';
         }
@@ -2261,6 +2364,9 @@
 
             // 5. フィルタ適用
             updateDisplay();
+
+            // 担当者フィルタードロップダウンのチェックボックスを生成
+            _initOwnerFilterDropdown();
 
             // 6. 再描画
             gantt.render();
