@@ -288,6 +288,21 @@
             outline: none !important;
         }
 
+        /* 日付インライン編集: カレンダーアイコンが見切れないようオーバーフローを許可 */
+        .gantt_grid_data .gantt_cell:focus-within {
+            overflow: visible !important;
+            z-index: 100 !important;
+        }
+        /* Chromium: 日付入力のカレンダーアイコンを左端に配置して常に見えるようにする */
+        .gantt_grid_data .gantt_cell input[type="date"]::-webkit-calendar-picker-indicator {
+            position: absolute;
+            right: 2px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
         .gantt_grid_scale .gantt_grid_head_cell {
             font-family: "メイリオ", Meiryo, sans-serif !important;
             font-size: 14px !important;
@@ -1293,6 +1308,43 @@
 
         // Gantt 基本構成
         gantt.config.date_format = "%Y-%m-%d";
+
+        // 完了予定日専用インラインエディタ
+        // Supabaseには実際の完了日(YYYY-MM-DD)を保存し、gantt内部では+1日した排他的終了日を使う
+        gantt.config.editor_types.completion_date = {
+            show: function(id, column, config, placeholder) {
+                placeholder.innerHTML = '<input type="date" name="' + column.name + '">';
+            },
+            hide: function() {},
+            set_value: function(value, id, column, node) {
+                if (!value) { node.querySelector('input').value = ''; return; }
+                // ganttのend_date(排他的)から1日引いた完了日を表示
+                var d = gantt.date.add(new Date(value), -1, 'day');
+                node.querySelector('input').value = _toDateStr(d);
+            },
+            get_value: function(id, column, node) {
+                var val = node.querySelector('input').value;
+                if (!val) return null;
+                var parts = val.split('-').map(Number);
+                var completion = new Date(parts[0], parts[1] - 1, parts[2]);
+                // 完了日+1日をganttのexclusive end_dateとして返す
+                return gantt.date.add(completion, 1, 'day');
+            },
+            is_changed: function(value, id, column, node) {
+                var nv = this.get_value(id, column, node);
+                if (!value && !nv) return false;
+                if (!value || !nv) return true;
+                return value.getTime() !== nv.getTime();
+            },
+            is_valid: function() { return true; },
+            save: function() {},
+            focus: function(node) {
+                var inp = node.querySelector('input');
+                if (!inp) return;
+                inp.focus();
+                if (inp.showPicker) try { inp.showPicker(); } catch(e) {}
+            }
+        };
         gantt.config.auto_scheduling = true; // 自動スケジューリングを有効化
         gantt.config.start_date = new Date(2025, 0, 1);  // 2025年1月1日
         gantt.config.end_date = new Date(2027, 0, 1);    // 2026年12月31日まで含める
@@ -1424,15 +1476,16 @@
             }
 
             const today = new Date();
-            const endDate = new Date(today);
-            endDate.setDate(endDate.getDate() + 1);
+            // 完了予定日=今日、期間=2週間（14日）のデフォルト設定
+            const startDate = new Date(today);
+            startDate.setDate(startDate.getDate() - 13); // 13日前から開始 → 完了日=今日で14日間
 
             const { data, error } = await supabaseClient
                 .from('tasks')
                 .insert([{
                     text: "",
-                    start_date: _toDateStr(today),
-                    end_date: _toDateStr(endDate),
+                    start_date: _toDateStr(startDate),
+                    end_date: _toDateStr(today), // 完了日=今日（loadData時に+1日してgantの排他的終了日にする）
                     project_number: projectNumber,
                     machine: inheritMachine,
                     unit: "",
@@ -1477,18 +1530,15 @@
 
         gantt.attachEvent("onAfterTaskUpdate", async function(id, item) {
             try {
-                // 開始日と終了日が同じ場合、終了日を翌日に設定して1日分の幅を確保する
-                let endDate = new Date(item.end_date);
-                if (item.start_date.getTime() === item.end_date.getTime()) {
-                    endDate = gantt.date.add(endDate, 1, "day");
-                }
+                // ganttのend_dateは排他的終了日なので-1日して実際の完了日をSupabaseに保存
+                const completionDate = gantt.date.add(new Date(item.end_date), -1, 'day');
 
                 const { error } = await supabaseClient
                     .from('tasks')
                     .update({
                         text: item.text,
                         start_date: _toDateStr(item.start_date),
-                        end_date: _toDateStr(endDate),
+                        end_date: _toDateStr(completionDate),
                         project_number: item.project_number,
                         machine: item.machine,
                         unit: item.unit,
@@ -1514,6 +1564,25 @@
             } catch (e) {
                 console.error("Exception in onAfterTaskUpdate:", e);
                 alert("タスク更新中に予期せぬエラーが発生しました。");
+            }
+        });
+
+        // ドラッグ（移動・リサイズ）後にSupabaseへ保存
+        gantt.attachEvent("onAfterTaskDrag", async function(id, mode, e) {
+            const item = gantt.getTask(id);
+            const completionDate = gantt.date.add(new Date(item.end_date), -1, 'day');
+            try {
+                const { error } = await supabaseClient
+                    .from('tasks')
+                    .update({
+                        start_date: _toDateStr(item.start_date),
+                        end_date: _toDateStr(completionDate),
+                    })
+                    .eq('id', id);
+                if (error) console.error("Error saving drag:", error);
+                else if (isResourceView) updateResourceData();
+            } catch(e) {
+                console.error("Exception in onAfterTaskDrag:", e);
             }
         });
 
@@ -1677,7 +1746,7 @@
                 { name: "total_sheets",     label: "総<br>枚数",     width: 30, align: "center", editor: { type: "number", map_to: "total_sheets",     min: 0 } },
                 { name: "completed_sheets", label: "完了<br>枚数",   width: 30, align: "center", editor: { type: "number", map_to: "completed_sheets", min: 0 } },
                 { name: "progress",         label: "進捗",           width: 40, align: "center", template: _progressTemplate },
-                { name: "end_date",         label: "完了<br>予定日", width: 80, align: "center", template: _fmtDate, editor: { type: "date", map_to: "end_date" } },
+                { name: "end_date",         label: "完了<br>予定日", width: 80, align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
                 { name: "add_btn",          label: "",               width: 30, align: "center", template: () => `<div class='custom_add_btn' onclick='createTask()'>+</div>` }
             ];
         }
@@ -1693,7 +1762,7 @@
                 { name: "quantity",   label: "個数",           width: 28,  align: "left",   editor: { type: "number", map_to: "quantity", min: 0 } },
                 { name: "maker",      label: "メーカー",       width: 70,  align: "left",   editor: { type: "text",   map_to: "maker" } },
                 { name: "owner",      label: "担当",           width: 32,  align: "left",   editor: { type: "text",   map_to: "owner" } },
-                { name: "end_date",   label: "手配<br>予定日", width: 60,  align: "center", template: _fmtDate, editor: { type: "date", map_to: "end_date" } },
+                { name: "end_date",   label: "手配<br>予定日", width: 60,  align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
                 { name: "add_btn",    label: "",               width: 20,  align: "center", template: () => `<div class='custom_add_btn' onclick='createTask()'>+</div>` }
             ];
         }
@@ -1793,12 +1862,10 @@
                 const hasDates = (t.start_date && t.end_date);
 
                 let startDate = hasDates ? _parseSupabaseDate(t.start_date) : new Date(today + 'T00:00:00Z');
-                let endDate = hasDates ? _parseSupabaseDate(t.end_date) : gantt.date.add(new Date(today + 'T00:00:00Z'), 1, "day");
-
-                // 開始日と終了日が同じ場合、1日分の幅を確保するために終了日を翌日に調整
-                if (hasDates && startDate.getTime() === endDate.getTime()) {
-                    endDate = gantt.date.add(endDate, 1, "day");
-                }
+                // Supabaseのend_dateは実際の完了日なので+1日してganttの排他的終了日にする
+                let endDate = hasDates
+                    ? gantt.date.add(_parseSupabaseDate(t.end_date), 1, 'day')
+                    : gantt.date.add(new Date(today + 'T00:00:00Z'), 1, 'day');
                 
                 return {
                     ...t,
@@ -2043,7 +2110,8 @@
                     .insert([{
                         text:              src.text              || "",
                         start_date:        src.start_date instanceof Date ? _toDateStr(src.start_date) : src.start_date,
-                        end_date:          src.end_date   instanceof Date ? _toDateStr(src.end_date)   : src.end_date,
+                        // ganttのend_date(排他的)から-1日して完了日として保存
+                        end_date:          src.end_date instanceof Date ? _toDateStr(gantt.date.add(new Date(src.end_date), -1, 'day')) : src.end_date,
                         project_number:    src.project_number    || "",
                         machine:           src.machine           || "",
                         unit:              src.unit              || "",
