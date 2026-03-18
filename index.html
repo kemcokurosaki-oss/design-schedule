@@ -924,18 +924,24 @@
                 if (isMatch) ownerTasks.push(t);
             });
 
-            // 工事番号順→タスク名順でソート
+            // 開始日順でソート
             ownerTasks.sort((a, b) => {
-                const pa = String(a.project_number || '');
-                const pb = String(b.project_number || '');
-                if (pa !== pb) return pa.localeCompare(pb, 'ja');
-                return String(a.text || '').localeCompare(String(b.text || ''), 'ja');
+                const da = a.start_date ? a.start_date.getTime() : Infinity;
+                const db = b.start_date ? b.start_date.getTime() : Infinity;
+                return da - db;
             });
 
             if (ownerTasks.length === 0) {
                 container.innerHTML = `<div style="padding:20px; text-align:center; color:#999;">タスクがありません</div>`;
                 return;
             }
+
+            const TASK_TYPE_LABEL = {
+                planning:       '計画',
+                drawing:        '図面',
+                long_lead_item: '長納期品',
+                business_trip:  '出張',
+            };
 
             const colorClass = getOwnerColorClass(ownerName);
             const textColor = (["owner-tsuda", "owner-shibata", "owner-matsumoto"].includes(colorClass)) ? "#222" : "#fff";
@@ -946,12 +952,14 @@
                 const left = hasDate ? gantt.posFromDate(t.start_date) : 0;
                 const right = hasDate ? gantt.posFromDate(t.end_date) : 0;
                 const barWidth = hasDate ? Math.max(2, right - left) : 0;
+                const typeLabel = TASK_TYPE_LABEL[String(t.task_type)] || String(t.task_type || '');
 
                 html += `
                     <div class="resource-item" style="display: flex; border-bottom: 1px solid #eee; min-height: 30px; height: 30px; align-items: stretch; width: ${totalWidth}px;">
                         <div class="resource-grid-container" style="width: ${actualGridWidth}px; min-width: ${actualGridWidth}px; flex-shrink: 0; display: flex; border-right: 1px solid #ddd; background: #f9f9f9; position: sticky; left: 0; z-index: 5; overflow: hidden;">
-                            <div style="display: flex; align-items: center; padding: 0 8px; font-size: 12px; color: #333; width: 100%; overflow: hidden; white-space: nowrap;">
-                                <span style="font-weight: bold; color: #546e7a; margin-right: 8px; flex-shrink: 0; min-width: 60px;">${t.project_number || '-'}</span>
+                            <div style="display: flex; align-items: center; padding: 0 6px; font-size: 12px; color: #333; width: 100%; overflow: hidden; white-space: nowrap; gap: 6px;">
+                                <span style="flex-shrink: 0; font-size: 10px; color: #555; background: #e0e0e0; border-radius: 2px; padding: 1px 4px;">${typeLabel}</span>
+                                <span style="flex-shrink: 0; font-weight: bold; color: #546e7a; min-width: 60px;">${t.project_number || '-'}</span>
                                 <span style="overflow: hidden; text-overflow: ellipsis;">${t.text}</span>
                             </div>
                         </div>
