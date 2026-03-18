@@ -749,6 +749,7 @@
 
             if (owners.length === 0) {
                 container.innerHTML = `<div class="resource-placeholder" style="padding:20px; text-align:center; color:#999;">詳細タスク（is_detailed: true）に担当者が設定されていません</div>`;
+                renderResourceCalendarHeader();
                 return;
             }
 
@@ -1080,13 +1081,20 @@
             const panel = document.getElementById("resource_panel");
             const ganttEl = document.getElementById("gantt_here");
             const btn = document.getElementById("resource_toggle");
-            ganttEl.style.display = "none";
             panel.classList.add('resource-fullscreen');
+            // ガント表示中にコンテンツを全て描画してからパネルを表示する
+            updateResourceData();
+            // 今日の日付位置にスクロール（パネル表示前に設定するのでフラッシュなし）
+            const todayX = gantt.posFromDate(new Date());
+            const scrollX = Math.max(0, todayX - 300);
+            const resourceContent = document.querySelector('.resource-content');
+            if (resourceContent) resourceContent.scrollLeft = scrollX;
+            _syncCalendarHeaderScroll(scrollX);
+            ganttEl.style.display = "none";
             panel.style.display = "flex";
             btn.style.display = "none"; // フィルター未選択時はボタン不要
             document.getElementById("resource_close_btn").style.display = "none";
             updateFilterButtons();
-            updateResourceData();
         }
 
         // リソース全画面モードを抜けてガントビューへ
@@ -1115,8 +1123,9 @@
 
             if (isResourceView) {
                 btn.innerText = "メイン表示に戻す";
-                panel.style.display = "flex";
+                // コンテンツを描画してからパネルを表示（古い内容が一瞬見えるのを防ぐ）
                 updateResourceData();
+                panel.style.display = "flex";
             } else {
                 btn.innerText = "リソース表示";
                 panel.style.display = "none";
@@ -1415,7 +1424,6 @@
             }
 
             const today = new Date();
-            today.setHours(0, 0, 0, 0);
             const endDate = new Date(today);
             endDate.setDate(endDate.getDate() + 1);
 
@@ -1423,8 +1431,8 @@
                 .from('tasks')
                 .insert([{
                     text: "",
-                    start_date: today.toISOString(),
-                    end_date: endDate.toISOString(),
+                    start_date: _toDateStr(today),
+                    end_date: _toDateStr(endDate),
                     project_number: projectNumber,
                     machine: inheritMachine,
                     unit: "",
@@ -1479,8 +1487,8 @@
                     .from('tasks')
                     .update({
                         text: item.text,
-                        start_date: item.start_date.toISOString(),
-                        end_date: endDate.toISOString(),
+                        start_date: _toDateStr(item.start_date),
+                        end_date: _toDateStr(endDate),
                         project_number: item.project_number,
                         machine: item.machine,
                         unit: item.unit,
@@ -1491,7 +1499,8 @@
                         owner: item.owner,
                         total_sheets: Number(item.total_sheets) || 0,
                         completed_sheets: Number(item.completed_sheets) || 0,
-                        duration: item.duration
+                        duration: item.duration,
+                        task_type: item.task_type || currentTaskTypeFilter || "drawing"
                     })
                     .eq('id', id);
                 
@@ -1626,7 +1635,8 @@
         // 日付フォーマット共通テンプレート
         function _fmtDate(obj) {
             if (obj.has_no_date) return "";
-            const date = obj.end_date;
+            // end_dateはdhtmlxGanttの排他的終了（完了日の翌日0時）なので1日引いて完了日を表示
+            const date = new Date(obj.end_date.getTime() - 24 * 60 * 60 * 1000);
             const y = String(date.getFullYear()).slice(-2);
             const m = ("0" + (date.getMonth() + 1)).slice(-2);
             const d = ("0" + date.getDate()).slice(-2);
@@ -1739,6 +1749,31 @@
             return true;
         });
 
+        // JSローカル日付を "YYYY-MM-DD" 文字列に変換（Supabase date列への保存用）
+        function _toDateStr(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        // Supabaseのdate列（"YYYY-MM-DD"）をローカル深夜0時のDateとして解釈するヘルパー
+        function _parseSupabaseDate(str) {
+            if (!str) return null;
+            if (typeof str !== 'string') return new Date(str);
+            const s = str.trim();
+            // "YYYY-MM-DD" 形式（時刻なし）→ ローカル深夜0時
+            if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+                const [y, mo, d] = s.split('-').map(Number);
+                return new Date(y, mo - 1, d);
+            }
+            // 時刻あり・タイムゾーンなし → UTCとして解釈
+            if (!s.endsWith('Z') && !/[+-]\d{2}:?\d{2}$/.test(s)) {
+                return new Date(s.replace(' ', 'T') + 'Z');
+            }
+            return new Date(s);
+        }
+
         // データ読み込み
         async function loadData() {
             const { data, error } = await supabaseClient
@@ -1746,7 +1781,7 @@
                 .select('*')
                 .order('project_number', { ascending: true })
                 .order('id', { ascending: true });
-            
+
             if (error) {
                 console.error("Supabase error:", error);
                 return;
@@ -1756,9 +1791,9 @@
 
             const parsedTasks = data.map(t => {
                 const hasDates = (t.start_date && t.end_date);
-                
-                let startDate = hasDates ? new Date(t.start_date) : new Date(today);
-                let endDate = hasDates ? new Date(t.end_date) : gantt.date.add(new Date(today), 1, "day");
+
+                let startDate = hasDates ? _parseSupabaseDate(t.start_date) : new Date(today + 'T00:00:00Z');
+                let endDate = hasDates ? _parseSupabaseDate(t.end_date) : gantt.date.add(new Date(today + 'T00:00:00Z'), 1, "day");
 
                 // 開始日と終了日が同じ場合、1日分の幅を確保するために終了日を翌日に調整
                 if (hasDates && startDate.getTime() === endDate.getTime()) {
@@ -2007,8 +2042,8 @@
                     .from('tasks')
                     .insert([{
                         text:              src.text              || "",
-                        start_date:        src.start_date instanceof Date ? src.start_date.toISOString() : src.start_date,
-                        end_date:          src.end_date   instanceof Date ? src.end_date.toISOString()   : src.end_date,
+                        start_date:        src.start_date instanceof Date ? _toDateStr(src.start_date) : src.start_date,
+                        end_date:          src.end_date   instanceof Date ? _toDateStr(src.end_date)   : src.end_date,
                         project_number:    src.project_number    || "",
                         machine:           src.machine           || "",
                         unit:              src.unit              || "",
@@ -2019,7 +2054,7 @@
                         owner:             src.owner             || "",
                         total_sheets:      Number(src.total_sheets)      || 0,
                         completed_sheets:  Number(src.completed_sheets)  || 0,
-                        task_type:         src.task_type         || "drawing",
+                        task_type:         currentTaskTypeFilter || src.task_type || "drawing",
                         is_detailed:       true
                     }])
                     .select();
@@ -2072,6 +2107,9 @@
 
             // 6. 再描画
             gantt.render();
+
+            // 6b. 今日の日付へスクロール（ガントモード表示時の初期位置）
+            gantt.showDate(new Date());
 
             // 7. 初期表示をリソース全画面（担当別）ビューにする
             _enterResourceFullscreen();
