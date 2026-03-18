@@ -1894,9 +1894,34 @@
         // 列設定の初期化
         gantt.config.columns = _getDrawingColumns();
 
+        // 出張列定義
+        function _getTripColumns() {
+            return [
+                { name: "project_number",  label: "工事番号", width: 60,  align: "center", editor: { type: "text", map_to: "project_number" } },
+                { name: "customer_name",   label: "客先",     width: 110, align: "left",   editor: { type: "text", map_to: "customer_name" } },
+                { name: "project_details", label: "工事名",   width: 135, align: "left",   editor: { type: "text", map_to: "project_details" } },
+                { name: "text",            label: "タスク",   width: 70,  tree: true,      editor: { type: "text", map_to: "text" } },
+                { name: "owner",           label: "担当",     width: 35,  align: "center", editor: { type: "owner_select", map_to: "owner" } },
+                { name: "start_date",      label: "開始日",   width: 65,  align: "center", template: function(task) {
+                    if (!task.start_date) return "";
+                    const d = task.start_date;
+                    const yy = String(d.getFullYear()).slice(-2);
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    return yy + '/' + mm + '/' + dd;
+                } },
+                { name: "end_date",        label: "終了日",   width: 65,  align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
+                { name: "add_btn",         label: "",         width: 25,  align: "center", template: () => `<div class='custom_add_btn' onclick='createTask()'>+</div>` }
+            ];
+        }
+        // 出張列合計: 60+70+135+110+35+65+65+25 = 565px
+
         // 列セット切り替え
         function switchColumns(filterType) {
-            const cols = filterType === 'long_lead_item' ? _getLongtermColumns() : _getDrawingColumns();
+            let cols;
+            if (filterType === 'long_lead_item') cols = _getLongtermColumns();
+            else if (filterType === 'business_trip' || filterType === 'planning') cols = _getTripColumns();
+            else cols = _getDrawingColumns();
             gantt.config.columns = cols;
             _setLayout(_getColsSum(cols));
             gantt.render();
@@ -2124,7 +2149,10 @@
         }
 
         function _colSetName(filterType) {
-            return filterType === 'long_lead_item' ? 'longterm' : 'default';
+            if (filterType === 'long_lead_item') return 'longterm';
+            if (filterType === 'business_trip')  return 'trip';
+            if (filterType === 'planning')        return 'trip';
+            return 'default';
         }
 
         function setTaskTypeFilter(type) {
