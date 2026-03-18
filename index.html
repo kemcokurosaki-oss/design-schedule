@@ -545,10 +545,7 @@
 <body>
     <div class="main-container">
         <div class="header-panel">
-            <div class="header-row">
-                <div class="project-info" id="project_display">工事番号: 全表示</div>
-            </div>
-            <div class="header-row">
+            <div class="header-row" id="filter_btn_row">
                 <button class="btn btn-filter" id="resource_home_btn" onclick="returnToResourceView()">担当別</button>
                 <button class="btn btn-filter" id="plan_filter_btn" onclick="togglePlanFilter()">計画</button>
                 <button class="btn btn-filter" id="drawing_filter_btn" onclick="toggleDrawingFilter()">図面</button>
@@ -559,9 +556,26 @@
                     <button class="btn zoom-btn" onclick="setZoom('week', this)">週単位</button>
                 </div>
             </div>
-            <div class="header-row">
-                <select id="project_select" style="padding: 5px; min-width: 150px;"></select>
-                <button class="btn" onclick="loadData()">更新</button>
+            <div class="header-row" id="project_info_row">
+                <div class="project-info" id="project_display">工事番号: 全表示</div>
+            </div>
+            <div class="header-row" id="dropdowns_row">
+                <select id="project_select" style="padding:5px; font-size:13px; font-family:'メイリオ',Meiryo,sans-serif; border:1px solid #ccc; border-radius:3px; min-width:150px;"></select>
+                <select id="owner_filter_select" onchange="applyOwnerFilter()" style="padding:5px; font-size:13px; font-family:'メイリオ',Meiryo,sans-serif; border:1px solid #ccc; border-radius:3px; display:none;">
+                    <option value="">担当者: 全員</option>
+                    <option value="藤山">藤山</option>
+                    <option value="田中">田中</option>
+                    <option value="安岡">安岡</option>
+                    <option value="川邊">川邊</option>
+                    <option value="檀">檀</option>
+                    <option value="堀井">堀井</option>
+                    <option value="宮﨑">宮﨑</option>
+                    <option value="津田">津田</option>
+                    <option value="古村">古村</option>
+                    <option value="柴田">柴田</option>
+                    <option value="橋本">橋本</option>
+                    <option value="松本(英)">松本(英)</option>
+                </select>
                 <div class="action-controls">
                     <button class="btn btn-info" id="resource_toggle" onclick="toggleResourceView()">リソース表示</button>
                     <button class="btn btn-primary" onclick="createTask()">+ 新規タスク追加</button>
@@ -1105,6 +1119,10 @@
         function _enterResourceFullscreen() {
             isResourceFullscreen = true;
             isResourceView = true;
+            // 担当者フィルターをリセット
+            currentOwnerFilter = null;
+            const ownerSel = document.getElementById('owner_filter_select');
+            if (ownerSel) ownerSel.value = '';
             const panel = document.getElementById("resource_panel");
             const ganttEl = document.getElementById("gantt_here");
             const btn = document.getElementById("resource_toggle");
@@ -1862,6 +1880,12 @@
                 if (String(task.task_type) !== currentTaskTypeFilter) return false;
             }
 
+            // 担当者フィルタ
+            if (currentOwnerFilter) {
+                const taskOwners = String(task.owner || '').split(/[,、\s]+/).map(o => o.trim());
+                if (!taskOwners.includes(currentOwnerFilter)) return false;
+            }
+
             return true;
         });
 
@@ -1937,7 +1961,14 @@
         // グローバル変数の定義
         let projectMap = new Map();
         let currentTaskTypeFilter = null; // null = 全表示
+        let currentOwnerFilter = null;   // null = 全担当者
         let isResourceFullscreen = false;
+
+        function applyOwnerFilter() {
+            const sel = document.getElementById('owner_filter_select');
+            currentOwnerFilter = sel.value || null;
+            gantt.render();
+        }
 
         function updateFilterButtons() {
             document.getElementById('resource_home_btn').classList.toggle('active', isResourceFullscreen);
@@ -1945,7 +1976,19 @@
             document.getElementById('drawing_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'drawing');
             document.getElementById('longterm_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'long_lead_item');
             document.getElementById('trip_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'business_trip');
-            // 担当別モード中は新規タスク追加ボタンを非表示
+            // 担当別モード中はボタン行の上下余白を均等にして行を調整
+            const filterBtnRow = document.getElementById('filter_btn_row');
+            if (filterBtnRow) filterBtnRow.style.minHeight = isResourceFullscreen ? '36px' : '';
+            const headerPanel = document.querySelector('.header-panel');
+            if (headerPanel) headerPanel.style.padding = isResourceFullscreen ? '6px 10px 3px 10px' : '';
+            // 担当別モード中は2・3行目を非表示、新規タスク追加ボタンも非表示
+            const projectInfoRow = document.getElementById('project_info_row');
+            if (projectInfoRow) projectInfoRow.style.display = isResourceFullscreen ? 'none' : '';
+            const dropdownsRow = document.getElementById('dropdowns_row');
+            if (dropdownsRow) dropdownsRow.style.display = isResourceFullscreen ? 'none' : '';
+            // 担当者フィルターは非担当別モードのみ表示
+            const ownerSel = document.getElementById('owner_filter_select');
+            if (ownerSel) ownerSel.style.display = isResourceFullscreen ? 'none' : '';
             const addBtn = document.querySelector('button[onclick="createTask()"]');
             if (addBtn) addBtn.style.display = isResourceFullscreen ? 'none' : '';
         }
