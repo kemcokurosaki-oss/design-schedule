@@ -813,7 +813,7 @@
             let weekendBackgroundHtml = "";
             if (gantt.getState().scale_unit === "day") {
                 scale.trace_x.forEach((date, i) => {
-                    if (date.getDay() === 0 || date.getDay() === 6) {
+                    if (date.getDay() === 0 || date.getDay() === 6 || _isHoliday(date)) {
                         weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; background: #f4f4f4; z-index: 0;"></div>`;
                     }
                 });
@@ -929,7 +929,7 @@
             let weekendBackgroundHtml = "";
             if (gantt.getState().scale_unit === "day") {
                 scale.trace_x.forEach((date, i) => {
-                    if (date.getDay() === 0 || date.getDay() === 6) {
+                    if (date.getDay() === 0 || date.getDay() === 6 || _isHoliday(date)) {
                         weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; background: #f4f4f4; z-index: 0;"></div>`;
                     }
                 });
@@ -1066,8 +1066,9 @@
                 const dow = date.getDay();
                 const isSun = dow === 0;
                 const isSat = dow === 6;
-                const wkCls = (isSun || isSat) ? ' resource-cal-weekend' : '';
-                const dowColor = isSun ? 'color:#ffcccc;' : isSat ? 'color:#cce0ff;' : '';
+                const isHol = _isHoliday(date);
+                const wkCls = (isSun || isSat || isHol) ? ' resource-cal-weekend' : '';
+                const dowColor = isSun ? 'color:#ffcccc;' : (isSat || isHol) ? 'color:#cce0ff;' : '';
                 const d = date.getDate();
 
                 if (unit === 'day') {
@@ -2151,7 +2152,7 @@
             return css;
         };
         gantt.templates.timeline_cell_class = function(task, date) {
-            if (date.getDay() === 0 || date.getDay() === 6) return "weekend";
+            if (date.getDay() === 0 || date.getDay() === 6 || _isHoliday(date)) return "weekend";
             return "";
         };
 
@@ -2260,6 +2261,27 @@
         let projectMap = new Map();
         let currentTaskTypeFilter = null; // null = 全表示
         let currentProjectFilter = [];    // 空配列 = 全工事番号
+
+        // 休日セット（"YYYY-MM-DD" 形式で保持）
+        let HOLIDAYS = new Set();
+
+        async function loadHolidays() {
+            const { data, error } = await supabaseClient.from('holidays').select('date');
+            if (error) { console.error('休日読み込みエラー:', error); return; }
+            HOLIDAYS = new Set(data.map(row => {
+                // "2026/3/20" → "2026-03-20" に正規化
+                const parts = String(row.date).split('/');
+                if (parts.length !== 3) return null;
+                return parts[0] + '-' + String(parts[1]).padStart(2,'0') + '-' + String(parts[2]).padStart(2,'0');
+            }).filter(Boolean));
+        }
+
+        function _isHoliday(date) {
+            const key = date.getFullYear() + '-' +
+                String(date.getMonth() + 1).padStart(2,'0') + '-' +
+                String(date.getDate()).padStart(2,'0');
+            return HOLIDAYS.has(key);
+        }
         let currentOwnerFilter = [];      // 空配列 = 全担当者
         let _clearingEndDateId = null;   // 完了予定日クリア中のタスクID
         let isResourceFullscreen = false;
@@ -2641,8 +2663,11 @@
                 }
             });
 
-            // 2. セレクトボックスを構築（パラメータがあれば selected になる）
-            await initProjectSelect(projectParam); 
+            // 2. 休日データを読み込む
+            await loadHolidays();
+
+            // 3. セレクトボックスを構築（パラメータがあれば selected になる）
+            await initProjectSelect(projectParam);
             
             // 3. マーカー追加
             const today = new Date();
