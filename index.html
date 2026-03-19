@@ -573,7 +573,16 @@
                 <div class="project-info" id="project_display">工事番号: 全表示</div>
             </div>
             <div class="header-row" id="dropdowns_row">
-                <select id="project_select" class="header-select"></select>
+                <div id="project_filter_wrap" style="position:relative;">
+                    <button type="button" id="project_filter_btn" onclick="toggleProjectFilterDropdown()" class="header-select" style="white-space:nowrap; text-align:left;">工事番号: 全表示</button>
+                    <div id="project_filter_dropdown" style="display:none; position:absolute; top:calc(100% + 2px); left:0; background:#fff; border:1px solid #ccc; border-radius:3px; z-index:9999; padding:4px 0; min-width:160px; max-height:300px; overflow-y:auto; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+                        <label style="display:block; padding:4px 10px; cursor:pointer; white-space:nowrap; font-size:13px; font-family:'メイリオ',Meiryo,sans-serif;">
+                            <input type="checkbox" id="project_chk_all" onchange="projectFilterAllChanged(this)" checked> 全表示
+                        </label>
+                        <div style="border-top:1px solid #eee; margin:2px 0;"></div>
+                        <div id="project_chk_list"></div>
+                    </div>
+                </div>
                 <div id="owner_filter_wrap" style="position:relative; display:none;">
                     <button type="button" id="owner_filter_btn" onclick="toggleOwnerFilterDropdown()" class="header-select" style="white-space:nowrap; text-align:left;">担当者: 全員</button>
                     <div id="owner_filter_dropdown" style="display:none; position:absolute; top:calc(100% + 2px); left:0; background:#fff; border:1px solid #ccc; border-radius:3px; z-index:9999; padding:4px 0; min-width:130px; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
@@ -1566,8 +1575,7 @@
         // 新規タスク追加
         // gantt.createTask() を使わず Supabase に直接保存して loadData() でリフレッシュする
         async function createTask() {
-            const projectSelect = document.getElementById('project_select');
-            const projectNumber = projectSelect ? projectSelect.value : "";
+            const projectNumber = currentProjectFilter.length === 1 ? currentProjectFilter[0] : "";
 
             // 現在表示中のタスク一覧（onBeforeTaskDisplayと同じ条件でフィルタ）
             const visibleTasks = gantt.getTaskByTime().filter(t => {
@@ -2048,8 +2056,9 @@
             if (!isDetailed) return false;
 
             // 工事番号フィルタ
-            const pSelect = document.getElementById('project_select').value;
-            if (pSelect && String(task.project_number) !== String(pSelect)) return false;
+            if (currentProjectFilter.length > 0) {
+                if (!currentProjectFilter.includes(String(task.project_number))) return false;
+            }
 
             // task_typeフィルタ
             if (currentTaskTypeFilter) {
@@ -2140,6 +2149,7 @@
         // グローバル変数の定義
         let projectMap = new Map();
         let currentTaskTypeFilter = null; // null = 全表示
+        let currentProjectFilter = [];    // 空配列 = 全工事番号
         let currentOwnerFilter = [];      // 空配列 = 全担当者
         let _clearingEndDateId = null;   // 完了予定日クリア中のタスクID
         let isResourceFullscreen = false;
@@ -2152,6 +2162,42 @@
                     <input type="checkbox" class="owner-chk-item" value="${name}" onchange="ownerFilterItemChanged()"> ${name}
                 </label>
             `).join('');
+        }
+
+        function toggleProjectFilterDropdown() {
+            const dd = document.getElementById('project_filter_dropdown');
+            if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+        }
+
+        function projectFilterAllChanged(checkbox) {
+            document.querySelectorAll('.project-chk-item').forEach(chk => { chk.checked = false; });
+            currentProjectFilter = [];
+            gantt.render();
+            _updateProjectFilterBtn();
+            updateDisplay();
+        }
+
+        function projectFilterItemChanged() {
+            const selected = [];
+            document.querySelectorAll('.project-chk-item:checked').forEach(chk => selected.push(chk.value));
+            currentProjectFilter = selected;
+            const allChk = document.getElementById('project_chk_all');
+            if (allChk) allChk.checked = selected.length === 0;
+            gantt.render();
+            _updateProjectFilterBtn();
+            updateDisplay();
+        }
+
+        function _updateProjectFilterBtn() {
+            const btn = document.getElementById('project_filter_btn');
+            if (!btn) return;
+            if (currentProjectFilter.length === 0) {
+                btn.textContent = '工事番号: 全表示';
+            } else if (currentProjectFilter.length === 1) {
+                btn.textContent = currentProjectFilter[0];
+            } else {
+                btn.textContent = currentProjectFilter[0] + ' 他' + (currentProjectFilter.length - 1) + '件';
+            }
         }
 
         function toggleOwnerFilterDropdown() {
@@ -2190,9 +2236,14 @@
 
         // ドロップダウン外クリックで閉じる
         document.addEventListener('click', function(e) {
-            const wrap = document.getElementById('owner_filter_wrap');
-            if (wrap && !wrap.contains(e.target)) {
+            const ownerWrap = document.getElementById('owner_filter_wrap');
+            if (ownerWrap && !ownerWrap.contains(e.target)) {
                 const dd = document.getElementById('owner_filter_dropdown');
+                if (dd) dd.style.display = 'none';
+            }
+            const projectWrap = document.getElementById('project_filter_wrap');
+            if (projectWrap && !projectWrap.contains(e.target)) {
+                const dd = document.getElementById('project_filter_dropdown');
                 if (dd) dd.style.display = 'none';
             }
         });
@@ -2276,23 +2327,23 @@
 
         // 工事番号セレクトボックスの表示更新
         function updateDisplay() {
-            const select = document.getElementById('project_select');
             const display = document.getElementById('project_display');
-            const pSelect = select.value;
-            if (pSelect) {
-                const info = projectMap.get(pSelect);
-                display.innerText = `${pSelect} ${info?.customer || ""} ${info?.details || ""}`;
-            } else {
+            if (currentProjectFilter.length === 0) {
                 display.innerText = "工事番号: 全表示";
+            } else if (currentProjectFilter.length === 1) {
+                const info = projectMap.get(currentProjectFilter[0]);
+                display.innerText = `${currentProjectFilter[0]} ${info?.customer || ""} ${info?.details || ""}`;
+            } else {
+                display.innerText = currentProjectFilter.join('、');
             }
-            
+
             if (isResourceView) {
                 updateResourceData();
             }
             gantt.render();
         }
 
-        // 工事番号セレクトボックスの初期化
+        // 工事番号フィルターの初期化
         async function initProjectSelect(projectParam) {
             const { data } = await supabaseClient
                 .from('tasks')
@@ -2306,30 +2357,30 @@
                     const existing = projectMap.get(item.project_number);
                     const customer = item.customer_name || (existing ? existing.customer : "");
                     const details = item.project_details || (existing ? existing.details : "");
-                    
-                    projectMap.set(item.project_number, {
-                        customer: customer,
-                        details: details
-                    });
+                    projectMap.set(item.project_number, { customer, details });
                 }
             });
 
             const nums = Array.from(projectMap.keys()).sort();
-            const select = document.getElementById('project_select');
-            
-            let options = '<option value="">（全工事表示）</option>';
-            nums.forEach(n => {
-                const selected = String(n) === String(projectParam) ? ' selected' : '';
-                options += `<option value="${n}"${selected}>${n}</option>`;
-            });
-            select.innerHTML = options;
+            const list = document.getElementById('project_chk_list');
+            list.innerHTML = nums.map(n => `
+                <label style="display:block; padding:4px 10px; cursor:pointer; white-space:nowrap; font-size:13px; font-family:'メイリオ',Meiryo,sans-serif;">
+                    <input type="checkbox" class="project-chk-item" value="${n}" onchange="projectFilterItemChanged()"> ${n}
+                </label>`).join('');
 
-            // 初期表示の同期
+            // URLパラメータで初期選択
+            if (projectParam) {
+                const chk = list.querySelector(`.project-chk-item[value="${projectParam}"]`);
+                if (chk) {
+                    chk.checked = true;
+                    currentProjectFilter = [String(projectParam)];
+                    const allChk = document.getElementById('project_chk_all');
+                    if (allChk) allChk.checked = false;
+                }
+            }
+
+            _updateProjectFilterBtn();
             updateDisplay();
-            
-            select.addEventListener('change', () => {
-                updateDisplay();
-            });
         }
 
         // 初期化関数
