@@ -1445,6 +1445,36 @@
             }
         };
 
+        // 開始日インラインエディタ（計画・出張モード用）
+        gantt.config.editor_types.start_date_editor = {
+            show: function(id, column, config, placeholder) {
+                placeholder.innerHTML = '<input type="date" style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:12px;box-sizing:border-box;">';
+            },
+            hide: function() {},
+            set_value: function(value, id, column, node) {
+                const inp = node.querySelector('input');
+                if (!value) { inp.value = ''; return; }
+                inp.value = _toDateStr(new Date(value));
+            },
+            get_value: function(id, column, node) {
+                const val = node.querySelector('input').value;
+                if (!val) return gantt.getTask(id).start_date;
+                const parts = val.split('-').map(Number);
+                return new Date(parts[0], parts[1] - 1, parts[2]);
+            },
+            is_changed: function(value, id, column, node) {
+                const nv = this.get_value(id, column, node);
+                if (!value || !nv) return true;
+                return value.getTime() !== nv.getTime();
+            },
+            is_valid: function() { return true; },
+            save: function() {},
+            focus: function(node) {
+                const inp = node.querySelector('input');
+                if (inp) { inp.focus(); if (inp.showPicker) try { inp.showPicker(); } catch(e) {} }
+            }
+        };
+
         // 完了予定日専用インラインエディタ
         // Supabaseには実際の完了日(YYYY-MM-DD)を保存し、gantt内部では+1日した排他的終了日を使う
         gantt.config.editor_types.completion_date = {
@@ -2060,23 +2090,25 @@
         function _getTripColumns() {
             return [
                 { name: "project_number",  label: "工事番号", width: 60,  align: "center", editor: { type: "text", map_to: "project_number" } },
-                { name: "customer_name",   label: "客先",     width: 110, align: "left",   editor: { type: "text", map_to: "customer_name" } },
-                { name: "project_details", label: "工事名",   width: 135, align: "left",   editor: { type: "text", map_to: "project_details" } },
-                { name: "text",            label: "タスク",   width: 70,  tree: true,      editor: { type: "text", map_to: "text" } },
-                { name: "owner",           label: "担当",     width: 35,  align: "center", editor: { type: "owner_select", map_to: "owner" } },
-                { name: "start_date",      label: "開始日",   width: 65,  align: "center", template: function(task) {
+                { name: "machine",         label: "機械",     width: 40,  align: "center", editor: { type: "text", map_to: "machine" } },
+                { name: "unit",            label: "ユニ",     width: 40,  align: "center", editor: { type: "text", map_to: "unit" } },
+                { name: "text",            label: "タスク",   width: 230, tree: true,      editor: { type: "text", map_to: "text" } },
+                { name: "owner",           label: "担当",     width: 40,  align: "center", editor: { type: "owner_select", map_to: "owner" } },
+                { name: "start_date",      label: "開始日",   width: 65,  align: "center",
+                  template: function(task) {
                     if (!task.start_date) return "";
                     const d = task.start_date;
                     const yy = String(d.getFullYear()).slice(-2);
                     const mm = String(d.getMonth() + 1).padStart(2, '0');
                     const dd = String(d.getDate()).padStart(2, '0');
                     return yy + '/' + mm + '/' + dd;
-                } },
+                  },
+                  editor: { type: "start_date_editor", map_to: "start_date" } },
                 { name: "end_date",        label: "終了日",   width: 65,  align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
                 { name: "add_btn",         label: "",         width: 25,  align: "center", template: () => `<div class='custom_add_btn' onclick='createTask()'>+</div>` }
             ];
         }
-        // 出張列合計: 60+70+135+110+35+65+65+25 = 565px
+        // 計画/出張列合計: 60+35+35+245+35+65+65+25 = 565px
 
         // 列セット切り替え
         function switchColumns(filterType) {
