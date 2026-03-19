@@ -1291,11 +1291,16 @@
                 const wishDate = new Date(+parts[0], +parts[1] - 1, +parts[2]);
                 if (isNaN(wishDate.getTime())) return;
 
+                // hidden_bar（完了予定日なし）の場合はインラインstyle.topから行位置を取得
+                const top = taskNode.classList.contains('hidden_bar')
+                    ? (parseInt(taskNode.style.top) || 0)
+                    : taskNode.offsetTop;
+
                 const x = gantt.posFromDate(wishDate);
                 const el = document.createElement('div');
                 el.className = 'wish-date-mark';
                 el.style.left = x + 'px';
-                el.style.top  = taskNode.offsetTop + 'px';
+                el.style.top  = top + 'px';
                 el.title = label + ': ' + task.wish_date;
                 el.textContent = '▼';
                 dataArea.appendChild(el);
