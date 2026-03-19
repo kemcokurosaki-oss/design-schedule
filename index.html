@@ -2010,9 +2010,10 @@
         // 図面列定義（デフォルト）
         function _getDrawingColumns() {
             return [
+                { name: "project_number",   label: "工事<br>番号",   width: 35, align: "center", editor: { type: "text",   map_to: "project_number" } },
                 { name: "machine",          label: "機械",           width: 35, align: "center", editor: { type: "text",   map_to: "machine" } },
                 { name: "unit",             label: "ユニ",           width: 35, align: "center", editor: { type: "text",   map_to: "unit" } },
-                { name: "text",             label: "組立図面名",     width: 150, tree: true,      editor: { type: "text",   map_to: "text" } },
+                { name: "text",             label: "組立図面名",     width: 135, tree: true,      editor: { type: "text",   map_to: "text" } },
                 { name: "model_type",       label: "機種",           width: 30, align: "center", editor: { type: "text",   map_to: "model_type" } },
                 { name: "unit2",            label: "ユニ<br>2",      width: 30, align: "center", editor: { type: "text",   map_to: "unit2" } },
                 { name: "dash",             label: "-",              width: 25, align: "center", template: () => "-" },
@@ -2022,7 +2023,7 @@
                 { name: "total_sheets",     label: "総<br>枚数",     width: 30, align: "center", editor: { type: "number", map_to: "total_sheets",     min: 0 } },
                 { name: "completed_sheets", label: "完了<br>枚数",   width: 30, align: "center", editor: { type: "number", map_to: "completed_sheets", min: 0 } },
                 { name: "progress",         label: "進捗",           width: 40, align: "center", template: _progressTemplate },
-                { name: "end_date",         label: "完了<br>予定日", width: 80, align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
+                { name: "end_date",         label: "完了<br>予定日", width: 65, align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
                 { name: "add_btn",          label: "",               width: 30, align: "center", template: () => `<div class='custom_add_btn' onclick='createTask()'>+</div>` }
             ];
         }
@@ -2031,9 +2032,10 @@
         // 長納期品列定義
         function _getLongtermColumns() {
             return [
+                { name: "project_number", label: "工事<br>番号", width: 35,  align: "center", editor: { type: "text",   map_to: "project_number" } },
                 { name: "machine",    label: "機械",           width: 32,  align: "center", editor: { type: "text",   map_to: "machine" } },
                 { name: "unit",       label: "ユニ",           width: 32,  align: "center", editor: { type: "text",   map_to: "unit" } },
-                { name: "text",       label: "品名",           width: 138, tree: true,      editor: { type: "text",   map_to: "text" } },
+                { name: "text",       label: "品名",           width: 103, tree: true,      editor: { type: "text",   map_to: "text" } },
                 { name: "part_number", label: "型式・図番",     width: 85,  align: "left", editor: { type: "text",   map_to: "part_number" } },
                 { name: "quantity",   label: "個数",           width: 28,  align: "center", editor: { type: "number", map_to: "quantity", min: 0 } },
                 { name: "manufacturer",      label: "メーカー",       width: 70,  align: "center", editor: { type: "text",   map_to: "manufacturer" } },
