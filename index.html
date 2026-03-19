@@ -1602,7 +1602,7 @@
                     model_type: "",
                     part_number: "",
                     quantity: 0,
-                    maker: "",
+                    manufacturer: "",
                     customer_name: "",
                     project_details: "",
                     characteristic: "",
@@ -1671,7 +1671,7 @@
                         model_type: item.model_type,
                         part_number: item.part_number,
                         quantity: item.quantity,
-                        maker: item.maker,
+                        manufacturer: item.manufacturer,
                         customer_name: item.customer_name,
                         project_details: item.project_details,
                         characteristic: item.characteristic,
@@ -1744,7 +1744,7 @@
                     { name: "description",      height: 30, map_to: "text",            type: "textarea" },
                     { name: "part_number",      height: 30, map_to: "part_number",     type: "textarea" },
                     { name: "quantity",         height: 30, map_to: "quantity",        type: "textarea" },
-                    { name: "maker",            height: 30, map_to: "maker",           type: "textarea" },
+                    { name: "manufacturer",            height: 30, map_to: "manufacturer",           type: "textarea" },
                     { name: "owner",            height: 30, map_to: "owner",           type: "owner_select_lb" },
                     { name: "end_date",         height: 30, map_to: "end_date",        type: "template" },
                     { name: "wish_date_lb",     height: 30, map_to: "wish_date",       type: "wish_date_lb" },
@@ -1797,7 +1797,7 @@
         gantt.locale.labels.section_end_date         = "完了予定日";
         gantt.locale.labels.section_part_number      = "型式・図番";
         gantt.locale.labels.section_quantity         = "個数";
-        gantt.locale.labels.section_maker            = "メーカー";
+        gantt.locale.labels.section_manufacturer            = "メーカー";
         gantt.locale.labels.section_customer_name    = "客先";
         gantt.locale.labels.section_project_details  = "工事名";
         gantt.locale.labels.section_wish_date_lb     = "出図希望日 / 手配期日";
@@ -1976,7 +1976,7 @@
                 { name: "text",       label: "品名",           width: 170, tree: true,      editor: { type: "text",   map_to: "text" } },
                 { name: "part_number", label: "型式・図番",     width: 85,  align: "left", editor: { type: "text",   map_to: "part_number" } },
                 { name: "quantity",   label: "個数",           width: 28,  align: "center", editor: { type: "number", map_to: "quantity", min: 0 } },
-                { name: "maker",      label: "メーカー",       width: 70,  align: "center", editor: { type: "text",   map_to: "maker" } },
+                { name: "manufacturer",      label: "メーカー",       width: 70,  align: "center", editor: { type: "text",   map_to: "manufacturer" } },
                 { name: "owner",      label: "担当",           width: 32,  align: "center", editor: { type: "owner_select", map_to: "owner" } },
                 { name: "end_date",   label: "手配<br>予定日", width: 60,  align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
                 { name: "add_btn",    label: "",               width: 25,  align: "center", template: () => `<div class='custom_add_btn' onclick='createTask()'>+</div>` }
@@ -2438,7 +2438,7 @@
                         model_type:        src.model_type        || "",
                         part_number:       src.part_number       || "",
                         quantity:          Number(src.quantity)  || 0,
-                        maker:             src.maker             || "",
+                        manufacturer:      src.manufacturer      || "",
                         customer_name:     src.customer_name     || "",
                         project_details:   src.project_details   || "",
                         characteristic:    src.characteristic    || "",
