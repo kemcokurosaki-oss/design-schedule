@@ -1317,11 +1317,23 @@
                         : taskNode.offsetTop;
                 }
 
+                // 完了予定日/手配予定日が希望日を過ぎていたら赤
+                let isOverdue = false;
+                if (!task.has_no_date && task.end_date) {
+                    // gantt内部のend_date は排他的終了日（+1日）なので-1日して実際の完了日と比較
+                    const actualEnd = gantt.date.add(new Date(task.end_date), -1, 'day');
+                    actualEnd.setHours(0, 0, 0, 0);
+                    const wishDay = new Date(wishDate);
+                    wishDay.setHours(0, 0, 0, 0);
+                    isOverdue = actualEnd > wishDay;
+                }
+
                 const x = gantt.posFromDate(gantt.date.add(wishDate, 1, 'day'));
                 const el = document.createElement('div');
                 el.className = 'wish-date-mark';
                 el.style.left = x + 'px';
                 el.style.top  = top + 'px';
+                if (isOverdue) el.style.color = '#e53935';
                 el.title = label + ': ' + task.wish_date;
                 el.textContent = '▼';
                 dataArea.appendChild(el);
@@ -1782,9 +1794,10 @@
                 if (error) {
                     console.error("Error updating task:", error);
                     alert("タスクの更新に失敗しました。\n" + error.message);
-                } else if (isResourceView) {
-                    // リソース表示中は保存後に再描画して変更を反映
-                    updateResourceData();
+                } else {
+                    if (isResourceView) updateResourceData();
+                    // ▼マークの色を即時更新
+                    requestAnimationFrame(_renderWishDateMarks);
                 }
             } catch (e) {
                 console.error("Exception in onAfterTaskUpdate:", e);
