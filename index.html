@@ -1601,6 +1601,8 @@
                     unit2: "",
                     model_type: "",
                     part_number: "",
+                    quantity: 0,
+                    maker: "",
                     customer_name: "",
                     project_details: "",
                     characteristic: "",
@@ -1668,6 +1670,8 @@
                         unit2: item.unit2,
                         model_type: item.model_type,
                         part_number: item.part_number,
+                        quantity: item.quantity,
+                        maker: item.maker,
                         customer_name: item.customer_name,
                         project_details: item.project_details,
                         characteristic: item.characteristic,
@@ -1676,10 +1680,11 @@
                         total_sheets: Number(item.total_sheets) || 0,
                         completed_sheets: Number(item.completed_sheets) || 0,
                         duration: item.duration,
-                        task_type: item.task_type || currentTaskTypeFilter || "drawing"
+                        task_type: item.task_type || currentTaskTypeFilter || "drawing",
+                        wish_date: item.wish_date || null
                     })
                     .eq('id', id);
-                
+
                 if (error) {
                     console.error("Error updating task:", error);
                     alert("タスクの更新に失敗しました。\n" + error.message);
@@ -1729,40 +1734,109 @@
             }
         });
 
-        // 編集画面（ライトボックス）の設定
-        gantt.config.lightbox.sections = [
-            { name: "project_number", height: 30, map_to: "project_number", type: "textarea" },
-            { name: "machine", height: 30, map_to: "machine", type: "textarea" },
-            { name: "unit", height: 30, map_to: "unit", type: "textarea" },
-            { name: "description", height: 30, map_to: "text", type: "textarea" },
-            { name: "model_type", height: 30, map_to: "model_type", type: "textarea" },
-            { name: "unit2", height: 30, map_to: "unit2", type: "textarea" },
-            { name: "characteristic", height: 30, map_to: "characteristic", type: "textarea" },
-            { name: "derivation", height: 30, map_to: "derivation", type: "textarea" },
-            { name: "owner", height: 30, map_to: "owner", type: "textarea" },
-            { name: "total_sheets", height: 30, map_to: "total_sheets", type: "textarea" },
-            { name: "completed_sheets", height: 30, map_to: "completed_sheets", type: "textarea" },
-            { name: "start_date", height: 30, map_to: "start_date", type: "template" },
-            { name: "end_date", height: 30, map_to: "end_date", type: "template" },
-            { name: "duration", height: 30, map_to: "duration", type: "textarea" }
-        ];
+        // 編集画面（ライトボックス）のセクション定義（タスクタイプ別）
+        function _getLightboxSections(taskType) {
+            if (taskType === 'long_lead_item') {
+                return [
+                    { name: "project_number",   height: 30, map_to: "project_number", type: "textarea" },
+                    { name: "machine",          height: 30, map_to: "machine",         type: "textarea" },
+                    { name: "unit",             height: 30, map_to: "unit",            type: "textarea" },
+                    { name: "description",      height: 30, map_to: "text",            type: "textarea" },
+                    { name: "part_number",      height: 30, map_to: "part_number",     type: "textarea" },
+                    { name: "quantity",         height: 30, map_to: "quantity",        type: "textarea" },
+                    { name: "maker",            height: 30, map_to: "maker",           type: "textarea" },
+                    { name: "owner",            height: 30, map_to: "owner",           type: "owner_select_lb" },
+                    { name: "end_date",         height: 30, map_to: "end_date",        type: "template" },
+                    { name: "wish_date_lb",     height: 30, map_to: "wish_date",       type: "wish_date_lb" },
+                ];
+            } else if (taskType === 'planning' || taskType === 'business_trip') {
+                return [
+                    { name: "project_number",  height: 30, map_to: "project_number",  type: "textarea" },
+                    { name: "customer_name",   height: 30, map_to: "customer_name",   type: "textarea" },
+                    { name: "project_details", height: 30, map_to: "project_details", type: "textarea" },
+                    { name: "description",     height: 30, map_to: "text",            type: "textarea" },
+                    { name: "owner",           height: 30, map_to: "owner",           type: "owner_select_lb" },
+                    { name: "start_date",      height: 30, map_to: "start_date",      type: "template" },
+                    { name: "end_date",        height: 30, map_to: "end_date",        type: "template" },
+                ];
+            } else {
+                // drawing（デフォルト）
+                return [
+                    { name: "project_number",   height: 30, map_to: "project_number",  type: "textarea" },
+                    { name: "machine",          height: 30, map_to: "machine",          type: "textarea" },
+                    { name: "unit",             height: 30, map_to: "unit",             type: "textarea" },
+                    { name: "description",      height: 30, map_to: "text",             type: "textarea" },
+                    { name: "model_type",       height: 30, map_to: "model_type",       type: "textarea" },
+                    { name: "unit2",            height: 30, map_to: "unit2",            type: "textarea" },
+                    { name: "characteristic",   height: 30, map_to: "characteristic",   type: "textarea" },
+                    { name: "derivation",       height: 30, map_to: "derivation",       type: "textarea" },
+                    { name: "owner",            height: 30, map_to: "owner",            type: "owner_select_lb" },
+                    { name: "total_sheets",     height: 30, map_to: "total_sheets",     type: "textarea" },
+                    { name: "completed_sheets", height: 30, map_to: "completed_sheets", type: "textarea" },
+                    { name: "start_date",       height: 30, map_to: "start_date",       type: "template" },
+                    { name: "end_date",         height: 30, map_to: "end_date",         type: "template" },
+                    { name: "wish_date_lb",     height: 30, map_to: "wish_date",        type: "wish_date_lb" },
+                ];
+            }
+        }
 
-        gantt.locale.labels.section_project_number = "工事番号";
-        gantt.locale.labels.section_machine = "機械";
-        gantt.locale.labels.section_unit = "ユニット";
-        gantt.locale.labels.section_description = "組立図面名";
-        gantt.locale.labels.section_model_type = "機種";
-        gantt.locale.labels.section_unit2 = "ユニット2";
-        gantt.locale.labels.section_characteristic = "特性";
-        gantt.locale.labels.section_derivation = "派生";
-        gantt.locale.labels.section_owner = "担当";
-        gantt.locale.labels.section_total_sheets = "総枚数";
+        gantt.config.lightbox.sections = _getLightboxSections('drawing');
+
+        gantt.locale.labels.section_project_number   = "工事番号";
+        gantt.locale.labels.section_machine          = "機械";
+        gantt.locale.labels.section_unit             = "ユニット";
+        gantt.locale.labels.section_description      = "組立図面名 / 品名 / タスク";
+        gantt.locale.labels.section_model_type       = "機種";
+        gantt.locale.labels.section_unit2            = "ユニット2";
+        gantt.locale.labels.section_characteristic   = "特性";
+        gantt.locale.labels.section_derivation       = "派生";
+        gantt.locale.labels.section_owner            = "担当";
+        gantt.locale.labels.section_total_sheets     = "総枚数";
         gantt.locale.labels.section_completed_sheets = "完了枚数";
-        gantt.locale.labels.section_start_date = "出図開始日";
-        gantt.locale.labels.section_end_date = "完了予定日";
-        gantt.locale.labels.section_duration = "期間 (日)";
+        gantt.locale.labels.section_start_date       = "開始日";
+        gantt.locale.labels.section_end_date         = "完了予定日";
+        gantt.locale.labels.section_part_number      = "型式・図番";
+        gantt.locale.labels.section_quantity         = "個数";
+        gantt.locale.labels.section_maker            = "メーカー";
+        gantt.locale.labels.section_customer_name    = "客先";
+        gantt.locale.labels.section_project_details  = "工事名";
+        gantt.locale.labels.section_wish_date_lb     = "出図希望日 / 手配期日";
 
         // カスタムテンプレート（input type="date"）
+        // 担当プルダウン（ライトボックス用）
+        gantt.form_blocks["owner_select_lb"] = {
+            render: function(sns) {
+                const opts = ['', ...OWNER_OPTIONS].map(n =>
+                    `<option value="${n}">${n || '-- 未選択 --'}</option>`).join('');
+                return `<div class='gantt_cal_ltext'><select style='width:100%;height:30px;border:1px solid #ccc;border-radius:4px;padding:0 5px;'>${opts}</select></div>`;
+            },
+            set_value: function(node, value, task, sns) {
+                node.querySelector("select").value = value || '';
+            },
+            get_value: function(node, task, sns) {
+                return node.querySelector("select").value;
+            },
+            focus: function(node) {
+                node.querySelector("select").focus();
+            }
+        };
+
+        // 出図希望日 / 手配期日（wish_date、文字列 YYYY-MM-DD）ライトボックス用
+        gantt.form_blocks["wish_date_lb"] = {
+            render: function(sns) {
+                return "<div class='gantt_cal_ltext'><input type='date' style='width:100%;height:30px;border:1px solid #ccc;border-radius:4px;padding:0 5px;'></div>";
+            },
+            set_value: function(node, value, task, sns) {
+                node.querySelector("input").value = value || '';
+            },
+            get_value: function(node, task, sns) {
+                return node.querySelector("input").value || null;
+            },
+            focus: function(node) {
+                node.querySelector("input").focus();
+            }
+        };
+
         gantt.form_blocks["template"] = {
             render: function(sns) {
                 return "<div class='gantt_cal_ltext'><input type='date' id='cal_" + sns.name + "' style='width:100%; height:30px; border:1px solid #ccc; border-radius:4px; padding:0 5px;'></div>";
@@ -1795,14 +1869,15 @@
 
         // ライトボックス保存時の処理
         gantt.attachEvent("onLightboxSave", function(id, task, is_new){
-            const startStr = document.getElementById("cal_start_date").value;
-            const endStr = document.getElementById("cal_end_date").value;
+            const startEl = document.getElementById("cal_start_date");
+            const endEl   = document.getElementById("cal_end_date");
+            const startStr = startEl ? startEl.value : "";
+            const endStr   = endEl   ? endEl.value   : "";
             const duration = parseInt(task.duration) || 1;
 
             if (startStr && endStr) {
                 task.start_date = new Date(startStr);
                 task.end_date = new Date(endStr);
-                // 終了日は翌日の00:00として扱う必要がある（DHTMLXの仕様）
                 task.end_date = gantt.date.add(task.end_date, 1, "day");
                 task.duration = gantt.calculateDuration(task.start_date, task.end_date);
             } else if (startStr && duration) {
@@ -1813,13 +1888,27 @@
                 task.end_date = gantt.date.add(task.end_date, 1, "day");
                 task.start_date = gantt.date.add(task.end_date, -duration, "day");
             }
-            
+
             return true;
         });
 
         // ライトボックス表示前の処理（担当別モード時は非表示）
         gantt.attachEvent("onBeforeLightbox", function(id) {
             if (isResourceFullscreen) return false;
+            const task = gantt.getTask(id);
+            const taskType = task ? (task.task_type || 'drawing') : 'drawing';
+            gantt.config.lightbox.sections = _getLightboxSections(taskType);
+
+            if (taskType === 'long_lead_item') {
+                gantt.locale.labels.section_description  = "品名";
+                gantt.locale.labels.section_wish_date_lb = "手配期日";
+            } else if (taskType === 'planning' || taskType === 'business_trip') {
+                gantt.locale.labels.section_description  = "タスク";
+            } else {
+                gantt.locale.labels.section_description  = "組立図面名";
+                gantt.locale.labels.section_wish_date_lb = "出図希望日";
+            }
+
             return true;
         });
 
@@ -2348,6 +2437,8 @@
                         unit2:             src.unit2             || "",
                         model_type:        src.model_type        || "",
                         part_number:       src.part_number       || "",
+                        quantity:          Number(src.quantity)  || 0,
+                        maker:             src.maker             || "",
                         customer_name:     src.customer_name     || "",
                         project_details:   src.project_details   || "",
                         characteristic:    src.characteristic    || "",
