@@ -1296,7 +1296,7 @@
                     ? (parseInt(taskNode.style.top) || 0)
                     : taskNode.offsetTop;
 
-                const x = gantt.posFromDate(wishDate);
+                const x = gantt.posFromDate(gantt.date.add(wishDate, 1, 'day'));
                 const el = document.createElement('div');
                 el.className = 'wish-date-mark';
                 el.style.left = x + 'px';
