@@ -1671,6 +1671,10 @@
         // 新規タスク追加
         // gantt.createTask() を使わず Supabase に直接保存して loadData() でリフレッシュする
         async function createTask() {
+            if (currentProjectFilter.length !== 1) {
+                alert("工事番号を選択してからタスクを追加してください。");
+                return;
+            }
             const projectNumber = currentProjectFilter.length === 1 ? currentProjectFilter[0] : "";
 
             // 現在表示中のタスク一覧（onBeforeTaskDisplayと同じ条件でフィルタ）
