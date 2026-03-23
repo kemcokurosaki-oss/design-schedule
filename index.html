@@ -1670,26 +1670,55 @@
 
         // 新規タスク追加
         // gantt.createTask() を使わず Supabase に直接保存して loadData() でリフレッシュする
-        async function createTask() {
+        // afterTaskId: グリッドの+ボタンから呼ばれた場合は対象行のID、ヘッダーボタンから呼ばれた場合は undefined
+        async function createTask(afterTaskId) {
             if (currentProjectFilter.length !== 1) {
                 alert("工事番号を選択してからタスクを追加してください。");
                 return;
             }
-            const projectNumber = currentProjectFilter.length === 1 ? currentProjectFilter[0] : "";
+            const projectNumber = currentProjectFilter[0];
 
-            // 現在表示中のタスク一覧（onBeforeTaskDisplayと同じ条件でフィルタ）
+            // 現在表示中のタスク一覧を sort_order 順（nullの場合は id で代替）でソート
             const visibleTasks = gantt.getTaskByTime().filter(t => {
                 const isDetailed = (t.is_detailed === true || String(t.is_detailed).toUpperCase() === 'TRUE');
                 if (!isDetailed) return false;
-                if (projectNumber && String(t.project_number) !== String(projectNumber)) return false;
+                if (String(t.project_number) !== String(projectNumber)) return false;
                 if (currentTaskTypeFilter && String(t.task_type) !== currentTaskTypeFilter) return false;
                 return true;
+            }).sort((a, b) => {
+                const sa = (a.sort_order != null) ? a.sort_order : a.id;
+                const sb = (b.sort_order != null) ? b.sort_order : b.id;
+                return sa - sb;
             });
 
-            // 工事番号フィルタ選択中は最後の表示行から machine を引き継ぎ
+            // sort_order と machine の決定
+            // sort_order が null の行は id * 1000 を仮想値として使用（整数列でも小数にならないよう大きな間隔を確保）
+            const _getSO = t => (t.sort_order != null) ? t.sort_order : t.id * 1000;
+
+            let newSortOrder;
             let inheritMachine = "";
-            if (projectNumber && visibleTasks.length > 0) {
-                inheritMachine = visibleTasks[visibleTasks.length - 1].machine || "";
+
+            if (afterTaskId != null) {
+                // グリッドの+ボタン：クリックした行の1行下に挿入
+                const afterIdx = visibleTasks.findIndex(t => String(t.id) === String(afterTaskId));
+                if (afterIdx >= 0) {
+                    const afterTask = visibleTasks[afterIdx];
+                    inheritMachine = afterTask.machine || "";
+                    if (afterIdx + 1 < visibleTasks.length) {
+                        const nextTask = visibleTasks[afterIdx + 1];
+                        newSortOrder = Math.round((_getSO(afterTask) + _getSO(nextTask)) / 2);
+                    } else {
+                        newSortOrder = _getSO(afterTask) + 1000;
+                    }
+                } else {
+                    // 見つからない場合は末尾
+                    newSortOrder = visibleTasks.length > 0 ? (_getSO(visibleTasks[visibleTasks.length - 1]) + 1000) : 1000;
+                    inheritMachine = visibleTasks.length > 0 ? (visibleTasks[visibleTasks.length - 1].machine || "") : "";
+                }
+            } else {
+                // ヘッダーの「新規タスク追加」ボタン：末尾に追加
+                newSortOrder = visibleTasks.length > 0 ? (_getSO(visibleTasks[visibleTasks.length - 1]) + 1000) : 1000;
+                inheritMachine = visibleTasks.length > 0 ? (visibleTasks[visibleTasks.length - 1].machine || "") : "";
             }
 
             const today = new Date();
@@ -1721,7 +1750,8 @@
                     completed_sheets: 0,
                     task_type: currentTaskTypeFilter || "drawing",
                     wish_date: _toDateStr(today),
-                    is_detailed: true
+                    is_detailed: true,
+                    sort_order: newSortOrder
                 }])
                 .select();
 
@@ -2076,7 +2106,7 @@
                 { name: "completed_sheets", label: "完了<br>枚数",   width: 30, align: "center", editor: { type: "number", map_to: "completed_sheets", min: 0 } },
                 { name: "progress",         label: "進捗",           width: 40, align: "center", template: _progressTemplate },
                 { name: "end_date",         label: "完了<br>予定日", width: 65, align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
-                { name: "add_btn",          label: "",               width: 30, align: "center", template: () => `<div class='custom_add_btn' onclick='createTask()'>+</div>` }
+                { name: "add_btn",          label: "",               width: 30, align: "center", template: (task) => `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` }
             ];
         }
         // 図面列合計: 18+18+120+16+16+14+16+16+16+16+16+20+20+20 = 342px
@@ -2100,7 +2130,7 @@
                       return v;
                   },
                   editor: { type: "status_select", map_to: "status" } },
-                { name: "add_btn",    label: "",               width: 25,  align: "center", template: () => `<div class='custom_add_btn' onclick='createTask()'>+</div>` }
+                { name: "add_btn",    label: "",               width: 25,  align: "center", template: (task) => `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` }
             ];
         }
         // 長納期品列合計: 32+42+190+85+28+70+32+60+20 = 559px
@@ -2127,7 +2157,7 @@
                   },
                   editor: { type: "start_date_editor", map_to: "start_date" } },
                 { name: "end_date",        label: "終了日",   width: 65,  align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
-                { name: "add_btn",         label: "",         width: 25,  align: "center", template: () => `<div class='custom_add_btn' onclick='createTask()'>+</div>` }
+                { name: "add_btn",         label: "",         width: 25,  align: "center", template: (task) => `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` }
             ];
         }
         // 計画/出張列合計: 60+35+35+245+35+65+65+25 = 565px
@@ -2249,8 +2279,17 @@
                 };
             });
 
+            // sort_order 順（null の場合は id * 1000 で代替）にソート
+            parsedTasks.sort((a, b) => {
+                if (String(a.project_number) < String(b.project_number)) return -1;
+                if (String(a.project_number) > String(b.project_number)) return 1;
+                const sa = (a.sort_order != null) ? a.sort_order : a.id * 1000;
+                const sb = (b.sort_order != null) ? b.sort_order : b.id * 1000;
+                return sa - sb;
+            });
+
             gantt.clearAll();
-            gantt.parse({ 
+            gantt.parse({
                 data: parsedTasks
             });
 
