@@ -1253,8 +1253,15 @@
             btn.innerText = "リソース表示";
             document.getElementById("resource_close_btn").style.display = "";
             updateFilterButtons();
-            gantt.setSizes();
-            gantt.render();
+            setTimeout(() => {
+                gantt.setSizes();
+                const currentLevel = document.querySelector('.zoom-btn.active')?.textContent === '週単位' ? 'week' : 'day';
+                gantt.ext.zoom.setLevel(currentLevel);
+                // スクロールを微小に動かしてタイムラインを強制再描画
+                const s = gantt.getScrollState();
+                gantt.scrollTo(s.x + 1, s.y);
+                requestAnimationFrame(() => gantt.scrollTo(s.x, s.y));
+            }, 50);
         }
 
         function toggleResourceView() {
@@ -1277,10 +1284,15 @@
                 document.getElementById('resource_back_btn').style.display = 'none';
             }
 
-            if (window.gantt) {
+            setTimeout(() => {
                 gantt.setSizes();
-            }
-            gantt.render();
+                const currentLevel = document.querySelector('.zoom-btn.active')?.textContent === '週単位' ? 'week' : 'day';
+                gantt.ext.zoom.setLevel(currentLevel);
+                // スクロールを微小に動かしてタイムラインを強制再描画
+                const s = gantt.getScrollState();
+                gantt.scrollTo(s.x + 1, s.y);
+                requestAnimationFrame(() => gantt.scrollTo(s.x, s.y));
+            }, 50);
         }
 
         // 今日の赤線：.gantt_task（ビューポート全高）に配置し、
@@ -2568,6 +2580,12 @@
                 } else {
                     gantt.refreshData();
                 }
+                // ブラウザの描画確定後にズームレベルを再設定してカレンダーヘッダーを完全再描画
+                setTimeout(() => {
+                    gantt.setSizes();
+                    const currentLevel = document.querySelector('.zoom-btn.active')?.textContent === '週単位' ? 'week' : 'day';
+                    gantt.ext.zoom.setLevel(currentLevel);
+                }, 0);
             }
         }
 
