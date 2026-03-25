@@ -547,6 +547,8 @@
         #gantt_ctx_paste { color: #2e7d32; }
         #gantt_ctx_paste:hover { background: #e8f5e9; }
         #gantt_ctx_paste.disabled { color: #aaa; pointer-events: none; }
+        #gantt_ctx_copy.disabled { color: #aaa; pointer-events: none; }
+        #gantt_ctx_copy_multi.disabled { color: #aaa; pointer-events: none; }
         #gantt_ctx_delete { color: #c62828; }
         #gantt_ctx_delete:hover { background: #ffebee; }
         .gantt_ctx_sep { border-top: 1px solid #eee; margin: 3px 0; }
@@ -1965,6 +1967,7 @@
                         status: item.status,
                         customer_name: item.customer_name,
                         project_details: item.project_details,
+                        hyphen: item.hyphen ?? null,
                         characteristic: item.characteristic,
                         derivation: item.derivation,
                         owner: item.owner,
@@ -2248,7 +2251,7 @@
                 { name: "text",             label: "組立図面名",     width: 135, tree: true,      editor: { type: "text",   map_to: "text" } },
                 { name: "model_type",       label: "機種",           width: 30, align: "center", editor: { type: "text",   map_to: "model_type" } },
                 { name: "unit2",            label: "ユニ<br>2",      width: 30, align: "center", editor: { type: "text",   map_to: "unit2" } },
-                { name: "dash",             label: "-",              width: 25, align: "center", template: () => "-" },
+                { name: "dash",             label: "-",              width: 25, align: "center", template: (task) => task.hyphen ?? "-", editor: { type: "text", map_to: "hyphen" } },
                 { name: "characteristic",   label: "特性",           width: 30, align: "center", editor: { type: "text",   map_to: "characteristic" } },
                 { name: "derivation",       label: "派生",           width: 30, align: "center", editor: { type: "text",   map_to: "derivation" } },
                 { name: "owner",            label: "担当",           width: 30, align: "center", editor: { type: "owner_select", map_to: "owner" } },
@@ -2852,6 +2855,10 @@
                 const isMultiDelete = _gridSelection.size > 1 && _gridSelection.has(String(_ctxTaskId));
                 document.getElementById("gantt_ctx_delete").textContent =
                     isMultiDelete ? `選択した ${_gridSelection.size} 件を削除` : "このタスクを削除";
+                // コピーの有効/無効（工事番号が1つ選択されていない場合は不可）
+                const _copyDisabled = currentProjectFilter.length !== 1;
+                document.getElementById("gantt_ctx_copy").classList.toggle('disabled', _copyDisabled);
+                document.getElementById("gantt_ctx_copy_multi").classList.toggle('disabled', _copyDisabled);
                 // 貼り付けの有効/無効
                 document.getElementById("gantt_ctx_paste").classList.toggle('disabled', _copiedTasks.length === 0);
                 _ctxMenu.style.left = e.pageX + 'px';
