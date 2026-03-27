@@ -140,7 +140,14 @@ async function main() {
   // メール送信
   for (const [email, info] of Object.entries(notifications)) {
     try {
-      await sendEmail(email, info.name, info.lines.join('\n'));
+      const overdue = info.lines.filter(l => l.startsWith('【期限切れ】'));
+      const today   = info.lines.filter(l => l.startsWith('【本日期限】'));
+      const week    = info.lines.filter(l => l.startsWith('【1週間前】'));
+      const sections = [];
+      if (overdue.length) sections.push(`■ 期限切れ\n${overdue.join('\n')}`);
+      if (today.length)   sections.push(`■ 本日期限\n${today.join('\n')}`);
+      if (week.length)    sections.push(`■ 1週間前\n${week.join('\n')}`);
+      await sendEmail(email, info.name, sections.join('\n\n'));
     } catch (e) {
       console.error(`送信失敗: ${email} - ${e.message}`);
     }
