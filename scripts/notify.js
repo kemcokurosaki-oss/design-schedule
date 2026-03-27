@@ -137,7 +137,10 @@ async function main() {
     }
 
     // 工程管理者（全タスク通知）
-    PROCESS_MANAGERS.forEach(pm => {
+    const targets = testMode
+      ? PROCESS_MANAGERS.filter(pm => pm.email === 'e-kurosaki@kusakabe.com')
+      : PROCESS_MANAGERS;
+    targets.forEach(pm => {
       addLine(pm.email, pm.name, line);
     });
   });
