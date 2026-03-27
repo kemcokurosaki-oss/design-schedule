@@ -25,7 +25,7 @@ async function sendEmail(toEmail, toName, tasksList) {
   console.log(`SERVICE_ID: "${EMAILJS_SERVICE_ID}" PUBLIC_KEY: "${EMAILJS_PUBLIC_KEY?.substring(0,5)}..."`);
   const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'origin': 'http://localhost' },
     body: JSON.stringify({
       service_id: EMAILJS_SERVICE_ID,
       template_id: EMAILJS_TEMPLATE_ID,
