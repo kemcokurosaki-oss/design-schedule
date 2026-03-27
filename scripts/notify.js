@@ -54,17 +54,29 @@ async function main() {
 
   console.log(`チェック日: ${todayStr} / 7日後: ${in7DaysStr}`);
 
-  // 本日期限のタスクを取得
-  const todayTasks = await supabaseFetch(
+  // 図面：本日期限
+  const drawingToday = await supabaseFetch(
     `tasks?select=*&task_type=eq.drawing&is_archived=neq.true&end_date=gte.${todayStr}&end_date=lt.${tomorrowStr}`
   );
-  // 1週間後が期限のタスクを取得
-  const weekTasks = await supabaseFetch(
+  // 図面：1週間後
+  const drawingWeek = await supabaseFetch(
     `tasks?select=*&task_type=eq.drawing&is_archived=neq.true&end_date=gte.${in7DaysStr}&end_date=lt.${in8DaysStr}`
   );
-  // 期限切れ（本日より前）のタスクを取得
-  const overdueTasks = await supabaseFetch(
+  // 図面：期限切れ
+  const drawingOverdue = await supabaseFetch(
     `tasks?select=*&task_type=eq.drawing&is_archived=neq.true&end_date=not.is.null&end_date=lt.${todayStr}`
+  );
+  // 長納期品：本日
+  const llToday = await supabaseFetch(
+    `tasks?select=*&task_type=eq.long_lead_item&is_archived=neq.true&end_date=gte.${todayStr}&end_date=lt.${tomorrowStr}`
+  );
+  // 長納期品：1週間後
+  const llWeek = await supabaseFetch(
+    `tasks?select=*&task_type=eq.long_lead_item&is_archived=neq.true&end_date=gte.${in7DaysStr}&end_date=lt.${in8DaysStr}`
+  );
+  // 長納期品：期限切れ
+  const llOverdue = await supabaseFetch(
+    `tasks?select=*&task_type=eq.long_lead_item&is_archived=neq.true&end_date=not.is.null&end_date=lt.${todayStr}`
   );
 
   const isCompleted = t => {
@@ -74,9 +86,12 @@ async function main() {
   };
 
   const allTasks = [
-    ...overdueTasks.map(t => ({ ...t, label: '【期限切れ】' })),
-    ...todayTasks.map(t => ({ ...t, label: '【本日期限】' })),
-    ...weekTasks.map(t => ({ ...t, label: '【1週間前】' })),
+    ...drawingOverdue.map(t => ({ ...t, label: '【期限切れ】', mode: '図面' })),
+    ...drawingToday.map(t => ({ ...t, label: '【本日期限】', mode: '図面' })),
+    ...drawingWeek.map(t => ({ ...t, label: '【1週間前】', mode: '図面' })),
+    ...llOverdue.map(t => ({ ...t, label: '【期限切れ】', mode: '長納期品' })),
+    ...llToday.map(t => ({ ...t, label: '【本日期限】', mode: '長納期品' })),
+    ...llWeek.map(t => ({ ...t, label: '【1週間前】', mode: '長納期品' })),
   ].filter(t => !isCompleted(t));
 
   if (allTasks.length === 0) {
@@ -100,10 +115,10 @@ async function main() {
 
   // 受信者ごとに通知内容をまとめる
   const notifications = {};
-  const addLine = (email, name, line) => {
+  const addLine = (email, name, entry) => {
     if (!email) return;
     if (!notifications[email]) notifications[email] = { name, lines: [] };
-    notifications[email].lines.push(line);
+    notifications[email].lines.push(entry);
   };
 
   const testMode = process.env.TEST_MODE === 'true';
@@ -112,17 +127,19 @@ async function main() {
   allTasks.forEach(task => {
     const endDate = task.end_date ? task.end_date.substring(0, 10) : '';
     const machine = [task.machine, task.unit].filter(Boolean).join(' ');
-    const line = `${task.label} [${task.project_number}] ${machine ? machine + ' / ' : ''}${task.owner} / ${task.text}（完了予定日：${endDate}）`;
+    const dateLabel = task.mode === '長納期品' ? '手配予定日' : '完了予定日';
+    const text = `${task.label} [${task.project_number}] ${machine ? machine + ' / ' : ''}${task.owner} / ${task.text}（${dateLabel}：${endDate}）`;
+    const entry = { text, mode: task.mode, label: task.label };
     const member = nameToMember[task.owner];
 
     if (!testMode) {
       if (member) {
-        addLine(member.email, member.name, line);
+        addLine(member.email, member.name, entry);
         if (member.supervisor_email_1) {
-          addLine(member.supervisor_email_1, emailToName[member.supervisor_email_1] || member.supervisor_email_1, line);
+          addLine(member.supervisor_email_1, emailToName[member.supervisor_email_1] || member.supervisor_email_1, entry);
         }
         if (member.supervisor_email_2) {
-          addLine(member.supervisor_email_2, emailToName[member.supervisor_email_2] || member.supervisor_email_2, line);
+          addLine(member.supervisor_email_2, emailToName[member.supervisor_email_2] || member.supervisor_email_2, entry);
         }
       } else {
         console.warn(`メンバー未登録: ${task.owner}`);
@@ -133,20 +150,30 @@ async function main() {
       ? PROCESS_MANAGERS.filter(pm => pm.email === 'e-kurosaki@kusakabe.com')
       : PROCESS_MANAGERS;
     targets.forEach(pm => {
-      addLine(pm.email, pm.name, line);
+      addLine(pm.email, pm.name, entry);
     });
   });
+
+  const buildSections = (lines, mode) => {
+    const filtered = lines.filter(l => l.mode === mode);
+    const overdue = filtered.filter(l => l.label === '【期限切れ】').map(l => l.text);
+    const todayL  = filtered.filter(l => l.label === '【本日期限】').map(l => l.text);
+    const weekL   = filtered.filter(l => l.label === '【1週間前】').map(l => l.text);
+    const s = [];
+    if (overdue.length) s.push(`■ 期限切れ\n${overdue.join('\n')}`);
+    if (todayL.length)  s.push(`■ 本日期限\n${todayL.join('\n')}`);
+    if (weekL.length)   s.push(`■ 1週間前\n${weekL.join('\n')}`);
+    return s;
+  };
 
   // メール送信
   for (const [email, info] of Object.entries(notifications)) {
     try {
-      const overdue = info.lines.filter(l => l.startsWith('【期限切れ】'));
-      const today   = info.lines.filter(l => l.startsWith('【本日期限】'));
-      const week    = info.lines.filter(l => l.startsWith('【1週間前】'));
       const sections = [];
-      if (overdue.length) sections.push(`■ 期限切れ\n${overdue.join('\n')}`);
-      if (today.length)   sections.push(`■ 本日期限\n${today.join('\n')}`);
-      if (week.length)    sections.push(`■ 1週間前\n${week.join('\n')}`);
+      const dSections = buildSections(info.lines, '図面');
+      const lSections = buildSections(info.lines, '長納期品');
+      if (dSections.length) sections.push(`== 図面 ==\n${dSections.join('\n\n')}`);
+      if (lSections.length) sections.push(`== 長納期品 ==\n${lSections.join('\n\n')}`);
       await sendEmail(email, info.name, sections.join('\n\n'));
     } catch (e) {
       console.error(`送信失敗: ${email} - ${e.message}`);
