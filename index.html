@@ -1480,7 +1480,7 @@
                 el.className = 'wish-date-mark';
                 el.style.left = x + 'px';
                 el.style.top  = top + 'px';
-                if (isOverdue) el.style.color = '#e53935';
+                if (isOverdue) { el.style.color = '#c62828'; el.style.webkitTextStroke = '3.5px #fff'; el.style.paintOrder = 'stroke fill'; }
                 el.title = label + ': ' + task.wish_date;
                 el.textContent = '▼';
                 dataArea.appendChild(el);
@@ -1510,6 +1510,7 @@
                         task.wish_date = dateStr;
                         el.title = label + ': ' + dateStr;
                         _saveWishDate(task.id, dateStr);
+                        requestAnimationFrame(_renderWishDateMarks);
                     }
                     document.addEventListener('mousemove', onMove);
                     document.addEventListener('mouseup',   onUp);
