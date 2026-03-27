@@ -80,6 +80,7 @@ async function main() {
   );
 
   const isCompleted = t => {
+    if (t.task_type === 'long_lead_item') return t.status === '完了';
     const total = Number(t.total_sheets) || 0;
     const done  = Number(t.completed_sheets) || 0;
     return total > 0 && done >= total;
