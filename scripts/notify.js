@@ -111,7 +111,8 @@ async function main() {
 
   allTasks.forEach(task => {
     const endDate = task.end_date ? task.end_date.substring(0, 10) : '';
-    const line = `${task.label} ${task.owner} / ${task.text}（完了予定日：${endDate}）`;
+    const machine = [task.machine, task.unit].filter(Boolean).join(' ');
+    const line = `${task.label} [${task.project_number}] ${machine ? machine + ' / ' : ''}${task.owner} / ${task.text}（完了予定日：${endDate}）`;
     const member = nameToMember[task.owner];
 
     if (!testMode) {
