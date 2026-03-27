@@ -22,7 +22,14 @@ async function supabaseFetch(path) {
 }
 
 async function sendEmail(toEmail, toName, tasksList) {
-  console.log(`SERVICE_ID: "${EMAILJS_SERVICE_ID}" PUBLIC_KEY: "${EMAILJS_PUBLIC_KEY?.substring(0,5)}..."`);
+  const payload = {
+    service_id: EMAILJS_SERVICE_ID,
+    template_id: EMAILJS_TEMPLATE_ID,
+    user_id: EMAILJS_PUBLIC_KEY,
+    accessToken: EMAILJS_PRIVATE_KEY,
+    template_params: { to_email: toEmail, to_name: toName, tasks_list: tasksList },
+  };
+  console.log('送信payload(抜粋):', JSON.stringify({ service_id: payload.service_id, template_id: payload.template_id, user_id: payload.user_id }));
   const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'origin': 'http://localhost' },
