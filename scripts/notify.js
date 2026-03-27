@@ -67,11 +67,22 @@ async function main() {
   const weekTasks = await supabaseFetch(
     `tasks?select=*&task_type=eq.drawing&is_archived=neq.true&end_date=gte.${in7DaysStr}&end_date=lt.${in8DaysStr}`
   );
+  // 期限切れ（本日より前）のタスクを取得
+  const overdueTasks = await supabaseFetch(
+    `tasks?select=*&task_type=eq.drawing&is_archived=neq.true&end_date=not.is.null&end_date=lt.${todayStr}`
+  );
+
+  const isCompleted = t => {
+    const total = Number(t.total_sheets) || 0;
+    const done  = Number(t.completed_sheets) || 0;
+    return total > 0 && done >= total;
+  };
 
   const allTasks = [
+    ...overdueTasks.map(t => ({ ...t, label: '【期限切れ】' })),
     ...todayTasks.map(t => ({ ...t, label: '【本日期限】' })),
     ...weekTasks.map(t => ({ ...t, label: '【1週間前】' })),
-  ];
+  ].filter(t => !isCompleted(t));
 
   if (allTasks.length === 0) {
     console.log('通知対象タスクなし');
@@ -100,24 +111,29 @@ async function main() {
     notifications[email].lines.push(line);
   };
 
+  const testMode = process.env.TEST_MODE === 'true';
+  if (testMode) console.log('テストモード: 工程管理者のみに送信');
+
   allTasks.forEach(task => {
     const endDate = task.end_date ? task.end_date.substring(0, 10) : '';
     const line = `${task.label} ${task.owner} / ${task.text}（完了予定日：${endDate}）`;
     const member = nameToMember[task.owner];
 
-    if (member) {
-      // 担当者本人
-      addLine(member.email, member.name, line);
-      // 上長1
-      if (member.supervisor_email_1) {
-        addLine(member.supervisor_email_1, emailToName[member.supervisor_email_1] || member.supervisor_email_1, line);
+    if (!testMode) {
+      if (member) {
+        // 担当者本人
+        addLine(member.email, member.name, line);
+        // 上長1
+        if (member.supervisor_email_1) {
+          addLine(member.supervisor_email_1, emailToName[member.supervisor_email_1] || member.supervisor_email_1, line);
+        }
+        // 上長2
+        if (member.supervisor_email_2) {
+          addLine(member.supervisor_email_2, emailToName[member.supervisor_email_2] || member.supervisor_email_2, line);
+        }
+      } else {
+        console.warn(`メンバー未登録: ${task.owner}`);
       }
-      // 上長2
-      if (member.supervisor_email_2) {
-        addLine(member.supervisor_email_2, emailToName[member.supervisor_email_2] || member.supervisor_email_2, line);
-      }
-    } else {
-      console.warn(`メンバー未登録: ${task.owner}`);
     }
 
     // 工程管理者（全タスク通知）

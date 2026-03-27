@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: '0 0 * * *'  # 毎朝9時JST（UTC 0:00）
   workflow_dispatch:      # GitHub画面から手動実行も可能
+    inputs:
+      test_mode:
+        description: 'テストモード（工程管理者のみ送信）'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 jobs:
   notify:
@@ -21,4 +30,5 @@ jobs:
           EMAILJS_TEMPLATE_ID: ${{ secrets.EMAILJS_TEMPLATE_ID }}
           EMAILJS_PUBLIC_KEY: ${{ secrets.EMAILJS_PUBLIC_KEY }}
           EMAILJS_PRIVATE_KEY: ${{ secrets.EMAILJS_PRIVATE_KEY }}
+          TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
         run: node scripts/notify.js
