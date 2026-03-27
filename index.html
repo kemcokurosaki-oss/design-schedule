@@ -3170,10 +3170,23 @@
             // 6b. 今日の日付へスクロール（ガントモード表示時の初期位置）
             gantt.showDate(new Date());
 
-            // 7. 初期表示をリソース全画面（担当別）ビューにする
-            // レイアウト確定後（1フレーム後）に切り替えることで垂直ずれを防ぐ
+            // 7. 初期表示モードを設定
+            // task_type パラメータがある場合（全体工程表から遷移）はガントモードで起動
+            //   - task_type=long_lead_item → 長納期品モード
+            //   - task_type=drawing        → 図面モード
+            // task_type パラメータがない場合（直接アクセス）は担当別モードで起動
+            const taskTypeParam = urlParams.get('task_type');
             requestAnimationFrame(() => {
-                _enterResourceFullscreen();
+                if (taskTypeParam) {
+                    // 全体工程表からの遷移：指定モードのガントビューで起動
+                    currentTaskTypeFilter = taskTypeParam;
+                    updateFilterButtons();
+                    switchColumns(taskTypeParam);
+                    gantt.setSizes();
+                } else {
+                    // 直接アクセス：担当別モードで起動
+                    _enterResourceFullscreen();
+                }
             });
         }
 
