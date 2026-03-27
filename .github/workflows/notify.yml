@@ -22,13 +22,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - name: パッケージインストール
+        run: npm install
       - name: タスク期日通知を送信
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-          EMAILJS_SERVICE_ID: ${{ secrets.EMAILJS_SERVICE_ID }}
-          EMAILJS_TEMPLATE_ID: ${{ secrets.EMAILJS_TEMPLATE_ID }}
-          EMAILJS_PUBLIC_KEY: ${{ secrets.EMAILJS_PUBLIC_KEY }}
-          EMAILJS_PRIVATE_KEY: ${{ secrets.EMAILJS_PRIVATE_KEY }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
         run: node scripts/notify.js

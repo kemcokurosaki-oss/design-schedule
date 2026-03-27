@@ -1,14 +1,19 @@
+const nodemailer = require('nodemailer');
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY;
-const EMAILJS_SERVICE_ID = 'service_hk3eq36';
-const EMAILJS_TEMPLATE_ID = 'template_6pt9bke';
-const EMAILJS_PUBLIC_KEY = 'WmnCkUKci9oNex_YG';
-const EMAILJS_PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY;
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD;
 
 const PROCESS_MANAGERS = [
   { email: 's-morimura@kusakabe.com', name: '森村' },
   { email: 'e-kurosaki@kusakabe.com', name: '黒崎' },
 ];
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: { user: GMAIL_USER, pass: GMAIL_PASS },
+});
 
 async function supabaseFetch(path) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -22,30 +27,12 @@ async function supabaseFetch(path) {
 }
 
 async function sendEmail(toEmail, toName, tasksList) {
-  const payload = {
-    service_id: EMAILJS_SERVICE_ID,
-    template_id: EMAILJS_TEMPLATE_ID,
-    user_id: EMAILJS_PUBLIC_KEY,
-    accessToken: EMAILJS_PRIVATE_KEY,
-    template_params: { to_email: toEmail, to_name: toName, tasks_list: tasksList },
-  };
-  console.log('送信payload(抜粋):', JSON.stringify({ service_id: payload.service_id, template_id: payload.template_id, user_id: payload.user_id }));
-  const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'origin': 'http://localhost' },
-    body: JSON.stringify({
-      service_id: EMAILJS_SERVICE_ID,
-      template_id: EMAILJS_TEMPLATE_ID,
-      user_id: EMAILJS_PUBLIC_KEY,
-      accessToken: EMAILJS_PRIVATE_KEY,
-      template_params: {
-        to_email: toEmail,
-        to_name: toName,
-        tasks_list: tasksList,
-      },
-    }),
+  await transporter.sendMail({
+    from: `"工程通知" <${GMAIL_USER}>`,
+    to: toEmail,
+    subject: '【工程通知】完了予定日が近いタスクのお知らせ',
+    text: `${toName} 様\n\n完了予定日が近いタスクをお知らせします。\n\n${tasksList}\n\n確認をお願いします。\n\n※このメールは自動送信です。`,
   });
-  if (!res.ok) throw new Error(`EmailJS error: ${await res.text()}`);
   console.log(`送信完了: ${toEmail}`);
 }
 
@@ -129,13 +116,10 @@ async function main() {
 
     if (!testMode) {
       if (member) {
-        // 担当者本人
         addLine(member.email, member.name, line);
-        // 上長1
         if (member.supervisor_email_1) {
           addLine(member.supervisor_email_1, emailToName[member.supervisor_email_1] || member.supervisor_email_1, line);
         }
-        // 上長2
         if (member.supervisor_email_2) {
           addLine(member.supervisor_email_2, emailToName[member.supervisor_email_2] || member.supervisor_email_2, line);
         }
@@ -144,7 +128,6 @@ async function main() {
       }
     }
 
-    // 工程管理者（全タスク通知）
     const targets = testMode
       ? PROCESS_MANAGERS.filter(pm => pm.email === 'e-kurosaki@kusakabe.com')
       : PROCESS_MANAGERS;
