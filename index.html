@@ -665,12 +665,13 @@
         .archive-tab-btn.active { background: #1565c0; color: #fff; border-color: #1565c0; }
         /* タスク詳細モーダル */
         #archive_detail_overlay { z-index: 100001; } /* 一覧の上に重ねる */
+        #archive_copy_overlay { z-index: 100002; } /* 詳細画面の上に重ねる */
         #archive_detail_dialog {
             background: #fff; border-radius: 6px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             padding: 20px 24px 16px; width: 900px; max-width: 95vw;
             font-family: "メイリオ", Meiryo, sans-serif; font-size: 13px;
-            max-height: 80vh; display: flex; flex-direction: column;
+            height: 80vh; display: flex; flex-direction: column;
         }
         #archive_detail_dialog h3 {
             margin: 0 0 14px; font-size: 14px; color: #1565c0;
