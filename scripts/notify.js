@@ -40,6 +40,20 @@ async function main() {
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
 
+  // 土日チェック（UTC 0:00実行 = JST 9:00 なので曜日は一致）
+  const dayOfWeek = today.getUTCDay();
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    console.log('土日のため通知をスキップします');
+    return;
+  }
+
+  // 休日チェック
+  const holidays = await supabaseFetch(`holidays?select=date&date=eq.${todayStr}`);
+  if (holidays.length > 0) {
+    console.log(`休日（${todayStr}）のため通知をスキップします`);
+    return;
+  }
+
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
   const tomorrowStr = tomorrow.toISOString().split('T')[0];

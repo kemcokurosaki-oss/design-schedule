@@ -59,6 +59,20 @@ async function main() {
   // 前日9時JST〜当日9時JSTに追加されたタスクを取得（UTC換算: 前日0:00〜当日0:00）
   const today = new Date();
   const todayUTC = today.toISOString().split('T')[0];
+
+  // 土日チェック（UTC 0:00実行 = JST 9:00 なので曜日は一致）
+  const dayOfWeek = today.getUTCDay();
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    console.log('土日のため通知をスキップします');
+    return;
+  }
+
+  // 休日チェック
+  const holidays = await supabaseFetch(`holidays?select=date&date=eq.${todayUTC}`);
+  if (holidays.length > 0) {
+    console.log(`休日（${todayUTC}）のため通知をスキップします`);
+    return;
+  }
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
   const yesterdayUTC = yesterday.toISOString().split('T')[0];
