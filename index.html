@@ -710,6 +710,33 @@
         }
         .btn-auth { font-size: 12px; padding: 2px 10px; }
         .btn-auth.logged-in { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
+
+        /* ===== パスワード設定ダイアログ ===== */
+        #setpw_overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.6); z-index: 200001;
+            align-items: center; justify-content: center;
+        }
+        #setpw_overlay.open { display: flex; }
+        #setpw_dialog {
+            background: #fff; border-radius: 8px; padding: 32px 28px;
+            width: 320px; box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+        }
+        #setpw_dialog h2 { margin: 0 0 8px; font-size: 15px; text-align: center; color: #333; }
+        #setpw_dialog p { margin: 0 0 20px; font-size: 12px; text-align: center; color: #888; }
+        #setpw_dialog input {
+            width: 100%; padding: 8px 10px; margin-bottom: 12px;
+            border: 1px solid #ccc; border-radius: 4px;
+            font-size: 13px; font-family: 'メイリオ', Meiryo, sans-serif;
+            box-sizing: border-box;
+        }
+        #setpw_error { color: #e74c3c; font-size: 12px; margin-bottom: 10px; display: none; }
+        #setpw_btn_submit {
+            width: 100%; padding: 9px; background: #2ecc71; color: #fff;
+            border: none; border-radius: 4px; font-size: 13px; cursor: pointer;
+            font-family: 'メイリオ', Meiryo, sans-serif;
+        }
+        #setpw_btn_submit:hover { background: #27ae60; }
     </style>
 </head>
 <body>
@@ -1640,9 +1667,54 @@
             await supabaseClient.auth.signOut();
         }
 
+        function openSetPasswordDialog() {
+            document.getElementById('setpw_pw1').value = '';
+            document.getElementById('setpw_pw2').value = '';
+            document.getElementById('setpw_error').style.display = 'none';
+            document.getElementById('setpw_overlay').classList.add('open');
+            setTimeout(() => document.getElementById('setpw_pw1').focus(), 100);
+        }
+
+        async function doSetPassword() {
+            const pw1 = document.getElementById('setpw_pw1').value;
+            const pw2 = document.getElementById('setpw_pw2').value;
+            const errEl = document.getElementById('setpw_error');
+            errEl.style.display = 'none';
+
+            if (pw1.length < 8) {
+                errEl.textContent = 'パスワードは8文字以上で入力してください';
+                errEl.style.display = 'block';
+                return;
+            }
+            if (pw1 !== pw2) {
+                errEl.textContent = 'パスワードが一致しません';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            document.getElementById('setpw_btn_submit').textContent = '処理中...';
+            const { error } = await supabaseClient.auth.updateUser({ password: pw1 });
+            document.getElementById('setpw_btn_submit').textContent = 'パスワードを設定する';
+
+            if (error) {
+                errEl.textContent = 'エラーが発生しました: ' + error.message;
+                errEl.style.display = 'block';
+            } else {
+                document.getElementById('setpw_overlay').classList.remove('open');
+                // URLのハッシュをクリア
+                history.replaceState(null, '', window.location.pathname + window.location.search);
+                _updateUIForAuth(true);
+            }
+        }
+
         // 認証状態の変化を監視（ページロード時・ログイン・ログアウト時に自動で呼ばれる）
         supabaseClient.auth.onAuthStateChange((_event, session) => {
-            _updateUIForAuth(!!session);
+            if (_event === 'PASSWORD_RECOVERY' || _event === 'SIGNED_IN' && window.location.hash.includes('type=invite')) {
+                // 招待メール・パスワードリセットのリンクからのアクセス
+                openSetPasswordDialog();
+            } else {
+                _updateUIForAuth(!!session);
+            }
         });
 
         // Gantt 基本構成
@@ -3598,6 +3670,19 @@
             </div>
         </div>
     </div>
+
+<!-- ===== パスワード設定ダイアログ（招待メール・パスワードリセット用） ===== -->
+<div id="setpw_overlay">
+    <div id="setpw_dialog">
+        <h2>パスワードを設定してください</h2>
+        <p>設計工程表で使用するパスワードを設定します</p>
+        <input type="password" id="setpw_pw1" placeholder="新しいパスワード（8文字以上）">
+        <input type="password" id="setpw_pw2" placeholder="パスワードを再入力"
+               onkeydown="if(event.key==='Enter') doSetPassword()">
+        <div id="setpw_error"></div>
+        <button id="setpw_btn_submit" onclick="doSetPassword()">パスワードを設定する</button>
+    </div>
+</div>
 
 <!-- ===== ログインダイアログ ===== -->
 <div id="login_overlay">
