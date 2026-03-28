@@ -2353,7 +2353,7 @@
                 { name: "completed_sheets", label: "完了<br>枚数",   width: 30, align: "center", editor: { type: "number", map_to: "completed_sheets", min: 0 } },
                 { name: "progress",         label: "進捗",           width: 40, align: "center", template: _progressTemplate },
                 { name: "end_date",         label: "完了<br>予定日", width: 65, align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
-                { name: "add_btn",          label: "",               width: 30, align: "center", template: (task) => `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` }
+                { name: "add_btn",          label: "",               width: 30, align: "center", template: (task) => _isEditor ? `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` : '' }
             ];
         }
         // 図面列合計: 18+18+120+16+16+14+16+16+16+16+16+20+20+20 = 342px
@@ -2377,7 +2377,7 @@
                       return v;
                   },
                   editor: { type: "status_select", map_to: "status" } },
-                { name: "add_btn",    label: "",               width: 25,  align: "center", template: (task) => `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` }
+                { name: "add_btn",    label: "",               width: 25,  align: "center", template: (task) => _isEditor ? `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` : '' }
             ];
         }
         // 長納期品列合計: 32+42+190+85+28+70+32+60+20 = 559px
@@ -2404,7 +2404,7 @@
                   },
                   editor: { type: "start_date_editor", map_to: "start_date" } },
                 { name: "end_date",        label: "終了日",   width: 65,  align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
-                { name: "add_btn",         label: "",         width: 25,  align: "center", template: (task) => `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` }
+                { name: "add_btn",         label: "",         width: 25,  align: "center", template: (task) => _isEditor ? `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` : '' }
             ];
         }
         // 計画/出張列合計: 60+35+35+245+35+65+65+25 = 565px
@@ -2699,8 +2699,8 @@
             // 担当者フィルターは非担当別モードのみ表示
             const ownerWrap = document.getElementById('owner_filter_wrap');
             if (ownerWrap) ownerWrap.style.display = isResourceFullscreen ? 'none' : '';
-            const addBtn = document.querySelector('button[onclick="createTask()"]');
-            if (addBtn) addBtn.style.display = isResourceFullscreen ? 'none' : '';
+            const addBtn = document.getElementById('create_task_btn');
+            if (addBtn) addBtn.style.display = (isResourceFullscreen || !_isEditor) ? 'none' : '';
         }
 
         // タスクバークリック時の編集（担当別モードでは無効）
