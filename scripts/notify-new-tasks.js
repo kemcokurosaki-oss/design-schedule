@@ -56,14 +56,11 @@ async function main() {
   const testMode = process.env.TEST_MODE === 'true';
   if (testMode) console.log('テストモード: e-kurosaki@kusakabe.comのみに送信');
 
-  // 前日9時JST〜当日9時JSTに追加されたタスクを取得（UTC換算: 前日0:00〜当日0:00）
+  // テスト用：本日0時以降に追加されたタスクを取得
   const today = new Date();
   const todayUTC = today.toISOString().split('T')[0];
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const yesterdayUTC = yesterday.toISOString().split('T')[0];
-  const rangeStart = `${yesterdayUTC}T00:00:00`;
-  const rangeEnd   = `${todayUTC}T00:00:00`;
+  const rangeStart = `${todayUTC}T00:00:00`;
+  const rangeEnd   = new Date().toISOString();
 
   console.log(`対象期間: ${rangeStart} 〜 ${rangeEnd}`);
 
