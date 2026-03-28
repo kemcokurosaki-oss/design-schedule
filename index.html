@@ -2863,9 +2863,13 @@
                 document.getElementById("gantt_ctx_copy_multi").classList.toggle('disabled', _copyDisabled);
                 // 貼り付けの有効/無効
                 document.getElementById("gantt_ctx_paste").classList.toggle('disabled', _copiedTasks.length === 0);
-                _ctxMenu.style.left = e.pageX + 'px';
-                _ctxMenu.style.top = e.pageY + 'px';
                 _ctxMenu.style.display = 'block';
+                const menuH = _ctxMenu.offsetHeight;
+                const menuW = _ctxMenu.offsetWidth;
+                const top = (e.clientY + menuH > window.innerHeight) ? e.clientY - menuH : e.clientY;
+                const left = (e.clientX + menuW > window.innerWidth) ? e.clientX - menuW : e.clientX;
+                _ctxMenu.style.top = (top + window.scrollY) + 'px';
+                _ctxMenu.style.left = (left + window.scrollX) + 'px';
             });
 
             // コピー項目設定
