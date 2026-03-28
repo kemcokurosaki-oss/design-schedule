@@ -1878,7 +1878,7 @@
         function _updateMultiDeleteBtn() {
             const btn = document.getElementById('multi_delete_btn');
             if (!btn) return;
-            if (_gridSelection.size >= 1) {
+            if (_isEditor && _gridSelection.size >= 1) {
                 document.getElementById('multi_delete_count').textContent = _gridSelection.size;
                 btn.style.display = '';
             } else {
@@ -2834,7 +2834,8 @@
                 multiselect: true
             });
 
-            // 1. Gantt初期化
+            // 1. Gantt初期化（デフォルトは読み取り専用、ログイン後に解除）
+            gantt.config.readonly = true;
             gantt.config.columns = _getDrawingColumns();
             _setLayout(_getColsSum(gantt.config.columns));
 
