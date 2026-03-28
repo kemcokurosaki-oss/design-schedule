@@ -677,6 +677,39 @@
             margin: 0 0 14px; font-size: 14px; color: #1565c0;
             border-bottom: 1px solid #e3f2fd; padding-bottom: 8px; flex-shrink: 0;
         }
+
+        /* ===== ログイン ===== */
+        #login_overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.5); z-index: 200000;
+            align-items: center; justify-content: center;
+        }
+        #login_overlay.open { display: flex; }
+        #login_dialog {
+            background: #fff; border-radius: 8px; padding: 32px 28px;
+            width: 300px; box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+        }
+        #login_dialog h2 { margin: 0 0 20px; font-size: 15px; text-align: center; color: #333; }
+        #login_dialog input {
+            width: 100%; padding: 8px 10px; margin-bottom: 12px;
+            border: 1px solid #ccc; border-radius: 4px;
+            font-size: 13px; font-family: 'メイリオ', Meiryo, sans-serif;
+            box-sizing: border-box;
+        }
+        #login_error { color: #e74c3c; font-size: 12px; margin-bottom: 10px; display: none; }
+        #login_btn_submit {
+            width: 100%; padding: 9px; background: #3498db; color: #fff;
+            border: none; border-radius: 4px; font-size: 13px; cursor: pointer;
+            font-family: 'メイリオ', Meiryo, sans-serif;
+        }
+        #login_btn_submit:hover { background: #2980b9; }
+        #login_btn_cancel {
+            width: 100%; padding: 7px; background: none; border: none;
+            color: #999; font-size: 12px; cursor: pointer; margin-top: 8px;
+            font-family: 'メイリオ', Meiryo, sans-serif;
+        }
+        .btn-auth { font-size: 12px; padding: 2px 10px; }
+        .btn-auth.logged-in { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
     </style>
 </head>
 <body>
@@ -691,6 +724,7 @@
                 <div class="zoom-controls" style="margin-left: auto;">
                     <button class="btn zoom-btn active" onclick="setZoom('day', this)">日単位</button>
                     <button class="btn zoom-btn" onclick="setZoom('week', this)">週単位</button>
+                    <button class="btn btn-auth" id="auth_btn" onclick="handleAuthBtn()">ログイン</button>
                 </div>
             </div>
             <div class="header-row" id="project_info_row">
@@ -719,9 +753,9 @@
                 </div>
                 <div class="action-controls">
                     <button class="btn btn-info" id="resource_toggle" onclick="toggleResourceView()">リソース表示</button>
-                    <button class="btn btn-primary" onclick="createTask()">+ 新規タスク追加</button>
-                    <button class="btn" id="multi_delete_btn" onclick="deleteSelectedTasks()">選択削除 (<span id="multi_delete_count">0</span>件)</button>
-                    <div style="position:relative;" id="archive_btn_wrap">
+                    <button class="btn btn-primary" id="create_task_btn" onclick="createTask()" style="display:none;">+ 新規タスク追加</button>
+                    <button class="btn" id="multi_delete_btn" onclick="deleteSelectedTasks()" style="display:none;">選択削除 (<span id="multi_delete_count">0</span>件)</button>
+                    <div style="position:relative;display:none;" id="archive_btn_wrap">
                         <button class="btn" onclick="toggleArchiveMenu(event)">アーカイブ ▼</button>
                         <div id="archive_dropdown_menu">
                             <div onclick="openArchiveManager()">アーカイブ管理</div>
@@ -1552,6 +1586,64 @@
         const S_URL = "https://dgekjzkrybrswsxlcbvh.supabase.co";
         const S_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRnZWtqemtyeWJyc3dzeGxjYnZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4ODQ3MjIsImV4cCI6MjA4NDQ2MDcyMn0.BsEj53lV3p76yE9fMPTaLn7ocKTNzYPTqIAnBafYItU";
         const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+        // ===== 認証管理 =====
+        let _isEditor = false;
+
+        function _updateUIForAuth(isEditor) {
+            _isEditor = isEditor;
+            gantt.config.readonly = !isEditor;
+            document.getElementById('create_task_btn').style.display  = isEditor ? '' : 'none';
+            document.getElementById('multi_delete_btn').style.display  = isEditor ? '' : 'none';
+            document.getElementById('archive_btn_wrap').style.display  = isEditor ? '' : 'none';
+            const authBtn = document.getElementById('auth_btn');
+            if (authBtn) {
+                authBtn.textContent = isEditor ? 'ログアウト' : 'ログイン';
+                authBtn.classList.toggle('logged-in', isEditor);
+            }
+            gantt.render();
+        }
+
+        function handleAuthBtn() {
+            if (_isEditor) { doLogout(); } else { openLoginDialog(); }
+        }
+
+        function openLoginDialog() {
+            document.getElementById('login_email').value = '';
+            document.getElementById('login_password').value = '';
+            document.getElementById('login_error').style.display = 'none';
+            document.getElementById('login_overlay').classList.add('open');
+            setTimeout(() => document.getElementById('login_email').focus(), 100);
+        }
+
+        function closeLoginDialog() {
+            document.getElementById('login_overlay').classList.remove('open');
+        }
+
+        async function doLogin() {
+            const email    = document.getElementById('login_email').value.trim();
+            const password = document.getElementById('login_password').value;
+            const errEl    = document.getElementById('login_error');
+            errEl.style.display = 'none';
+            document.getElementById('login_btn_submit').textContent = '処理中...';
+            const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            document.getElementById('login_btn_submit').textContent = 'ログイン';
+            if (error) {
+                errEl.textContent = 'メールアドレスまたはパスワードが正しくありません';
+                errEl.style.display = 'block';
+            } else {
+                closeLoginDialog();
+            }
+        }
+
+        async function doLogout() {
+            await supabaseClient.auth.signOut();
+        }
+
+        // 認証状態の変化を監視（ページロード時・ログイン・ログアウト時に自動で呼ばれる）
+        supabaseClient.auth.onAuthStateChange((_event, session) => {
+            _updateUIForAuth(!!session);
+        });
 
         // Gantt 基本構成
         gantt.config.date_format = "%Y-%m-%d";
@@ -2816,6 +2908,7 @@
             // ダブルクリック: インラインエディタを開く（ライトボックスはブロック）
             // バーのダブルクリックは .gantt_cell を持たないため通過し、デフォルトのライトボックスが開く
             document.getElementById("gantt_here").addEventListener("dblclick", function(e) {
+                if (!_isEditor) return;
                 const cell = e.target.closest(".gantt_cell");
                 if (!cell) return;
                 e.stopImmediatePropagation();
@@ -2847,6 +2940,7 @@
             let _copiedTasks = []; // 複数行コピーのバッファ
 
             document.getElementById("gantt_here").addEventListener("contextmenu", function(e) {
+                if (!_isEditor) return;
                 const row = e.target.closest("[task_id]");
                 if (!row) return;
                 e.preventDefault();
@@ -3503,6 +3597,19 @@
             </div>
         </div>
     </div>
+
+<!-- ===== ログインダイアログ ===== -->
+<div id="login_overlay">
+    <div id="login_dialog">
+        <h2>設計工程表 ログイン</h2>
+        <input type="email" id="login_email" placeholder="メールアドレス" autocomplete="email">
+        <input type="password" id="login_password" placeholder="パスワード" autocomplete="current-password"
+               onkeydown="if(event.key==='Enter') doLogin()">
+        <div id="login_error"></div>
+        <button id="login_btn_submit" onclick="doLogin()">ログイン</button>
+        <button id="login_btn_cancel" onclick="closeLoginDialog()">キャンセル</button>
+    </div>
+</div>
 
 </body>
 </html>
