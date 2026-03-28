@@ -3187,7 +3187,12 @@
                     currentTaskTypeFilter = taskTypeParam;
                     updateFilterButtons();
                     switchColumns(taskTypeParam);
-                    gantt.setSizes();
+                    // フィルターボタンクリック時と同様にズームレベルを再設定してカレンダーヘッダーを完全再描画
+                    setTimeout(() => {
+                        gantt.setSizes();
+                        const currentLevel = document.querySelector('.zoom-btn.active')?.textContent === '週単位' ? 'week' : 'day';
+                        gantt.ext.zoom.setLevel(currentLevel);
+                    }, 0);
                 } else {
                     // 直接アクセス：担当別モードで起動
                     _enterResourceFullscreen();
