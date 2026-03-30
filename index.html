@@ -235,6 +235,89 @@
             z-index: 99999 !important;
         }
 
+        /* ライトボックス全体の縮小 */
+        .gantt_cal_light {
+            width: 480px !important;
+            min-width: 480px !important;
+            font-size: 12px !important;
+            font-family: "メイリオ", Meiryo, sans-serif !important;
+        }
+        .gantt_cal_light * {
+            font-family: "メイリオ", Meiryo, sans-serif !important;
+        }
+        .gantt_cal_ltitle {
+            padding: 5px 10px !important;
+            font-size: 13px !important;
+            color: #000 !important;
+        }
+        .gantt_cal_ltitle span, .gantt_cal_ltitle div {
+            color: #000 !important;
+        }
+        /* 項目名と入力欄を横並びにする */
+        .gantt_cal_larea {
+            display: grid !important;
+            grid-template-columns: 100px 1fr !important;
+            align-items: center !important;
+            row-gap: 4px !important;
+            padding: 6px 10px !important;
+        }
+        .gantt_cal_lsection {
+            font-size: 12px !important;
+            padding: 0 6px 0 0 !important;
+            line-height: 26px !important;
+            width: auto !important;
+            min-width: unset !important;
+            text-align: right !important;
+            border-top: none !important;
+        }
+        .gantt_cal_ltext {
+            padding: 0 !important;
+            min-height: 26px !important;
+        }
+        .gantt_cal_ltext input[type="text"],
+        .gantt_cal_ltext select {
+            width: 200px !important;
+            height: 26px !important;
+            font-size: 12px !important;
+            padding: 0 4px !important;
+            box-sizing: border-box !important;
+        }
+        .gantt_cal_ltext textarea:not(.lb-textarea-full) {
+            width: 200px !important;
+            height: 26px !important;
+            font-size: 12px !important;
+            line-height: 18px !important;
+            padding: 4px 4px 0 4px !important;
+            box-sizing: border-box !important;
+            resize: none !important;
+            overflow: hidden !important;
+        }
+        .gantt_cal_lcontrols {
+            padding: 5px 10px !important;
+        }
+        .gantt_btn_set.gantt_save_btn,
+        .gantt_btn_set.gantt_cancel_btn,
+        .gantt_btn_set.gantt_delete_btn {
+            height: 28px !important;
+            line-height: 28px !important;
+            font-size: 12px !important;
+            padding: 0 12px !important;
+            text-align: center !important;
+            cursor: pointer !important;
+            border-radius: 4px !important;
+            box-sizing: border-box !important;
+            display: inline-block !important;
+        }
+        .gantt_btn_set.gantt_delete_btn {
+            background-color: #fff !important;
+            border: 1px solid #d9534f !important;
+            color: #d9534f !important;
+        }
+        .gantt_btn_set.gantt_delete_btn:hover {
+            background-color: #d9534f !important;
+            color: #fff !important;
+        }
+
         /* マーカー上部の「今日」というラベルも強制表示 */
         .gantt_marker_content {
             background: #ff4d4d !important;
@@ -2202,7 +2285,7 @@
                     { name: "project_number",   height: 30, map_to: "project_number", type: "textarea" },
                     { name: "machine",          height: 30, map_to: "machine",         type: "textarea" },
                     { name: "unit",             height: 30, map_to: "unit",            type: "textarea" },
-                    { name: "description",      height: 30, map_to: "text",            type: "textarea" },
+                    { name: "description",      height: 30, map_to: "text",            type: "textarea_full" },
                     { name: "part_number",      height: 30, map_to: "part_number",     type: "textarea" },
                     { name: "quantity",         height: 30, map_to: "quantity",        type: "textarea" },
                     { name: "manufacturer",            height: 30, map_to: "manufacturer",           type: "textarea" },
@@ -2215,10 +2298,9 @@
                     { name: "project_number",  height: 30, map_to: "project_number",  type: "textarea" },
                     { name: "customer_name",   height: 30, map_to: "customer_name",   type: "textarea" },
                     { name: "project_details", height: 30, map_to: "project_details", type: "textarea" },
-                    { name: "description",     height: 30, map_to: "text",            type: "textarea" },
+                    { name: "description",     height: 30, map_to: "text",            type: "textarea_full" },
                     { name: "owner",           height: 30, map_to: "owner",           type: "owner_select_lb" },
-                    { name: "start_date",      height: 30, map_to: "start_date",      type: "template" },
-                    { name: "end_date",        height: 30, map_to: "end_date",        type: "template" },
+                    { name: "date_range",      height: 30, map_to: "start_date",      type: "date_range" },
                 ];
             } else {
                 // drawing（デフォルト）
@@ -2226,16 +2308,14 @@
                     { name: "project_number",   height: 30, map_to: "project_number",  type: "textarea" },
                     { name: "machine",          height: 30, map_to: "machine",          type: "textarea" },
                     { name: "unit",             height: 30, map_to: "unit",             type: "textarea" },
-                    { name: "description",      height: 30, map_to: "text",             type: "textarea" },
+                    { name: "description",      height: 30, map_to: "text",             type: "textarea_full" },
                     { name: "model_type",       height: 30, map_to: "model_type",       type: "textarea" },
                     { name: "unit2",            height: 30, map_to: "unit2",            type: "textarea" },
                     { name: "characteristic",   height: 30, map_to: "characteristic",   type: "textarea" },
                     { name: "derivation",       height: 30, map_to: "derivation",       type: "textarea" },
                     { name: "owner",            height: 30, map_to: "owner",            type: "owner_select_lb" },
-                    { name: "total_sheets",     height: 30, map_to: "total_sheets",     type: "textarea" },
-                    { name: "completed_sheets", height: 30, map_to: "completed_sheets", type: "textarea" },
-                    { name: "start_date",       height: 30, map_to: "start_date",       type: "template" },
-                    { name: "end_date",         height: 30, map_to: "end_date",         type: "template" },
+                    { name: "sheets_pair",      height: 30, map_to: "total_sheets",     type: "sheets_pair" },
+                    { name: "date_range",       height: 30, map_to: "start_date",       type: "date_range" },
                     { name: "wish_date_lb",     height: 30, map_to: "wish_date",        type: "wish_date_lb" },
                 ];
             }
@@ -2243,7 +2323,7 @@
 
         gantt.config.lightbox.sections = _getLightboxSections('drawing');
 
-        gantt.locale.labels.section_project_number   = "工事番号";
+gantt.locale.labels.section_project_number   = "工事番号";
         gantt.locale.labels.section_machine          = "機械";
         gantt.locale.labels.section_unit             = "ユニット";
         gantt.locale.labels.section_description      = "組立図面名 / 品名 / タスク";
@@ -2254,8 +2334,10 @@
         gantt.locale.labels.section_owner            = "担当";
         gantt.locale.labels.section_total_sheets     = "総枚数";
         gantt.locale.labels.section_completed_sheets = "完了枚数";
+        gantt.locale.labels.section_sheets_pair      = "枚数";
         gantt.locale.labels.section_start_date       = "開始日";
         gantt.locale.labels.section_end_date         = "完了予定日";
+        gantt.locale.labels.section_date_range       = "期間";
         gantt.locale.labels.section_part_number      = "型式・図番";
         gantt.locale.labels.section_quantity         = "個数";
         gantt.locale.labels.section_manufacturer            = "メーカー";
@@ -2264,6 +2346,22 @@
         gantt.locale.labels.section_wish_date_lb     = "出図希望日 / 手配期日";
 
         // カスタムテンプレート（input type="date"）
+        // 全幅テキストエリア（組立図面名・品名など）
+        gantt.form_blocks["textarea_full"] = {
+            render: function(sns) {
+                return "<div class='gantt_cal_ltext'><textarea class='lb-textarea-full' style='height:26px;font-size:12px;line-height:18px;padding:4px 4px 0 4px;box-sizing:border-box;resize:none;overflow:hidden;border:1px solid #ccc;border-radius:4px;'></textarea></div>";
+            },
+            set_value: function(node, value, task, sns) {
+                node.querySelector("textarea").value = value || '';
+            },
+            get_value: function(node, task, sns) {
+                return node.querySelector("textarea").value;
+            },
+            focus: function(node) {
+                node.querySelector("textarea").focus();
+            }
+        };
+
         // 担当プルダウン（ライトボックス用）
         gantt.form_blocks["owner_select_lb"] = {
             render: function(sns) {
@@ -2285,7 +2383,7 @@
         // 出図希望日 / 手配期日（wish_date、文字列 YYYY-MM-DD）ライトボックス用
         gantt.form_blocks["wish_date_lb"] = {
             render: function(sns) {
-                return "<div class='gantt_cal_ltext'><input type='date' style='width:100%;height:30px;border:1px solid #ccc;border-radius:4px;padding:0 5px;'></div>";
+                return "<div class='gantt_cal_ltext'><input type='date' style='width:110px;height:26px;border:1px solid #ccc;border-radius:4px;padding:0 4px;font-size:12px;'></div>";
             },
             set_value: function(node, value, task, sns) {
                 node.querySelector("input").value = value || '';
@@ -2300,7 +2398,7 @@
 
         gantt.form_blocks["template"] = {
             render: function(sns) {
-                return "<div class='gantt_cal_ltext'><input type='date' id='cal_" + sns.name + "' style='width:100%; height:30px; border:1px solid #ccc; border-radius:4px; padding:0 5px;'></div>";
+                return "<div class='gantt_cal_ltext'><input type='date' id='cal_" + sns.name + "' style='width:110px;height:26px;border:1px solid #ccc;border-radius:4px;padding:0 4px;font-size:12px;'></div>";
             },
             set_value: function(node, value, task, sns) {
                 const input = node.querySelector("input");
@@ -2317,6 +2415,64 @@
             },
             focus: function(node) {
                 node.querySelector("input").focus();
+            }
+        };
+
+        // 総枚数と完了枚数を横並びで表示するカスタムフォームブロック
+        gantt.form_blocks["sheets_pair"] = {
+            render: function(sns) {
+                return `<div class='gantt_cal_ltext' style='display:flex;gap:6px;align-items:center;'>
+                    <span style='font-size:11px;white-space:nowrap;color:#555;'>総枚数</span>
+                    <input type='number' id='lb_total_sheets' min='0' style='width:60px;height:26px;border:1px solid #ccc;border-radius:4px;padding:0 4px;font-size:12px;'>
+                    <span style='font-size:11px;white-space:nowrap;color:#555;'>完了枚数</span>
+                    <input type='number' id='lb_completed_sheets' min='0' style='width:60px;height:26px;border:1px solid #ccc;border-radius:4px;padding:0 4px;font-size:12px;'>
+                </div>`;
+            },
+            set_value: function(node, value, task, sns) {
+                document.getElementById('lb_total_sheets').value     = task.total_sheets     || '';
+                document.getElementById('lb_completed_sheets').value = task.completed_sheets || '';
+            },
+            get_value: function(node, task, sns) {
+                task.total_sheets     = document.getElementById('lb_total_sheets').value;
+                task.completed_sheets = document.getElementById('lb_completed_sheets').value;
+                return task.total_sheets;
+            },
+            focus: function(node) {
+                const el = document.getElementById('lb_total_sheets');
+                if (el) el.focus();
+            }
+        };
+
+        // 開始日と完了予定日を横並びで表示するカスタムフォームブロック
+        gantt.form_blocks["date_range"] = {
+            render: function(sns) {
+                return `<div class='gantt_cal_ltext' style='display:flex;gap:6px;align-items:center;'>
+                    <span style='font-size:11px;white-space:nowrap;color:#555;'>開始日</span>
+                    <input type='date' id='cal_start_date' style='width:110px;height:26px;border:1px solid #ccc;border-radius:4px;padding:0 4px;font-size:12px;'>
+                    <span style='font-size:11px;white-space:nowrap;color:#555;'>完了予定日</span>
+                    <input type='date' id='cal_end_date' style='width:110px;height:26px;border:1px solid #ccc;border-radius:4px;padding:0 4px;font-size:12px;'>
+                </div>`;
+            },
+            set_value: function(node, value, task, sns) {
+                const startInput = document.getElementById('cal_start_date');
+                const endInput   = document.getElementById('cal_end_date');
+                if (task.start_date) {
+                    const d = new Date(task.start_date);
+                    startInput.value = `${d.getFullYear()}-${("0"+(d.getMonth()+1)).slice(-2)}-${("0"+d.getDate()).slice(-2)}`;
+                }
+                if (task.end_date) {
+                    // end_date はDHTMLX排他的終了（翌日0時）なので1日引いて表示
+                    const d = new Date(task.end_date.getTime() - 24*60*60*1000);
+                    endInput.value = `${d.getFullYear()}-${("0"+(d.getMonth()+1)).slice(-2)}-${("0"+d.getDate()).slice(-2)}`;
+                }
+            },
+            get_value: function(node, task, sns) {
+                // 実際の保存処理は onLightboxSave で行う
+                return task.start_date;
+            },
+            focus: function(node) {
+                const el = document.getElementById('cal_start_date');
+                if (el) el.focus();
             }
         };
 
