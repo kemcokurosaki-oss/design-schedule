@@ -794,6 +794,68 @@
         .btn-auth { font-size: 12px; padding: 2px 10px; }
         .btn-auth.logged-in { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
 
+        /* ===== ヘルプモーダル ===== */
+        #help_btn { font-size: 13px; padding: 2px 8px; font-weight: bold; color: #555; }
+        #help_overlay {
+            display: none; position: fixed; inset: 0;
+            z-index: 200000;
+            pointer-events: none;
+        }
+        #help_overlay.open { display: block; }
+        #help_dialog {
+            pointer-events: all;
+            background: #fff; border-radius: 8px;
+            width: min(860px, 96vw); max-height: 88vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+            overflow: hidden;
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #help_dialog_header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 16px; background: #1565c0; color: #fff;
+            font-size: 14px; font-weight: bold; flex-shrink: 0;
+            cursor: grab;
+            user-select: none;
+        }
+        #help_dialog_header.dragging { cursor: grabbing; }
+        #help_dialog_header button {
+            background: none; border: none; color: #fff; font-size: 18px;
+            cursor: pointer; line-height: 1; padding: 0 4px;
+        }
+        #help_tabs {
+            display: flex; gap: 2px; padding: 6px 10px 0;
+            background: #e3f2fd; flex-shrink: 0; flex-wrap: wrap;
+        }
+        .help-tab {
+            padding: 4px 10px; font-size: 12px; cursor: pointer;
+            border: 1px solid #90caf9; border-bottom: none;
+            border-radius: 4px 4px 0 0; background: #bbdefb; color: #1565c0;
+            font-family: 'メイリオ', Meiryo, sans-serif;
+        }
+        .help-tab.active { background: #fff; color: #1565c0; font-weight: bold; }
+        #help_body {
+            padding: 12px 16px; overflow-y: auto; flex: 1;
+            font-size: 12px; font-family: 'メイリオ', Meiryo, sans-serif;
+            line-height: 1.6; color: #333;
+        }
+        .help-panel { display: none; }
+        .help-panel.active { display: block; }
+        .help-panel h3 {
+            font-size: 13px; color: #1565c0; margin: 0 0 8px;
+            padding-bottom: 4px; border-bottom: 1px solid #90caf9;
+        }
+        .help-panel h4 { font-size: 12px; margin: 10px 0 4px; color: #333; }
+        .help-panel ul { margin: 0 0 8px; padding-left: 18px; }
+        .help-panel li { margin-bottom: 2px; }
+        .help-panel table { border-collapse: collapse; width: 100%; margin-bottom: 8px; font-size: 11px; }
+        .help-panel th { background: #e3f2fd; padding: 4px 6px; border: 1px solid #90caf9; text-align: left; }
+        .help-panel td { padding: 3px 6px; border: 1px solid #ddd; vertical-align: top; }
+        .help-panel .note { background: #fff8e1; border-left: 3px solid #f9a825; padding: 4px 8px; margin: 6px 0; font-size: 11px; }
+        .help-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
         /* ===== パスワード設定ダイアログ ===== */
         #setpw_overlay {
             display: none; position: fixed; inset: 0;
@@ -834,6 +896,7 @@
                 <div class="zoom-controls" style="margin-left: auto;">
                     <button class="btn zoom-btn active" onclick="setZoom('day', this)">日単位</button>
                     <button class="btn zoom-btn" onclick="setZoom('week', this)">週単位</button>
+                    <button class="btn" id="help_btn" onclick="openHelp()" title="使い方ガイド">？</button>
                     <button class="btn btn-auth" id="auth_btn" onclick="handleAuthBtn()">ログイン</button>
                 </div>
             </div>
@@ -1728,6 +1791,65 @@
         function handleAuthBtn() {
             if (_isEditor) { doLogout(); } else { openLoginDialog(); }
         }
+
+        // ===== ヘルプモーダル =====
+        function openHelp() {
+            const dialog = document.getElementById('help_dialog');
+            // 位置をリセット（初回は中央に表示）
+            dialog.style.transform = 'translate(-50%, -50%)';
+            dialog.style.left = '50%';
+            dialog.style.top  = '50%';
+            document.getElementById('help_overlay').classList.add('open');
+        }
+        function closeHelp() {
+            document.getElementById('help_overlay').classList.remove('open');
+        }
+        function closeHelpOnOverlay(e) {
+            if (e.target === document.getElementById('help_overlay')) closeHelp();
+        }
+        function switchHelpTab(index) {
+            const tabs   = document.querySelectorAll('.help-tab');
+            const panels = document.querySelectorAll('.help-panel');
+            tabs.forEach((t, i)   => t.classList.toggle('active',   i === index));
+            panels.forEach((p, i) => p.classList.toggle('active', i === index));
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeHelp();
+        });
+
+        // ヘルプダイアログ ドラッグ移動
+        (function() {
+            let dragging = false, startX, startY, startLeft, startTop;
+            document.addEventListener('DOMContentLoaded', function() {
+                const header = document.getElementById('help_dialog_header');
+                const dialog = document.getElementById('help_dialog');
+                header.addEventListener('mousedown', function(e) {
+                    if (e.target.tagName === 'BUTTON') return;
+                    dragging = true;
+                    // transformを解除して実座標に変換
+                    const rect = dialog.getBoundingClientRect();
+                    dialog.style.transform = 'none';
+                    dialog.style.left = rect.left + 'px';
+                    dialog.style.top  = rect.top  + 'px';
+                    startX    = e.clientX;
+                    startY    = e.clientY;
+                    startLeft = rect.left;
+                    startTop  = rect.top;
+                    header.classList.add('dragging');
+                    e.preventDefault();
+                });
+                document.addEventListener('mousemove', function(e) {
+                    if (!dragging) return;
+                    dialog.style.left = (startLeft + e.clientX - startX) + 'px';
+                    dialog.style.top  = (startTop  + e.clientY - startY) + 'px';
+                });
+                document.addEventListener('mouseup', function() {
+                    if (!dragging) return;
+                    dragging = false;
+                    document.getElementById('help_dialog_header').classList.remove('dragging');
+                });
+            });
+        })();
 
         function openLoginDialog() {
             document.getElementById('login_email').value = '';
@@ -3851,6 +3973,226 @@ gantt.locale.labels.section_project_number   = "工事番号";
         <button id="setpw_btn_submit" onclick="doSetPassword()">パスワードを設定する</button>
     </div>
 </div>
+
+<!-- ===== ヘルプモーダル ===== -->
+<div id="help_overlay">
+  <div id="help_dialog">
+    <div id="help_dialog_header">
+      <span>📋 設計工程表 使い方ガイド</span>
+      <button onclick="closeHelp()" title="閉じる">✕</button>
+    </div>
+    <div id="help_tabs">
+      <div class="help-tab active" onclick="switchHelpTab(0)">画面構成</div>
+      <div class="help-tab" onclick="switchHelpTab(1)">表示モード</div>
+      <div class="help-tab" onclick="switchHelpTab(2)">タスク操作</div>
+      <div class="help-tab" onclick="switchHelpTab(3)">バー操作</div>
+      <div class="help-tab" onclick="switchHelpTab(4)">絞り込み</div>
+      <div class="help-tab" onclick="switchHelpTab(5)">リソース表示</div>
+      <div class="help-tab" onclick="switchHelpTab(6)">アーカイブ</div>
+    </div>
+    <div id="help_body">
+
+      <!-- タブ0: 画面構成 -->
+      <div class="help-panel active">
+        <h3>画面の構成</h3>
+        <div class="help-cols">
+          <div>
+            <h4>上部ツールバー</h4>
+            <ul>
+              <li>フィルターボタン：担当別 / 計画 / 図面 / 長納期品 / 出張</li>
+              <li>表示単位切替：日単位 / 週単位</li>
+              <li>工事番号フィルター：プルダウンで複数選択可能</li>
+              <li>リソース表示ボタン：担当者別の業務状況を表示</li>
+              <li>＋ 新規タスク追加：タスクを末尾に追加（要ログイン）</li>
+              <li>アーカイブ ▼：完了工事の保管・参照（要ログイン）</li>
+            </ul>
+          </div>
+          <div>
+            <h4>メイン画面（ガントチャート）</h4>
+            <ul>
+              <li>左側グリッド：工事番号・機械・タスク名・担当者・進捗など</li>
+              <li>右側タイムライン：バーをドラッグで日程変更</li>
+              <li>赤い縦線：本日の位置を示します</li>
+              <li>土日・祝日：グレー背景で識別</li>
+              <li>▼マーク：出図希望日（図面タスクに表示、ドラッグで変更可）</li>
+            </ul>
+          </div>
+        </div>
+        <div class="note">ℹ クリック操作：グリッドセルをクリック → タスク開始日へスクロール／ダブルクリック → インライン編集ポップアップ表示</div>
+      </div>
+
+      <!-- タブ1: 表示モード -->
+      <div class="help-panel">
+        <h3>表示モード（タスクタイプ）の切り替え</h3>
+        <p style="margin:0 0 6px;font-size:11px;">ボタンをクリックしてタスクタイプを切り替えます。同時に1種類のみ表示されます。</p>
+        <table>
+          <tr><th>ボタン</th><th>内容・目的</th><th>主な列</th></tr>
+          <tr><td><b>図面</b>（デフォルト）</td><td>組立図面の設計進捗管理</td><td>工事番号・機械・ユニット・組立図面名・機種・総枚数・完了枚数・進捗・完了予定日</td></tr>
+          <tr><td><b>計画</b></td><td>工事計画・スケジュール管理</td><td>工事番号・客先・工事名・タスク・担当・開始日・終了日</td></tr>
+          <tr><td><b>長納期品</b></td><td>発注が必要な長納期部品の管理</td><td>工事番号・品名・型式図番・個数・メーカー・担当・手配予定日・状態</td></tr>
+          <tr><td><b>出張</b></td><td>出張スケジュールの管理</td><td>工事番号・機械・タスク・担当・開始日・終了日</td></tr>
+          <tr><td><b>担当別</b></td><td>担当者別リソース状況を全画面表示</td><td>各担当者のタスクをタイムラインで一覧表示</td></tr>
+        </table>
+      </div>
+
+      <!-- タブ2: タスク操作 -->
+      <div class="help-panel">
+        <h3>タスクの追加・編集・削除</h3>
+        <div class="help-cols">
+          <div>
+            <h4>タスクの追加</h4>
+            <ul>
+              <li>右上「＋ 新規タスク追加」ボタンをクリック</li>
+              <li>グリッド右端の「＋」ボタンをクリック</li>
+              <li>タスク名が自動で編集状態 → 入力してEnterで確定</li>
+            </ul>
+            <h4>タスクの削除</h4>
+            <ul>
+              <li>タスク行をクリックして選択（青くハイライト）</li>
+              <li>「選択削除（N件）」ボタンをクリック</li>
+              <li>Ctrl＋クリックで複数行選択 → まとめて削除可</li>
+            </ul>
+          </div>
+          <div>
+            <h4>タスクの編集</h4>
+            <ul>
+              <li>グリッドのセルをダブルクリック → インライン編集</li>
+              <li>担当者列：プルダウンで選択</li>
+              <li>完了予定日列：日付ピッカーで選択（Enter／セル外で確定）</li>
+              <li>タイムラインのバーをダブルクリック → 詳細ダイアログ</li>
+            </ul>
+            <h4>右クリックメニュー</h4>
+            <ul>
+              <li>コピー・複数コピー・貼り付け・削除</li>
+              <li>コピー時は「コピーする項目選択」ダイアログが表示されます</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- タブ3: バー操作 -->
+      <div class="help-panel">
+        <h3>ガントバーの操作</h3>
+        <div class="help-cols">
+          <div>
+            <h4>バーのドラッグ移動</h4>
+            <ul>
+              <li>バーを左右ドラッグ → 開始日・完了日をまとめて変更</li>
+              <li>ドラッグ後、自動的にDBに保存されます</li>
+            </ul>
+            <h4>バーのリサイズ（右端ドラッグ）</h4>
+            <ul>
+              <li>右端をドラッグ → 完了予定日のみ変更</li>
+              <li>開始日は変わらず、期間のみ変化します</li>
+            </ul>
+          </div>
+          <div>
+            <h4>出図希望日（▼マーク）</h4>
+            <ul>
+              <li>図面タスクのバー上に黒い「▼」が表示されます</li>
+              <li>▼をドラッグ → 出図希望日を変更</li>
+              <li>黒 ＝ 余裕あり　赤 ＝ 出図希望日超過（遅延）</li>
+            </ul>
+            <h4>表示単位の切り替え</h4>
+            <ul>
+              <li>「日単位」：1日単位で細かく表示（デフォルト）</li>
+              <li>「週単位」：全体スケジュールの把握に便利</li>
+            </ul>
+          </div>
+        </div>
+        <div class="note">⚠ バー操作・▼マーク操作はログイン（編集権限）が必要です</div>
+      </div>
+
+      <!-- タブ4: 絞り込み -->
+      <div class="help-panel">
+        <h3>絞り込み（フィルタリング）機能</h3>
+        <h4>工事番号フィルター</h4>
+        <ul>
+          <li>上部「工事番号: 全表示」プルダウンをクリック</li>
+          <li>表示したい工事番号にチェック（複数選択可）</li>
+          <li>全表示に戻すには「全表示」にチェック</li>
+        </ul>
+        <h4>担当者フィルター（リソース表示時）</h4>
+        <ul>
+          <li>「リソース表示」ボタンクリック後に担当者フィルターが表示されます</li>
+          <li>特定の担当者のタスクだけを絞り込めます（複数選択可）</li>
+        </ul>
+        <h4>進捗の視覚的確認</h4>
+        <ul>
+          <li>進捗率 ＝ 完了枚数 ÷ 総枚数（%）で自動計算・表示</li>
+          <li>黄色バー：通常の進捗状況</li>
+          <li>赤いバー（遅延アラート）：完了予定日を過ぎているのに進捗0%</li>
+        </ul>
+      </div>
+
+      <!-- タブ5: リソース表示 -->
+      <div class="help-panel">
+        <h3>リソース表示（担当者別の業務状況確認）</h3>
+        <div class="help-cols">
+          <div>
+            <h4>開き方</h4>
+            <ul>
+              <li>「担当別」ボタン → 全画面リソースビューに切替</li>
+              <li>「リソース表示」ボタン → ガントチャート下部に並列表示</li>
+            </ul>
+            <h4>見方</h4>
+            <ul>
+              <li>各担当者の行にタスクのバーが時系列で表示</li>
+              <li>バーの色は担当者ごとに固定（藤山：赤、田中(善)：青、安岡：緑、川邊：橙 など）</li>
+              <li>担当者名をクリック → その担当者の詳細ビューに切替</li>
+              <li>ガントチャートとリソースパネルのスクロールは連動</li>
+            </ul>
+          </div>
+          <div>
+            <h4>パネルの操作</h4>
+            <ul>
+              <li>「← 一覧に戻る」ボタン：詳細ビューから一覧に戻る</li>
+              <li>境界線をドラッグ：パネルの高さを自由に調整</li>
+              <li>「×」ボタン：リソースパネルを閉じる</li>
+              <li>「担当別」ボタン再クリック：全画面モードを終了</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- タブ6: アーカイブ -->
+      <div class="help-panel">
+        <h3>アーカイブ機能（完了タスクの管理）</h3>
+        <div class="help-cols">
+          <div>
+            <h4>アーカイブとは</h4>
+            <ul>
+              <li>完了した工事のタスクを保管する機能</li>
+              <li>アーカイブしたタスクはメイン画面から非表示になります</li>
+              <li>過去の工事データの参照・コピーに活用できます</li>
+            </ul>
+            <h4>アーカイブ管理（保管する）</h4>
+            <ul>
+              <li>「アーカイブ ▼」→「アーカイブ管理」を選択</li>
+              <li>アーカイブしたいタスクを選択して実行</li>
+            </ul>
+          </div>
+          <div>
+            <h4>アーカイブ一覧（参照・コピー）</h4>
+            <ul>
+              <li>「アーカイブ ▼」→「アーカイブ一覧」を選択</li>
+              <li>過去のアーカイブ済みタスクを一覧表示</li>
+              <li>タスクをクリック → 詳細情報を確認</li>
+              <li>アーカイブ済みタスクを新しいタスクとしてコピーも可能</li>
+            </ul>
+            <h4>システム情報</h4>
+            <ul>
+              <li>データ保存：クラウド（Supabase）に自動保存</li>
+              <li>対応ブラウザ：Chrome / Microsoft Edge 推奨</li>
+              <li>表示期間：2025年1月 〜 2026年12月</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /help_body -->
+  </div><!-- /help_dialog -->
+</div><!-- /help_overlay -->
 
 <!-- ===== ログインダイアログ ===== -->
 <div id="login_overlay">
