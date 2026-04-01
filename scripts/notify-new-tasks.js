@@ -28,7 +28,7 @@ async function supabaseFetch(path) {
 
 async function sendEmail(toEmail, toName, subject, body) {
   await transporter.sendMail({
-    from: `"工程通知" <${GMAIL_USER}>`,
+    from: `"設計工程通知" <${GMAIL_USER}>`,
     to: toEmail,
     subject,
     text: `${toName} 様\n\n本日追加されたタスクをお知らせします。\n\n${body}\n\n※このメールは自動送信です。`,
@@ -102,7 +102,7 @@ async function main() {
   if (lSection) sections.push(lSection);
 
   const body = sections.join('\n\n');
-  const subject = '【工程通知】本日追加されたタスクのお知らせ';
+  const subject = '【設計工程通知】本日追加されたタスクのお知らせ';
 
   const targets = testMode
     ? PROCESS_MANAGERS.filter(pm => pm.email === 'e-kurosaki@kusakabe.com')

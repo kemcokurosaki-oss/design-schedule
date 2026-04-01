@@ -26,11 +26,14 @@ async function supabaseFetch(path) {
   return res.json();
 }
 
+// 担当者の表示順（設計工程表のプルダウンと同じ順）
+const OWNER_ORDER = ['藤山','田中','田中(善)','安岡','川邊','檀','堀井','宮﨑','津田','古村','柴田','橋本','松本(英)'];
+
 async function sendEmail(toEmail, toName, tasksList) {
   await transporter.sendMail({
-    from: `"工程通知" <${GMAIL_USER}>`,
+    from: `"設計工程通知" <${GMAIL_USER}>`,
     to: toEmail,
-    subject: '【工程通知】完了予定日が近いタスクのお知らせ',
+    subject: '【設計工程通知】完了予定日が近いタスクのお知らせ',
     text: `${toName} 様\n\n完了予定日が近いタスクをお知らせします。\n\n${tasksList}\n\n確認をお願いします。\n\n※このメールは自動送信です。`,
   });
   console.log(`送信完了: ${toEmail}`);
@@ -194,10 +197,19 @@ async function main() {
       if (!byOwner[l.owner]) byOwner[l.owner] = [];
       byOwner[l.owner].push(l);
     });
-    return Object.entries(byOwner).map(([owner, tasks]) => {
-      const sorted = sortByProject(tasks);
-      return `▼ ${owner}\n${sorted.map(l => l.text).join('\n')}`;
-    });
+    return Object.keys(byOwner)
+      .sort((a, b) => {
+        const ia = OWNER_ORDER.indexOf(a);
+        const ib = OWNER_ORDER.indexOf(b);
+        if (ia === -1 && ib === -1) return a.localeCompare(b);
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+      })
+      .map(owner => {
+        const sorted = sortByProject(byOwner[owner]);
+        return `▼ ${owner}\n${sorted.map(l => l.text).join('\n')}`;
+      });
   };
 
   // メール送信
