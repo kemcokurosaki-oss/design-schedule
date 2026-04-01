@@ -188,7 +188,8 @@ async function main() {
     return s;
   };
 
-  // 上長・管理者向け：担当者別グループ、1担当者内は工事番号順
+  // 上長・管理者向け：担当者別グループ、1担当者内は緊急度順→工事番号順
+  const LABEL_ORDER = { '【期限切れ】': 0, '【本日期限】': 1, '【1週間前】': 2 };
   const buildManagerSections = (lines, mode) => {
     const filtered = lines.filter(l => l.mode === mode);
     if (filtered.length === 0) return [];
@@ -207,8 +208,21 @@ async function main() {
         return ia - ib;
       })
       .map(owner => {
-        const sorted = sortByProject(byOwner[owner]);
-        return `▼ ${owner}\n${sorted.map(l => l.text).join('\n')}`;
+        const sorted = byOwner[owner].sort((a, b) => {
+          const la = LABEL_ORDER[a.label] ?? 9;
+          const lb = LABEL_ORDER[b.label] ?? 9;
+          if (la !== lb) return la - lb;
+          return (a.project_number || '').localeCompare(b.project_number || '');
+        });
+        // 緊急度が変わるところで1行空ける
+        const lines = [];
+        let prevLabel = null;
+        sorted.forEach(l => {
+          if (prevLabel !== null && prevLabel !== l.label) lines.push('');
+          lines.push(l.text);
+          prevLabel = l.label;
+        });
+        return `▼ ${owner}\n${lines.join('\n')}`;
       });
   };
 
