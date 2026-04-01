@@ -81,13 +81,8 @@ async function main() {
   yesterday.setDate(today.getDate() - 1);
   const yesterdayUTC = yesterday.toISOString().split('T')[0];
 
-  // テストモード: 当日UTC分も含めて本日1日分を対象にする
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  const tomorrowUTC = tomorrow.toISOString().split('T')[0];
-
   const rangeStart = `${yesterdayUTC}T00:00:00`;
-  const rangeEnd   = testMode ? `${tomorrowUTC}T00:00:00` : `${todayUTC}T00:00:00`;
+  const rangeEnd   = `${todayUTC}T00:00:00`;
 
   console.log(`対象期間: ${rangeStart} 〜 ${rangeEnd}`);
 
