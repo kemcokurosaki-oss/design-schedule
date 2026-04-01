@@ -106,10 +106,10 @@ async function main() {
   const allTasks = [
     ...drawingOverdue.map(t => ({ ...t, label: '【期限切れ】', mode: '図面' })),
     ...drawingToday.map(t => ({ ...t, label: '【本日期限】', mode: '図面' })),
-    ...drawingWeek.map(t => ({ ...t, label: '【1週間前】', mode: '図面' })),
+    ...drawingWeek.map(t => ({ ...t, label: '【１週間前】', mode: '図面' })),
     ...llOverdue.map(t => ({ ...t, label: '【期限切れ】', mode: '長納期品' })),
     ...llToday.map(t => ({ ...t, label: '【本日期限】', mode: '長納期品' })),
-    ...llWeek.map(t => ({ ...t, label: '【1週間前】', mode: '長納期品' })),
+    ...llWeek.map(t => ({ ...t, label: '【１週間前】', mode: '長納期品' })),
   ].filter(t => !isCompleted(t));
 
   if (allTasks.length === 0) {
@@ -147,8 +147,9 @@ async function main() {
     const endDate = task.end_date ? task.end_date.substring(0, 10) : '';
     const machine = [task.machine, task.unit].filter(Boolean).join(' ');
     const dateLabel = task.mode === '長納期品' ? '手配予定日' : '完了予定日';
-    const text = `${task.label} [${task.project_number}] ${machine ? machine + ' / ' : ''}${task.owner} / ${task.text}（${dateLabel}：${endDate}）`;
-    const entry = { text, mode: task.mode, label: task.label, owner: task.owner, project_number: task.project_number };
+    const textBody = `[${task.project_number}] ${machine ? machine + ' / ' : ''}${task.owner} / ${task.text}（${dateLabel}：${endDate}）`;
+    const text = `${task.label} ${textBody}`;
+    const entry = { text, textBody, mode: task.mode, label: task.label, owner: task.owner, project_number: task.project_number };
     const member = nameToMember[task.owner];
 
     if (!testMode) {
@@ -175,21 +176,36 @@ async function main() {
 
   const sortByProject = arr => arr.slice().sort((a, b) => (a.project_number || '').localeCompare(b.project_number || ''));
 
-  // 担当者本人向け：緊急度別セクション、工事番号順
+  // 工事番号が変わるところに空行を挿入（textBody使用：ラベルなし）
+  const joinWithProjectBreaks = arr => {
+    const result = [];
+    let prevProject = null;
+    arr.forEach(l => {
+      if (prevProject !== null && prevProject !== l.project_number) result.push('');
+      result.push(l.textBody);
+      prevProject = l.project_number;
+    });
+    return result.join('\n');
+  };
+
+  // 担当者本人向け：緊急度別セクション、工事番号順（工事番号が変わったら空行）
+  // セクションヘッダー（■ 期限切れ等）が緊急度を示すため各行にラベル不要
   const buildPersonalSections = (lines, mode) => {
     const filtered = lines.filter(l => l.mode === mode);
-    const overdue = sortByProject(filtered.filter(l => l.label === '【期限切れ】')).map(l => l.text);
-    const todayL  = sortByProject(filtered.filter(l => l.label === '【本日期限】')).map(l => l.text);
-    const weekL   = sortByProject(filtered.filter(l => l.label === '【1週間前】')).map(l => l.text);
+    const overdue = sortByProject(filtered.filter(l => l.label === '【期限切れ】'));
+    const todayL  = sortByProject(filtered.filter(l => l.label === '【本日期限】'));
+    const weekL   = sortByProject(filtered.filter(l => l.label === '【１週間前】'));
     const s = [];
-    if (overdue.length) s.push(`■ 期限切れ\n${overdue.join('\n')}`);
-    if (todayL.length)  s.push(`■ 本日期限\n${todayL.join('\n')}`);
-    if (weekL.length)   s.push(`■ 1週間前\n${weekL.join('\n')}`);
+    if (overdue.length) s.push(`■ 期限切れ\n${joinWithProjectBreaks(overdue)}`);
+    if (todayL.length)  s.push(`■ 本日期限\n${joinWithProjectBreaks(todayL)}`);
+    if (weekL.length)   s.push(`■ 1週間前\n${joinWithProjectBreaks(weekL)}`);
     return s;
   };
 
   // 上長・管理者向け：担当者別グループ、1担当者内は緊急度順→工事番号順
-  const LABEL_ORDER = { '【期限切れ】': 0, '【本日期限】': 1, '【1週間前】': 2 };
+  // LABEL_PAD: 【XXXXX】+半角スペース と同じ表示幅（全角6文字+半角1）
+  const LABEL_PAD = '　　　　　　 ';
+  const LABEL_ORDER = { '【期限切れ】': 0, '【本日期限】': 1, '【１週間前】': 2 };
   const buildManagerSections = (lines, mode) => {
     const filtered = lines.filter(l => l.mode === mode);
     if (filtered.length === 0) return [];
@@ -214,13 +230,16 @@ async function main() {
           if (la !== lb) return la - lb;
           return (a.project_number || '').localeCompare(b.project_number || '');
         });
-        // 緊急度が変わるところで1行空ける
+        // 緊急度または工事番号が変わるところで1行空ける
+        // 緊急度の最初のタスクのみラベル付き、それ以降はtextBody（ラベルなし）
         const lines = [];
         let prevLabel = null;
+        let prevProject = null;
         sorted.forEach(l => {
-          if (prevLabel !== null && prevLabel !== l.label) lines.push('');
-          lines.push(l.text);
+          if (prevLabel !== null && (prevLabel !== l.label || prevProject !== l.project_number)) lines.push('');
+          lines.push(prevLabel !== l.label ? l.text : LABEL_PAD + l.textBody);
           prevLabel = l.label;
+          prevProject = l.project_number;
         });
         return `▼ ${owner}\n${lines.join('\n')}`;
       });

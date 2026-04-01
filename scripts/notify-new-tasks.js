@@ -43,10 +43,14 @@ function buildSection(tasks, mode) {
   // 工事番号順にソート
   tasks.sort((a, b) => (a.project_number || '').localeCompare(b.project_number || ''));
 
-  const lines = tasks.map(t => {
+  const lines = [];
+  let prevProject = null;
+  tasks.forEach(t => {
     const machine = [t.machine, t.unit].filter(Boolean).join(' ');
     const endDate = t.end_date ? t.end_date.substring(0, 10) : 'なし';
-    return `[${t.project_number}] ${machine ? machine + ' / ' : ''}${t.owner} / ${t.text}（${dateLabel}：${endDate}）`;
+    if (prevProject !== null && prevProject !== t.project_number) lines.push('');
+    lines.push(`[${t.project_number}] ${machine ? machine + ' / ' : ''}${t.owner} / ${t.text}（${dateLabel}：${endDate}）`);
+    prevProject = t.project_number;
   });
 
   return `== ${mode} ==\n${lines.join('\n')}`;
