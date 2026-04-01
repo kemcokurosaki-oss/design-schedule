@@ -130,10 +130,11 @@ async function main() {
 
   // 受信者ごとに通知内容をまとめる
   const notifications = {};
-  const addLine = (email, name, entry) => {
+  // isOwnTask=true: 担当者本人宛て / false: 上長・管理者宛て
+  const addLine = (email, name, entry, isOwnTask) => {
     if (!email) return;
     if (!notifications[email]) notifications[email] = { name, lines: [] };
-    notifications[email].lines.push(entry);
+    notifications[email].lines.push({ ...entry, isOwnTask });
   };
 
   const testMode = process.env.TEST_MODE === 'true';
@@ -144,17 +145,17 @@ async function main() {
     const machine = [task.machine, task.unit].filter(Boolean).join(' ');
     const dateLabel = task.mode === '長納期品' ? '手配予定日' : '完了予定日';
     const text = `${task.label} [${task.project_number}] ${machine ? machine + ' / ' : ''}${task.owner} / ${task.text}（${dateLabel}：${endDate}）`;
-    const entry = { text, mode: task.mode, label: task.label };
+    const entry = { text, mode: task.mode, label: task.label, owner: task.owner, project_number: task.project_number };
     const member = nameToMember[task.owner];
 
     if (!testMode) {
       if (member) {
-        addLine(member.email, member.name, entry);
+        addLine(member.email, member.name, entry, true);  // 担当者本人
         if (member.supervisor_email_1) {
-          addLine(member.supervisor_email_1, emailToName[member.supervisor_email_1] || member.supervisor_email_1, entry);
+          addLine(member.supervisor_email_1, emailToName[member.supervisor_email_1] || member.supervisor_email_1, entry, false);
         }
         if (member.supervisor_email_2) {
-          addLine(member.supervisor_email_2, emailToName[member.supervisor_email_2] || member.supervisor_email_2, entry);
+          addLine(member.supervisor_email_2, emailToName[member.supervisor_email_2] || member.supervisor_email_2, entry, false);
         }
       } else {
         console.warn(`メンバー未登録: ${task.owner}`);
@@ -165,15 +166,18 @@ async function main() {
       ? PROCESS_MANAGERS.filter(pm => pm.email === 'e-kurosaki@kusakabe.com')
       : PROCESS_MANAGERS;
     targets.forEach(pm => {
-      addLine(pm.email, pm.name, entry);
+      addLine(pm.email, pm.name, entry, false);  // 工程管理者
     });
   });
 
-  const buildSections = (lines, mode) => {
+  const sortByProject = arr => arr.slice().sort((a, b) => (a.project_number || '').localeCompare(b.project_number || ''));
+
+  // 担当者本人向け：緊急度別セクション、工事番号順
+  const buildPersonalSections = (lines, mode) => {
     const filtered = lines.filter(l => l.mode === mode);
-    const overdue = filtered.filter(l => l.label === '【期限切れ】').map(l => l.text);
-    const todayL  = filtered.filter(l => l.label === '【本日期限】').map(l => l.text);
-    const weekL   = filtered.filter(l => l.label === '【1週間前】').map(l => l.text);
+    const overdue = sortByProject(filtered.filter(l => l.label === '【期限切れ】')).map(l => l.text);
+    const todayL  = sortByProject(filtered.filter(l => l.label === '【本日期限】')).map(l => l.text);
+    const weekL   = sortByProject(filtered.filter(l => l.label === '【1週間前】')).map(l => l.text);
     const s = [];
     if (overdue.length) s.push(`■ 期限切れ\n${overdue.join('\n')}`);
     if (todayL.length)  s.push(`■ 本日期限\n${todayL.join('\n')}`);
@@ -181,12 +185,29 @@ async function main() {
     return s;
   };
 
+  // 上長・管理者向け：担当者別グループ、1担当者内は工事番号順
+  const buildManagerSections = (lines, mode) => {
+    const filtered = lines.filter(l => l.mode === mode);
+    if (filtered.length === 0) return [];
+    const byOwner = {};
+    filtered.forEach(l => {
+      if (!byOwner[l.owner]) byOwner[l.owner] = [];
+      byOwner[l.owner].push(l);
+    });
+    return Object.entries(byOwner).map(([owner, tasks]) => {
+      const sorted = sortByProject(tasks);
+      return `▼ ${owner}\n${sorted.map(l => l.text).join('\n')}`;
+    });
+  };
+
   // メール送信
   for (const [email, info] of Object.entries(notifications)) {
     try {
+      const isManager = info.lines.some(l => !l.isOwnTask);
+      const build = isManager ? buildManagerSections : buildPersonalSections;
       const sections = [];
-      const dSections = buildSections(info.lines, '図面');
-      const lSections = buildSections(info.lines, '長納期品');
+      const dSections = build(info.lines, '図面');
+      const lSections = build(info.lines, '長納期品');
       if (dSections.length) sections.push(`== 図面 ==\n${dSections.join('\n\n')}`);
       if (lSections.length) sections.push(`== 長納期品 ==\n${lSections.join('\n\n')}`);
       await sendEmail(email, info.name, sections.join('\n\n'));
