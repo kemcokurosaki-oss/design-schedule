@@ -3583,6 +3583,7 @@ gantt.locale.labels.section_project_number   = "工事番号";
                         owner:            _v('owner', ""),
                         total_sheets:     _n('total_sheets'),
                         completed_sheets: _n('completed_sheets'),
+                        wish_date:        src.wish_date || null,
                         task_type:        currentTaskTypeFilter || src.task_type || "drawing",
                         is_detailed:      true,
                         sort_order:       insertSortOrder
@@ -3662,6 +3663,7 @@ gantt.locale.labels.section_project_number   = "工事番号";
                         owner:            src.owner            || "",
                         total_sheets:     Number(src.total_sheets)     || 0,
                         completed_sheets: Number(src.completed_sheets) || 0,
+                        wish_date:        src.wish_date        || null,
                         task_type:        currentTaskTypeFilter || src.task_type || "drawing",
                         is_detailed:      true,
                         sort_order:       baseSO + (i + 1) * 1000
