@@ -506,18 +506,22 @@
             font-weight: bold !important;
             border-right: 1px solid #37474f !important;
             background: #455a64 !important;
+            color: #fff !important; /* scale_cell_class が月行に誤適用されても白字を維持 */
         }
-        /* 日・曜日行(2行目以降)の土日背景 */
-        #gantt_here .gantt_scale_line:nth-child(n+2) .gantt_scale_cell.gantt-scale-sun,
-        #gantt_here .gantt_scale_line:nth-child(n+2) .gantt_scale_cell.gantt-scale-sat {
+        /* 土日・休日の背景（day スケール行のみに css_class で付与されるため月行には影響しない） */
+        #gantt_here .gantt_scale_cell.gantt-scale-sun,
+        #gantt_here .gantt_scale_cell.gantt-scale-sat,
+        #gantt_here .gantt_scale_cell.gantt-scale-holiday {
             background: #607d8b !important;
         }
-        /* 日付行・曜日行(2行目以降)の土日文字色 */
-        #gantt_here .gantt_scale_line:nth-child(n+2) .gantt_scale_cell.gantt-scale-sun {
-            color: #ffcccc !important;
+        /* 日曜・社内休日：赤 */
+        #gantt_here .gantt_scale_cell.gantt-scale-sun,
+        #gantt_here .gantt_scale_cell.gantt-scale-holiday {
+            color: #ff5252 !important;
         }
-        #gantt_here .gantt_scale_line:nth-child(n+2) .gantt_scale_cell.gantt-scale-sat {
-            color: #cce0ff !important;
+        /* 土曜：青 */
+        #gantt_here .gantt_scale_cell.gantt-scale-sat {
+            color: #42a5f5 !important;
         }
 
         /* リソースの重なり（オーバーラップ）のスタイル（無効化） */
@@ -899,6 +903,7 @@
     </style>
 </head>
 <body>
+    <div id="page_loading_overlay" style="position:fixed;inset:0;background:#fff;z-index:9999;"></div>
     <div class="main-container">
         <div class="header-panel">
             <div class="header-row" id="filter_btn_row">
@@ -1425,7 +1430,7 @@
                 const isSat = dow === 6;
                 const isHol = _isHoliday(date);
                 const wkCls = (isSun || isSat || isHol) ? ' resource-cal-weekend' : '';
-                const dowColor = isSun ? 'color:#ffcccc;' : (isSat || isHol) ? 'color:#cce0ff;' : '';
+                const dowColor = isSun || isHol ? 'color:#ff5252;' : isSat ? 'color:#42a5f5;' : '';
                 const d = date.getDate();
 
                 if (unit === 'day') {
@@ -1609,26 +1614,7 @@
             line.style.left = (dataArea.offsetLeft + gantt.posFromDate(new Date())) + 'px';
             line.style.top = (gantt.config.scale_height || 60) + 'px';
         }
-        function _applyGanttScaleWeekendClasses() {
-            const scale = gantt.getScale();
-            if (!scale || !scale.trace_x) return;
-            const dates = scale.trace_x;
-            const scaleLines = document.querySelectorAll('#gantt_here .gantt_scale_line');
-            scaleLines.forEach((line, lineIdx) => {
-                if (lineIdx === 0) return; // 月行はスキップ
-                const cells = line.querySelectorAll('.gantt_scale_cell');
-                cells.forEach((cell, i) => {
-                    const date = dates[i];
-                    if (!date) return;
-                    const dow = date.getDay();
-                    cell.classList.remove('gantt-scale-sun', 'gantt-scale-sat');
-                    if (dow === 0) cell.classList.add('gantt-scale-sun');
-                    else if (dow === 6) cell.classList.add('gantt-scale-sat');
-                });
-            });
-        }
         gantt.attachEvent("onGanttRender", _drawMainTodayLine);
-        gantt.attachEvent("onGanttRender", _applyGanttScaleWeekendClasses);
         gantt.attachEvent("onGanttRender", function() { requestAnimationFrame(_renderWishDateMarks); });
         gantt.attachEvent("onGanttScroll",  function() { _renderWishDateMarks(); });
 
@@ -2259,8 +2245,20 @@
                     min_column_width: 22,
                     scales: [
                         {unit: "month", step: 1, format: "%Y/%n"},
-                        {unit: "day", step: 1, format: "%j"},
-                        {unit: "day", step: 1, format: (date) => ["日", "月", "火", "水", "木", "金", "土"][date.getDay()]}
+                        {unit: "day", step: 1, format: "%j", css_class: function(date) {
+                            const dow = date.getDay();
+                            if (dow === 0) return 'gantt-scale-sun';
+                            if (dow === 6) return 'gantt-scale-sat';
+                            if (_isHoliday(date)) return 'gantt-scale-holiday';
+                            return '';
+                        }},
+                        {unit: "day", step: 1, format: (date) => ["日", "月", "火", "水", "木", "金", "土"][date.getDay()], css_class: function(date) {
+                            const dow = date.getDay();
+                            if (dow === 0) return 'gantt-scale-sun';
+                            if (dow === 6) return 'gantt-scale-sat';
+                            if (_isHoliday(date)) return 'gantt-scale-holiday';
+                            return '';
+                        }}
                     ]
                 },
                 {
@@ -2923,6 +2921,13 @@ gantt.locale.labels.section_project_number   = "工事番号";
 
         gantt.templates.grid_row_class = function(start, end, task) {
             return "";
+        };
+        // スケールヘッダーの土日・社内休日セルにクラスを付与（描画時に適用されるためスクロールで崩れない）
+        gantt.templates.scale_cell_class = function(date) {
+            const dow = date.getDay();
+            if (dow === 0 || _isHoliday(date)) return 'gantt-scale-sun';
+            if (dow === 6) return 'gantt-scale-sat';
+            return '';
         };
 
         // フィルタリング（is_detailedのみ表示、かつ工事番号フィルタ）
@@ -3764,10 +3769,16 @@ gantt.locale.labels.section_project_number   = "工事番号";
                         gantt.setSizes();
                         const currentLevel = document.querySelector('.zoom-btn.active')?.textContent === '週単位' ? 'week' : 'day';
                         gantt.ext.zoom.setLevel(currentLevel);
+                        const overlay = document.getElementById('page_loading_overlay');
+                        if (overlay) overlay.remove();
                     }, 0);
                 } else {
                     // 直接アクセス：担当別モードで起動
                     _enterResourceFullscreen();
+                    setTimeout(() => {
+                        const overlay = document.getElementById('page_loading_overlay');
+                        if (overlay) overlay.remove();
+                    }, 60);
                 }
             });
         }
