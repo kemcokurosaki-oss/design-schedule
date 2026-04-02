@@ -36,10 +36,10 @@
         }
         .action-controls { margin-left: auto; display: flex; gap: 5px; }
         .btn { padding: 2px 10px; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: "メイリオ", Meiryo, sans-serif; }
-        .zoom-btn { font-size: 13px; }
-        .btn-primary { background: #2ecc71; color: #fff; border-color: #27ae60; font-weight: bold; font-size: 13px; }
-        .btn-info { background: #3498db; color: #fff; border-color: #2980b9; font-weight: bold; font-size: 13px; }
-        .btn-filter { background: #f0f0f0; color: #333; border-color: #ccc; font-weight: bold; font-size: 13px; }
+
+        .btn-primary { background: #2ecc71; color: #fff; border-color: #27ae60; font-weight: bold; }
+        .btn-info { background: #3498db; color: #fff; border-color: #2980b9; font-weight: bold; }
+        .btn-filter { background: #f0f0f0; color: #333; border-color: #ccc; font-weight: bold; }
         .btn-filter.active { background: #3498db; color: #fff; border-color: #2980b9; }
         .zoom-btn.active { background: #3498db; color: #fff; border-color: #3498db; }
         
@@ -893,14 +893,15 @@
                 <button class="btn btn-filter" id="longterm_filter_btn" onclick="toggleLongtermFilter()">長納期品</button>
                 <button class="btn btn-filter" id="trip_filter_btn" onclick="toggleTripFilter()">出張</button>
                 <div class="zoom-controls" style="margin-left: auto;">
-                    <button class="btn zoom-btn active" id="zoom_day_btn" onclick="setZoom('day', this)">日単位</button>
-                    <button class="btn zoom-btn" id="zoom_week_btn" onclick="setZoom('week', this)">週単位</button>
                     <button class="btn" id="help_btn" onclick="openHelp()" title="使い方ガイド">？</button>
                     <button class="btn btn-auth" id="auth_btn" onclick="handleAuthBtn()">ログイン</button>
                 </div>
             </div>
             <div class="header-row" id="project_info_row">
-                <div class="project-info" id="project_display">工事番号: 全表示</div>
+                <div class="zoom-controls">
+                    <button class="btn zoom-btn active" id="zoom_day_btn" onclick="setZoom('day', this)">日単位</button>
+                    <button class="btn zoom-btn" id="zoom_week_btn" onclick="setZoom('week', this)">週単位</button>
+                </div>
             </div>
             <div class="header-row" id="dropdowns_row">
                 <div id="project_filter_wrap" style="position:relative;">
@@ -923,9 +924,9 @@
                         <div id="owner_chk_list"></div>
                     </div>
                 </div>
+                <button class="btn btn-info" id="resource_toggle" onclick="toggleResourceView()">リソース表示</button>
+                <button class="btn btn-primary" id="create_task_btn" onclick="createTask()" style="display:none;">+ 新規タスク追加</button>
                 <div class="action-controls">
-                    <button class="btn btn-info" id="resource_toggle" onclick="toggleResourceView()">リソース表示</button>
-                    <button class="btn btn-primary" id="create_task_btn" onclick="createTask()" style="display:none;">+ 新規タスク追加</button>
                     <button class="btn" id="multi_delete_btn" onclick="deleteSelectedTasks()" style="display:none;">選択削除 (<span id="multi_delete_count">0</span>件)</button>
                     <div style="position:relative;display:none;" id="archive_btn_wrap">
                         <button class="btn" onclick="toggleArchiveMenu(event)">アーカイブ ▼</button>
@@ -2894,7 +2895,8 @@ gantt.locale.labels.section_project_number   = "工事番号";
             return css;
         };
         gantt.templates.timeline_cell_class = function(task, date) {
-            if (date.getDay() === 0 || date.getDay() === 6 || _isHoliday(date)) return "weekend";
+            if (gantt.getState().scale_unit === "day" &&
+                (date.getDay() === 0 || date.getDay() === 6 || _isHoliday(date))) return "weekend";
             return "";
         };
 
@@ -3226,15 +3228,6 @@ gantt.locale.labels.section_project_number   = "工事番号";
 
         // 工事番号セレクトボックスの表示更新
         function updateDisplay() {
-            const display = document.getElementById('project_display');
-            if (currentProjectFilter.length === 0) {
-                display.innerText = "工事番号: 全表示";
-            } else if (currentProjectFilter.length === 1) {
-                const info = projectMap.get(currentProjectFilter[0]);
-                display.innerText = `${currentProjectFilter[0]} ${info?.customer || ""} ${info?.details || ""}`;
-            } else {
-                display.innerText = currentProjectFilter.join('、');
-            }
 
             if (isResourceView) {
                 updateResourceData();
