@@ -154,9 +154,16 @@
             display: flex;
             overflow: hidden;
         }
+        /* 横罫線はタイムライン側のみ。太さ・色は .resource-cal-cell の縦線と同じ 1px / #607d8b */
+        #resource_calendar_header .cal-row:first-child #resource_cal_scroll {
+            border-bottom: 1px solid #607d8b;
+        }
+        #resource_calendar_header .cal-row:nth-child(2):not(:last-child) #resource_cal_scroll2 {
+            border-bottom: 1px solid #607d8b;
+        }
         #resource_calendar_header .cal-spacer {
             flex-shrink: 0;
-            border-right: 2px solid #37474f;
+            border-right: 1px solid #607d8b;
             background: #546e7a;
         }
         #resource_cal_scroll {
@@ -177,13 +184,13 @@
             border-right: 1px solid #607d8b;
         }
         .resource-cal-month {
-            background: #455a64;
+            background: #546e7a;
             font-weight: bold;
             font-size: 12px;
-            border-right: 1px solid #37474f;
+            border-right: 1px solid #607d8b;
         }
         .resource-cal-weekend {
-            background: #607d8b;
+            background: #546e7a;
         }
         
         /* リソースバーのスタイル（index.htmlから移植） */
@@ -478,22 +485,30 @@
             background-color: #e53935 !important; /* 鮮やかさと落ち着きのバランスが良い赤 */
         }
 
-        /* タイムラインカレンダーヘッダーをリソースヘッダーと統一 */
+        /* タイムラインカレンダーヘッダー（横線はすべて縦罫線と同じ 1px / #607d8b） */
         #gantt_here .gantt_task_scale {
             background: #546e7a !important;
-            border-bottom: 2px solid #455a64 !important;
+            border-bottom: 1px solid #607d8b !important;
         }
         #gantt_here .gantt_scale_line {
             background: #546e7a !important;
+            border-top: none !important;
             border-bottom: none !important;
         }
         #gantt_here .gantt_scale_line:first-child {
-            background: #455a64 !important;
-            border-bottom: 1px solid #37474f !important;
+            background: #546e7a !important;
+            border-bottom: 1px solid #607d8b !important;
         }
+        /* 日付行と曜日行の境（3段スケール時のみ） */
+        #gantt_here .gantt_scale_line:nth-child(2):not(:last-child) {
+            border-bottom: 1px solid #607d8b !important;
+        }
+        /* セルは左右のみ。上下は付与しない（行の border と重なると横線だけ倍の太さに見える） */
         #gantt_here .gantt_scale_cell {
             color: #fff !important;
             border-right: 1px solid #607d8b !important;
+            border-top: none !important;
+            border-bottom: none !important;
             font-family: "メイリオ", Meiryo, sans-serif !important;
             font-size: 11px !important;
             display: flex !important;
@@ -504,24 +519,24 @@
         #gantt_here .gantt_scale_line:first-child .gantt_scale_cell {
             font-size: 12px !important;
             font-weight: bold !important;
-            border-right: 1px solid #37474f !important;
-            background: #455a64 !important;
+            border-right: 1px solid #607d8b !important;
+            background: #546e7a !important;
             color: #fff !important; /* scale_cell_class が月行に誤適用されても白字を維持 */
         }
-        /* 土日・休日の背景（day スケール行のみに css_class で付与されるため月行には影響しない） */
+        /* 土日・休日の背景＝ヘッダーと同じ濃いグレー（day 行のみ scales[].css で付与） */
         #gantt_here .gantt_scale_cell.gantt-scale-sun,
         #gantt_here .gantt_scale_cell.gantt-scale-sat,
         #gantt_here .gantt_scale_cell.gantt-scale-holiday {
-            background: #607d8b !important;
+            background: #546e7a !important;
         }
-        /* 日曜・社内休日：赤 */
+        /* 日曜・社内休日：濃グレー背景でも判読しやすい明るめの赤 */
         #gantt_here .gantt_scale_cell.gantt-scale-sun,
         #gantt_here .gantt_scale_cell.gantt-scale-holiday {
-            color: #ff5252 !important;
+            color: #ef9a9a !important;
         }
-        /* 土曜：青 */
+        /* 土曜：濃グレー背景でも判読しやすい明るめの青 */
         #gantt_here .gantt_scale_cell.gantt-scale-sat {
-            color: #42a5f5 !important;
+            color: #90caf9 !important;
         }
 
         /* リソースの重なり（オーバーラップ）のスタイル（無効化） */
@@ -1430,7 +1445,7 @@
                 const isSat = dow === 6;
                 const isHol = _isHoliday(date);
                 const wkCls = (isSun || isSat || isHol) ? ' resource-cal-weekend' : '';
-                const dowColor = isSun || isHol ? 'color:#ff5252;' : isSat ? 'color:#42a5f5;' : '';
+                const dowColor = isSun || isHol ? 'color:#ef9a9a;' : isSat ? 'color:#90caf9;' : '';
                 const d = date.getDate();
 
                 if (unit === 'day') {
@@ -2245,18 +2260,18 @@
                     min_column_width: 22,
                     scales: [
                         {unit: "month", step: 1, format: "%Y/%n"},
-                        {unit: "day", step: 1, format: "%j", css_class: function(date) {
+                        {unit: "day", step: 1, format: "%j", css: function(date) {
                             const dow = date.getDay();
                             if (dow === 0) return 'gantt-scale-sun';
-                            if (dow === 6) return 'gantt-scale-sat';
                             if (_isHoliday(date)) return 'gantt-scale-holiday';
+                            if (dow === 6) return 'gantt-scale-sat';
                             return '';
                         }},
-                        {unit: "day", step: 1, format: (date) => ["日", "月", "火", "水", "木", "金", "土"][date.getDay()], css_class: function(date) {
+                        {unit: "day", step: 1, format: (date) => ["日", "月", "火", "水", "木", "金", "土"][date.getDay()], css: function(date) {
                             const dow = date.getDay();
                             if (dow === 0) return 'gantt-scale-sun';
-                            if (dow === 6) return 'gantt-scale-sat';
                             if (_isHoliday(date)) return 'gantt-scale-holiday';
+                            if (dow === 6) return 'gantt-scale-sat';
                             return '';
                         }}
                     ]
@@ -2925,7 +2940,8 @@ gantt.locale.labels.section_project_number   = "工事番号";
         // スケールヘッダーの土日・社内休日セルにクラスを付与（描画時に適用されるためスクロールで崩れない）
         gantt.templates.scale_cell_class = function(date) {
             const dow = date.getDay();
-            if (dow === 0 || _isHoliday(date)) return 'gantt-scale-sun';
+            if (dow === 0) return 'gantt-scale-sun';
+            if (_isHoliday(date)) return 'gantt-scale-holiday';
             if (dow === 6) return 'gantt-scale-sat';
             return '';
         };
