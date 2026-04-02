@@ -19,6 +19,7 @@
         #gantt_here { flex: 1 !important; min-height: 0; overflow: hidden; }
         .header-panel { background: #fff; padding: 5px 10px; border-bottom: 1px solid #ccc; display: flex; flex-direction: column; gap: 5px; }
         .header-row { display: flex; align-items: center; gap: 15px; width: 100%; }
+        #filter_btn_row { gap: 0; border-bottom: 1px solid #ddd; padding-bottom: 0; height: 31px; box-sizing: border-box; }
         .project-info { font-size: 16px; font-weight: bold; color: #333; }
         .zoom-controls { display: flex; gap: 5px; }
         .header-select {
@@ -38,9 +39,23 @@
         .btn { padding: 2px 10px; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: "メイリオ", Meiryo, sans-serif; }
 
         .btn-primary { background: #2ecc71; color: #fff; border-color: #27ae60; font-weight: bold; }
-        .btn-info { background: #3498db; color: #fff; border-color: #2980b9; font-weight: bold; }
-        .btn-filter { background: #f0f0f0; color: #333; border-color: #ccc; font-weight: bold; }
-        .btn-filter.active { background: #3498db; color: #fff; border-color: #2980b9; }
+        .btn-info { background: #f0f0f0; color: #333; border-color: #ccc; font-weight: normal; }
+        .btn-info.active { background: #1565c0; color: #fff; border-color: #0d47a1; font-weight: normal; }
+        .btn-filter {
+            background: transparent; color: #666; border-color: transparent;
+            font-weight: bold; border-radius: 0; padding: 4px 12px;
+            border-bottom: 2px solid transparent;
+            position: relative;
+        }
+        .btn-filter:hover { color: #1565c0; background: transparent; }
+        .btn-filter.active {
+            background: transparent; color: #1565c0; border-color: transparent;
+            border-bottom: 2px solid transparent;
+        }
+        .btn-filter.active::after {
+            content: ''; position: absolute; left: 0; right: 0; bottom: -1px;
+            height: 3px; background: #1565c0; border-radius: 2px 2px 0 0;
+        }
         .zoom-btn.active { background: #3498db; color: #fff; border-color: #3498db; }
         
         /* レイアウト用 */
@@ -887,11 +902,11 @@
     <div class="main-container">
         <div class="header-panel">
             <div class="header-row" id="filter_btn_row">
-                <button class="btn btn-filter" id="resource_home_btn" onclick="returnToResourceView()">担当別</button>
-                <button class="btn btn-filter" id="plan_filter_btn" onclick="togglePlanFilter()">計画</button>
-                <button class="btn btn-filter" id="drawing_filter_btn" onclick="toggleDrawingFilter()">図面</button>
-                <button class="btn btn-filter" id="longterm_filter_btn" onclick="toggleLongtermFilter()">長納期品</button>
-                <button class="btn btn-filter" id="trip_filter_btn" onclick="toggleTripFilter()">出張</button>
+                <button class="btn btn-filter" id="resource_home_btn" onclick="returnToResourceView()">👤 担当別</button>
+                <button class="btn btn-filter" id="plan_filter_btn" onclick="togglePlanFilter()">📋 計画</button>
+                <button class="btn btn-filter" id="drawing_filter_btn" onclick="toggleDrawingFilter()">📐 図面</button>
+                <button class="btn btn-filter" id="longterm_filter_btn" onclick="toggleLongtermFilter()">📦 長納期品</button>
+                <button class="btn btn-filter" id="trip_filter_btn" onclick="toggleTripFilter()">✈ 出張</button>
                 <div class="zoom-controls" style="margin-left: auto;">
                     <button class="btn" id="help_btn" onclick="openHelp()" title="使い方ガイド">？</button>
                     <button class="btn btn-auth" id="auth_btn" onclick="handleAuthBtn()">ログイン</button>
@@ -1547,12 +1562,14 @@
             const panel = document.getElementById("resource_panel");
 
             if (isResourceView) {
-                btn.innerText = "メイン表示に戻す";
+                btn.innerText = "リソース表示中 ✕";
+                btn.classList.add('active');
                 // コンテンツを描画してからパネルを表示（古い内容が一瞬見えるのを防ぐ）
                 updateResourceData();
                 panel.style.display = "flex";
             } else {
                 btn.innerText = "リソース表示";
+                btn.classList.remove('active');
                 panel.style.display = "none";
                 // 詳細モードをリセット
                 _resourceDetailOwner = null;
@@ -3151,7 +3168,7 @@ gantt.locale.labels.section_project_number   = "工事番号";
             document.getElementById('trip_filter_btn').classList.toggle('active', currentTaskTypeFilter === 'business_trip');
             // 担当別モード中はボタン行の上下余白を均等にして行を調整
             const filterBtnRow = document.getElementById('filter_btn_row');
-            if (filterBtnRow) filterBtnRow.style.minHeight = isResourceFullscreen ? '36px' : '';
+            if (filterBtnRow) filterBtnRow.style.minHeight = '';
             const headerPanel = document.querySelector('.header-panel');
             if (headerPanel) headerPanel.style.padding = isResourceFullscreen ? '6px 10px 3px 10px' : '';
             // 担当別モード中は2・3行目を非表示、新規タスク追加ボタンも非表示
