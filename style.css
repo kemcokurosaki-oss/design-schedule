@@ -1,0 +1,901 @@
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: "メイリオ", Meiryo, "MS PGothic", sans-serif; font-size: 12px; }
+.main-container { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+#gantt_here { flex: 1 !important; min-height: 0; overflow: hidden; }
+.header-panel { background: #fff; padding: 5px 10px; border-bottom: 1px solid #ccc; display: flex; flex-direction: column; gap: 5px; }
+.header-row { display: flex; align-items: center; gap: 15px; width: 100%; }
+#filter_btn_row { gap: 0; border-bottom: 1px solid #ddd; padding-bottom: 0; height: 31px; box-sizing: border-box; }
+.project-info { font-size: 16px; font-weight: bold; color: #333; }
+.zoom-controls { display: flex; gap: 5px; }
+.header-select {
+    padding: 5px 24px 5px 8px;
+    font-size: 13px;
+    font-family: 'メイリオ', Meiryo, sans-serif;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23555'/%3E%3C/svg%3E") no-repeat right 8px center;
+    background-size: 8px 5px;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    min-width: 150px;
+}
+.action-controls { margin-left: auto; display: flex; gap: 5px; }
+.btn { padding: 2px 10px; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: "メイリオ", Meiryo, sans-serif; }
+
+.btn-primary { background: #2ecc71; color: #fff; border-color: #27ae60; font-weight: bold; }
+.btn-info { background: #f0f0f0; color: #333; border-color: #ccc; font-weight: normal; }
+.btn-info.active { background: #1565c0; color: #fff; border-color: #0d47a1; font-weight: normal; }
+.btn-filter {
+    background: transparent; color: #666; border-color: transparent;
+    font-weight: bold; border-radius: 0; padding: 4px 12px;
+    border-bottom: 2px solid transparent;
+    position: relative;
+}
+.btn-filter:hover { color: #1565c0; background: transparent; }
+.btn-filter.active {
+    background: transparent; color: #1565c0; border-color: transparent;
+    border-bottom: 2px solid transparent;
+}
+.btn-filter.active::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: -1px;
+    height: 3px; background: #1565c0; border-radius: 2px 2px 0 0;
+}
+.zoom-btn.active { background: #3498db; color: #fff; border-color: #3498db; }
+
+/* レイアウト用 */
+#gantt_here {
+    flex: 1;
+    width: 100%;
+    /* height: 100% を削除して flexbox に任せる */
+    min-height: 0; 
+}
+
+/* 独立したリソースパネル */
+#resource_panel {
+    display: none;
+    height: 250px;
+    min-height: 50px;
+    border-top: 4px solid #ccc;
+    background: #fff;
+    flex-direction: column;
+    position: relative;
+    z-index: 1000;
+}
+/* リソース全画面モード */
+#resource_panel.resource-fullscreen {
+    flex: 1 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    border-top: none !important;
+}
+#resource_panel.resource-fullscreen #resource_resizer {
+    display: none;
+}
+#resource_resizer {
+    height: 12px; /* 当たり判定も少し拡大 */
+    cursor: ns-resize;
+    background: transparent;
+    width: 100%;
+    position: absolute;
+    top: -8px; /* 境界線(4px)の上に重なるように調整 */
+    left: 0;
+    z-index: 1001;
+    transition: background 0.2s;
+}
+#resource_resizer::before {
+    content: "";
+    position: absolute;
+    top: 4px; 
+    left: 0;
+    width: 100%;
+    height: 4px; /* 境界線と同じ太さ（4px） */
+    background: transparent;
+    transition: background 0.2s;
+}
+#resource_resizer:hover::before {
+    background: #3498db; 
+}
+.resource-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 15px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #ddd;
+    font-size: 13px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+.resource-header-close {
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    color: #999;
+    border: none;
+    background: none;
+    padding: 0 5px;
+}
+.resource-header-close:hover {
+    color: #333;
+}
+.resource-content {
+    flex: 1;
+    overflow: auto;
+}
+.resource-content-inner {
+    position: relative;
+}
+
+/* リソースカレンダーヘッダー */
+#resource_calendar_header {
+    flex-shrink: 0;
+    overflow: hidden;
+    background: #546e7a;
+    border-bottom: 2px solid #455a64;
+    font-family: "メイリオ", Meiryo, sans-serif;
+}
+#resource_calendar_header .cal-row {
+    display: flex;
+    overflow: hidden;
+}
+/* 横罫線はタイムライン側のみ。太さ・色は .resource-cal-cell の縦線と同じ 1px / #607d8b */
+#resource_calendar_header .cal-row:first-child #resource_cal_scroll {
+    border-bottom: 1px solid #607d8b;
+}
+#resource_calendar_header .cal-row:nth-child(2):not(:last-child) #resource_cal_scroll2 {
+    border-bottom: 1px solid #607d8b;
+}
+#resource_calendar_header .cal-spacer {
+    flex-shrink: 0;
+    border-right: 1px solid #607d8b;
+    background: #546e7a;
+}
+#resource_cal_scroll {
+    overflow: hidden;
+    flex: 1;
+}
+.resource-cal-cell {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-family: "メイリオ", Meiryo, sans-serif;
+    color: #fff;
+    box-sizing: border-box;
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 1px solid #607d8b;
+}
+.resource-cal-month {
+    background: #546e7a;
+    font-weight: bold;
+    font-size: 12px;
+    border-right: 1px solid #607d8b;
+}
+.resource-cal-weekend {
+    background: #546e7a;
+}
+
+/* リソースバーのスタイル（index.htmlから移植） */
+.resource-item { border-bottom: 1px solid #ebebeb !important; }
+.resource-grid-container { background: #f9f9f9; }
+.resource-cell { display: flex; align-items: center; padding: 0 4px; box-sizing: border-box; }
+.resource-timeline { position: relative; background: #fff; }
+.resource-today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #ff5252 !important; opacity: 1.0; z-index: 2 !important; pointer-events: none; }
+.resource-cell-bar {
+    position: absolute;
+    border-radius: 3px;
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #222;
+    font-size: 13px;
+    font-weight: bold;
+    overflow: hidden;
+    white-space: nowrap;
+    text-shadow: none;
+    box-sizing: border-box;
+    border: 1px solid rgba(0,0,0,0.15);
+}
+.resource-bar-text { padding: 0 5px; overflow: hidden; text-overflow: ellipsis; }
+
+/* 担当者ごとのバーの色設定（区別しやすいように調整） */
+.owner-fujiyama { background-color: #e74c3c !important; border-color: #c0392b !important; color: #fff !important; } /* 鮮やかな赤 */
+.owner-tanaka { background-color: #3498db !important; border-color: #2980b9 !important; color: #fff !important; }   /* 鮮やかな青 */
+.owner-yasuoka { background-color: #2ecc71 !important; border-color: #27ae60 !important; color: #fff !important; }  /* 鮮やかな緑 */
+.owner-kawabe { background-color: #f39c12 !important; border-color: #d35400 !important; color: #fff !important; }  /* オレンジ */
+.owner-dan { background-color: #9b59b6 !important; border-color: #8e44ad !important; color: #fff !important; }     /* 濃い紫 */
+.owner-horii { background-color: #1abc9c !important; border-color: #16a085 !important; color: #fff !important; }   /* ターコイズ */
+.owner-miyazaki { background-color: #e84393 !important; border-color: #d63031 !important; color: #fff !important; } /* 濃いピンク */
+.owner-tsuda { background-color: #badc58 !important; border-color: #6ab04c !important; color: #222 !important; }   /* ライム */
+.owner-komura { background-color: #2c3e50 !important; border-color: #1a252f !important; color: #fff !important; }   /* ネイビー */
+.owner-shibata { background-color: #f1c40f !important; border-color: #f39c12 !important; color: #222 !important; }  /* 鮮やかな黄 */
+.owner-hashimoto { background-color: #686de0 !important; border-color: #4834d4 !important; color: #fff !important; } /* ロイヤルブルー */
+.owner-matsumoto { background-color: #7ed6df !important; border-color: #22a6b3 !important; color: #222 !important; } /* 明るい水色 */
+.owner-default { background-color: #95a5a6 !important; border-color: #7f8c8d !important; color: #fff !important; }  /* グレー */
+
+/* コンフリクト背景（無効化：透明に設定） */
+.resource-cell-conflict-bg {
+    background: transparent !important;
+}
+
+/* 土日の背景色 */
+.weekend { background: #f0f0f0 !important; }
+/* 今日の赤線（マーカー）の強制表示 */
+.today-line, .gantt_marker {
+    background-color: #ff4d4d !important;
+    width: 2px !important;
+    z-index: 9999 !important;
+    position: absolute !important;
+}
+
+/* マーカーが表示されない原因となる overflow を解除 */
+.gantt_marker_area {
+    z-index: 5 !important;
+}
+
+/* ライトボックス（編集ダイアログ）を常に最前面に表示 */
+.gantt_cal_light, .gantt_modal_box, .gantt_cal_cover {
+    z-index: 99999 !important;
+}
+
+/* ライトボックス全体の縮小 */
+.gantt_cal_light {
+    width: 480px !important;
+    min-width: 480px !important;
+    font-size: 12px !important;
+    font-family: "メイリオ", Meiryo, sans-serif !important;
+}
+.gantt_cal_light * {
+    font-family: "メイリオ", Meiryo, sans-serif !important;
+}
+.gantt_cal_ltitle {
+    padding: 5px 10px !important;
+    font-size: 13px !important;
+    color: #000 !important;
+}
+.gantt_cal_ltitle span, .gantt_cal_ltitle div {
+    color: #000 !important;
+}
+/* 項目名と入力欄を横並びにする */
+.gantt_cal_larea {
+    display: grid !important;
+    grid-template-columns: 100px 1fr !important;
+    align-items: center !important;
+    row-gap: 4px !important;
+    padding: 6px 10px !important;
+}
+.gantt_cal_lsection {
+    font-size: 12px !important;
+    padding: 0 6px 0 0 !important;
+    line-height: 26px !important;
+    width: auto !important;
+    min-width: unset !important;
+    text-align: right !important;
+    border-top: none !important;
+}
+.gantt_cal_ltext {
+    padding: 0 !important;
+    min-height: 26px !important;
+}
+.gantt_cal_ltext input[type="text"],
+.gantt_cal_ltext select {
+    width: 200px !important;
+    height: 26px !important;
+    font-size: 12px !important;
+    padding: 0 4px !important;
+    box-sizing: border-box !important;
+}
+.gantt_cal_ltext textarea:not(.lb-textarea-full) {
+    width: 200px !important;
+    height: 26px !important;
+    font-size: 12px !important;
+    line-height: 18px !important;
+    padding: 4px 4px 0 4px !important;
+    box-sizing: border-box !important;
+    resize: none !important;
+    overflow: hidden !important;
+}
+.gantt_cal_lcontrols {
+    padding: 5px 10px !important;
+}
+.gantt_btn_set.gantt_save_btn,
+.gantt_btn_set.gantt_cancel_btn,
+.gantt_btn_set.gantt_delete_btn {
+    height: 28px !important;
+    line-height: 28px !important;
+    font-size: 12px !important;
+    padding: 0 12px !important;
+    text-align: center !important;
+    cursor: pointer !important;
+    border-radius: 4px !important;
+    box-sizing: border-box !important;
+    display: inline-block !important;
+}
+.gantt_btn_set.gantt_delete_btn {
+    background-color: #fff !important;
+    border: 1px solid #d9534f !important;
+    color: #d9534f !important;
+}
+.gantt_btn_set.gantt_delete_btn:hover {
+    background-color: #d9534f !important;
+    color: #fff !important;
+}
+
+/* マーカー上部の「今日」というラベルも強制表示 */
+.gantt_marker_content {
+    background: #ff4d4d !important;
+    color: #fff !important;
+    z-index: 10000 !important;
+    font-weight: bold !important;
+    padding: 2px 5px !important;
+    border-radius: 3px !important;
+    font-size: 11px !important;
+}
+/* 日付がないタスクのバーを隠す */
+.hidden_bar { display: none !important; }
+
+/* 標準的なタスクスタイル */
+.gantt_task_line { border-radius: 4px; }
+.gantt_task_content { font-size: 11px; font-family: "メイリオ", Meiryo, sans-serif; }
+
+/* wish_date ▼マーク */
+.wish-date-mark {
+    position: absolute;
+    font-size: 14px;
+    color: #000000;
+    transform: translateX(-50%);
+    top: 2px;
+    pointer-events: auto;
+    z-index: 2;
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+}
+.wish-date-mark.dragging { opacity: 0.6; }
+
+/* グリッドのフォント設定 */
+.gantt_grid_data .gantt_cell {
+    font-family: "メイリオ", Meiryo, sans-serif !important;
+    font-size: 13px !important;
+    font-weight: normal !important;
+    padding: 0 !important;
+}
+/* グリッド内カスタム追加ボタン */
+.custom_add_btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    line-height: 1;
+    font-size: 16px;
+    color: #546e7a;
+    cursor: pointer;
+    border-radius: 3px;
+    user-select: none;
+}
+.custom_add_btn:hover { color: #2ecc71; }
+/* インラインエディタ入力欄 */
+.gantt_grid_data .gantt_cell .gantt_tree_content input,
+.gantt_grid_data .gantt_cell input {
+    width: 100% !important;
+    height: 100% !important;
+    box-sizing: border-box !important;
+    border: 1px solid #7986cb !important;
+    padding: 0 2px !important;
+    font-family: "メイリオ", Meiryo, sans-serif !important;
+    font-size: 13px !important;
+    outline: none !important;
+}
+
+/* 日付インライン編集: カレンダーアイコンが見切れないようオーバーフローを許可 */
+.gantt_grid_data .gantt_cell:focus-within {
+    overflow: visible !important;
+    z-index: 100 !important;
+}
+/* Chromium: 日付入力のカレンダーアイコンを左端に配置して常に見えるようにする */
+.gantt_grid_data .gantt_cell input[type="date"]::-webkit-calendar-picker-indicator {
+    position: absolute;
+    right: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.gantt_grid_scale .gantt_grid_head_cell {
+    font-family: "メイリオ", Meiryo, sans-serif !important;
+    font-size: 14px !important;
+    font-weight: normal !important;
+    padding: 0 !important;
+}
+
+/* グリッドヘッダーを青にする */
+.gantt_grid_scale, .gantt_grid_head_cell {
+    background-color: #546e7a !important; /* くすんだ青（ブルーグレー） */
+    color: #ffffff !important;
+    border-right: 1px solid #455a64 !important;
+    line-height: normal !important; /* 改行を許可するために追加 */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+}
+
+/* 階層構造を使用しないためインデントとアイコンのスペースをゼロに */
+.gantt_tree_indent {
+    width: 0 !important;
+}
+.gantt_tree_icon {
+    width: 0 !important;
+    display: none !important;
+}
+
+/* タスクの背景色を水色とさらに薄い水色で交互にする */
+.gantt_row {
+    background-color: #f8fafc !important; /* 非常に明るいグレーブルー */
+}
+.gantt_row.odd {
+    background-color: #e2e8f0 !important; /* 落ち着いた薄いブルーグレー */
+}
+/* ホバー時の色も調整 */
+.gantt_row:hover {
+    background-color: #cbd5e1 !important; /* 少し濃いくすんだ青 */
+}
+
+/* 進捗列の背景色（グラデーションによる進捗表示） */
+.progress-cell-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    overflow: hidden; /* はみ出し防止 */
+}
+.progress-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background-color: #ffd54f; /* 鮮やかな山吹色（黄色とオレンジの中間） */
+    z-index: -1;
+}
+.progress-overdue {
+    background-color: #e53935 !important; /* 鮮やかさと落ち着きのバランスが良い赤 */
+}
+
+/* タイムラインカレンダーヘッダー（横線はすべて縦罫線と同じ 1px / #607d8b） */
+#gantt_here .gantt_task_scale {
+    background: #546e7a !important;
+    border-bottom: 1px solid #607d8b !important;
+}
+#gantt_here .gantt_scale_line {
+    background: #546e7a !important;
+    border-top: none !important;
+    border-bottom: none !important;
+}
+#gantt_here .gantt_scale_line:first-child {
+    background: #546e7a !important;
+    border-bottom: 1px solid #607d8b !important;
+}
+/* 日付行と曜日行の境（3段スケール時のみ） */
+#gantt_here .gantt_scale_line:nth-child(2):not(:last-child) {
+    border-bottom: 1px solid #607d8b !important;
+}
+/* セルは左右のみ。上下は付与しない（行の border と重なると横線だけ倍の太さに見える） */
+#gantt_here .gantt_scale_cell {
+    color: #fff !important;
+    border-right: 1px solid #607d8b !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    font-family: "メイリオ", Meiryo, sans-serif !important;
+    font-size: 11px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: normal !important;
+}
+#gantt_here .gantt_scale_line:first-child .gantt_scale_cell {
+    font-size: 12px !important;
+    font-weight: bold !important;
+    border-right: 1px solid #607d8b !important;
+    background: #546e7a !important;
+    color: #fff !important; /* scale_cell_class が月行に誤適用されても白字を維持 */
+}
+/* 土日・休日の背景＝ヘッダーと同じ濃いグレー（day 行のみ scales[].css で付与） */
+#gantt_here .gantt_scale_cell.gantt-scale-sun,
+#gantt_here .gantt_scale_cell.gantt-scale-sat,
+#gantt_here .gantt_scale_cell.gantt-scale-holiday {
+    background: #546e7a !important;
+}
+/* 日曜・社内休日：濃グレー背景でも判読しやすい明るめの赤 */
+#gantt_here .gantt_scale_cell.gantt-scale-sun,
+#gantt_here .gantt_scale_cell.gantt-scale-holiday {
+    color: #ef9a9a !important;
+}
+/* 土曜：濃グレー背景でも判読しやすい明るめの青 */
+#gantt_here .gantt_scale_cell.gantt-scale-sat {
+    color: #90caf9 !important;
+}
+
+/* リソースの重なり（オーバーラップ）のスタイル（無効化） */
+.overload-cell {
+    background: transparent !important;
+}
+/* リソースセル内のバー表示 */
+.has-resource-bar {
+    position: relative !important;
+}
+.has-resource-bar::after {
+    content: "" !important;
+    position: absolute !important;
+    top: 6px !important;
+    bottom: 6px !important;
+    left: 0 !important;
+    right: 0 !important;
+    background-color: #FBAD4F !important;
+    border-radius: 4px !important;
+    z-index: 5 !important;
+    display: block !important;
+}
+/* 重複時は背景色を変えて強調（無効化） */
+.overload-cell {
+    background-color: transparent !important;
+}
+.overload-cell::after {
+    background-color: #FBAD4F !important; /* 重複箇所もオレンジにする */
+}
+/* セル自体の枠線を見やすく */
+.gantt_resource_cell {
+    border-right: 1px solid #ebebeb !important;
+    box-sizing: border-box !important;
+}
+.gantt_resource_marker.overtime, 
+.gantt_resource_marker_overtime,
+.gantt_resource_marker {
+    background-color: #FBAD4F !important;
+    background-image: none !important;
+    opacity: 1.0 !important;
+}
+
+/* タイムライン上のリソースセルの背景パターンを完全に無効化 */
+.gantt_resource_cell, 
+.gantt_resource_marker, 
+.gantt_resource_marker_overtime,
+[class*="gantt_resource_marker"] {
+    background-image: none !important;
+}
+/* リソースタイムラインのヘッダーを完全に非表示にする */
+.gantt_resource_timeline .gantt_scale_line,
+.gantt_resource_timeline .gantt_task_scale {
+    display: none !important;
+    height: 0 !important;
+    border: none !important;
+}
+/* リソースグリッドのヘッダーを調整（1行のみ表示し、左寄せにする） */
+.gantt_resource_grid .gantt_grid_scale {
+    background-color: #f8f9fa !important;
+    height: 30px !important;
+    line-height: 30px !important;
+    border-bottom: 2px solid #ccc !important;
+    position: relative;
+}
+.gantt_resource_grid .gantt_grid_scale::before {
+    content: "担当者別リソース";
+    position: absolute;
+    left: 15px;
+    top: 0;
+    font-weight: bold;
+    font-size: 13px;
+    color: #2c3e50;
+    z-index: 10;
+}
+/* グリッドヘッダー内の元のセルを隠す */
+.gantt_resource_grid .gantt_grid_head_cell {
+    display: none !important;
+}
+
+/* リソース担当者名リンク */
+.resource-owner-link {
+    width: 120px;
+    text-align: left;
+    cursor: pointer;
+    color: #333;
+    border-radius: 3px;
+    padding: 2px 4px;
+    transition: background 0.15s, color 0.15s;
+}
+.resource-owner-link:hover {
+    background: #546e7a;
+    color: #fff;
+}
+
+
+/* リソースセルのスタイル調整 */
+.gantt_matrix_cell {
+    overflow: visible !important; /* セルからはみ出しても隠さない */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+/* 右クリックコンテキストメニュー */
+#gantt_ctx_menu {
+    display: none;
+    position: fixed;
+    z-index: 99999;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 2px 4px 8px rgba(0,0,0,0.2);
+    min-width: 150px;
+    padding: 4px 0;
+    font-family: "メイリオ", Meiryo, sans-serif;
+}
+.gantt_ctx_item {
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 13px;
+}
+#gantt_ctx_copy { color: #1565c0; }
+#gantt_ctx_copy:hover { background: #e3f2fd; }
+#gantt_ctx_copy_multi { color: #1565c0; }
+#gantt_ctx_copy_multi:hover { background: #e3f2fd; }
+#gantt_ctx_paste { color: #2e7d32; }
+#gantt_ctx_paste:hover { background: #e8f5e9; }
+#gantt_ctx_paste.disabled { color: #aaa; pointer-events: none; }
+#gantt_ctx_copy.disabled { color: #aaa; pointer-events: none; }
+#gantt_ctx_copy_multi.disabled { color: #aaa; pointer-events: none; }
+#gantt_ctx_delete { color: #c62828; }
+#gantt_ctx_delete:hover { background: #ffebee; }
+.gantt_ctx_sep { border-top: 1px solid #eee; margin: 3px 0; }
+/* グリッド行の複数選択ハイライト */
+#gantt_here .gantt_row.grid-row-selected,
+#gantt_here .gantt_row.gantt_row_task.grid-row-selected {
+    background: #bbdefb !important;
+    border-left: 3px solid #1565c0 !important;
+}
+#gantt_here .gantt_row.grid-row-selected .gantt_cell {
+    color: #0d2f6e !important;
+}
+/* コピー項目選択モーダル */
+#copy_options_overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 100000;
+    align-items: center;
+    justify-content: center;
+}
+#copy_options_overlay.open { display: flex; }
+#copy_options_dialog {
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    padding: 20px 24px 16px;
+    min-width: 320px;
+    max-width: 480px;
+    font-family: "メイリオ", Meiryo, sans-serif;
+    font-size: 13px;
+}
+#copy_options_dialog h3 {
+    margin: 0 0 14px;
+    font-size: 14px;
+    color: #1565c0;
+    border-bottom: 1px solid #e3f2fd;
+    padding-bottom: 8px;
+}
+.copy-opts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 20px;
+    margin-bottom: 16px;
+}
+.copy-opts-grid label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+.copy-opts-grid input[type=checkbox] { cursor: pointer; }
+.copy-opts-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+/* 複数選択削除ボタン */
+#multi_delete_btn {
+    display: none;
+    background: #e53935;
+    color: #fff;
+    border-color: #c62828;
+    font-weight: bold;
+}
+#multi_delete_btn:hover { background: #c62828; }
+/* アーカイブドロップダウン */
+#archive_dropdown_menu {
+    display: none; position: absolute; top: calc(100% + 2px); right: 0;
+    background: #fff; border: 1px solid #ccc; border-radius: 3px;
+    z-index: 9999; padding: 4px 0; min-width: 140px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+#archive_dropdown_menu.open { display: block; }
+#archive_dropdown_menu div {
+    padding: 7px 14px; cursor: pointer; font-size: 13px;
+    font-family: 'メイリオ', Meiryo, sans-serif; white-space: nowrap;
+}
+#archive_dropdown_menu div:hover { background: #f0f0f0; }
+/* アーカイブモーダル共通 */
+.archive-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4); z-index: 100000;
+    align-items: center; justify-content: center;
+}
+.archive-overlay.open { display: flex; }
+.archive-dialog {
+    background: #fff; border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    padding: 20px 24px 16px; width: 680px; max-width: 95vw;
+    font-family: "メイリオ", Meiryo, sans-serif; font-size: 13px;
+    max-height: 80vh; display: flex; flex-direction: column;
+}
+.archive-dialog h3 {
+    margin: 0 0 14px; font-size: 14px; color: #1565c0;
+    border-bottom: 1px solid #e3f2fd; padding-bottom: 8px; flex-shrink: 0;
+}
+.archive-table { overflow-y: auto; flex: 1; border: 1px solid #e0e0e0; border-radius: 3px; }
+.archive-table table { width: 100%; border-collapse: collapse; }
+.archive-table th {
+    background: #f5f5f5; padding: 6px 10px; text-align: left;
+    border-bottom: 1px solid #ddd; font-size: 12px;
+    position: sticky; top: 0; z-index: 1;
+}
+.archive-table td { padding: 6px 10px; border-bottom: 1px solid #f0f0f0; font-size: 12px; white-space: nowrap; }
+.archive-table td:nth-child(3) { white-space: normal; }
+.archive-table tr:last-child td { border-bottom: none; }
+.archive-dialog-footer { display: flex; justify-content: flex-end; margin-top: 12px; flex-shrink: 0; gap: 8px; }
+/* アーカイブ一覧タブ */
+.archive-tabs { display: flex; gap: 4px; margin-bottom: 8px; flex-shrink: 0; }
+.archive-tab-btn { padding: 4px 14px; font-size: 12px; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px 3px 0 0; font-family: 'メイリオ', Meiryo, sans-serif; }
+.archive-tab-btn.active { background: #1565c0; color: #fff; border-color: #1565c0; }
+/* タスク詳細モーダル */
+#archive_detail_overlay { z-index: 100001; } /* 一覧の上に重ねる */
+#archive_copy_overlay { z-index: 100002; } /* 詳細画面の上に重ねる */
+#archive_detail_dialog {
+    background: #fff; border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    padding: 20px 24px 16px; width: 900px; max-width: 95vw;
+    font-family: "メイリオ", Meiryo, sans-serif; font-size: 13px;
+    height: 80vh; display: flex; flex-direction: column;
+}
+#archive_detail_dialog h3 {
+    margin: 0 0 14px; font-size: 14px; color: #1565c0;
+    border-bottom: 1px solid #e3f2fd; padding-bottom: 8px; flex-shrink: 0;
+}
+
+/* ===== ログイン ===== */
+#login_overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 200000;
+    align-items: center; justify-content: center;
+}
+#login_overlay.open { display: flex; }
+#login_dialog {
+    background: #fff; border-radius: 8px; padding: 32px 28px;
+    width: 300px; box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+#login_dialog h2 { margin: 0 0 20px; font-size: 15px; text-align: center; color: #333; }
+#login_dialog input {
+    width: 100%; padding: 8px 10px; margin-bottom: 12px;
+    border: 1px solid #ccc; border-radius: 4px;
+    font-size: 13px; font-family: 'メイリオ', Meiryo, sans-serif;
+    box-sizing: border-box;
+}
+#login_error { color: #e74c3c; font-size: 12px; margin-bottom: 10px; display: none; }
+#login_btn_submit {
+    width: 100%; padding: 9px; background: #3498db; color: #fff;
+    border: none; border-radius: 4px; font-size: 13px; cursor: pointer;
+    font-family: 'メイリオ', Meiryo, sans-serif;
+}
+#login_btn_submit:hover { background: #2980b9; }
+#login_btn_cancel {
+    width: 100%; padding: 7px; background: none; border: none;
+    color: #999; font-size: 12px; cursor: pointer; margin-top: 8px;
+    font-family: 'メイリオ', Meiryo, sans-serif;
+}
+.btn-auth { font-size: 12px; padding: 2px 10px; }
+.btn-auth.logged-in { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
+
+/* ===== ヘルプモード（スポットライト型） ===== */
+#help_btn { font-size: 13px; padding: 2px 8px; font-weight: bold; color: #555; }
+#help_btn.help-active { background: #1565c0; color: #fff; border-color: #1565c0; }
+#help_tips_container {
+    display: none; position: fixed; inset: 0;
+    z-index: 200000; pointer-events: none;
+}
+#help_tips_container.open { display: block; }
+/* グレーアウト背景 */
+#help_overlay_bg {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.52);
+    pointer-events: all; cursor: default;
+}
+/* ボタン上のハイライト枠 */
+.help-highlight {
+    position: fixed; z-index: 200001;
+    pointer-events: all; cursor: help;
+    border-radius: 4px;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.55), 0 0 8px 2px rgba(100,170,255,0.45);
+    transition: box-shadow 0.18s;
+}
+.help-highlight:hover {
+    box-shadow: 0 0 0 3px #fff, 0 0 18px 6px rgba(80,160,255,0.9);
+}
+/* 吹き出し */
+.help-tip {
+    position: fixed; z-index: 200002; pointer-events: none;
+    background: #fff; border: 2px solid #1565c0; border-radius: 6px;
+    padding: 7px 10px; min-width: 150px; max-width: 240px;
+    box-shadow: 0 3px 14px rgba(0,0,0,0.35);
+    font-size: 11px; font-family: 'メイリオ', Meiryo, sans-serif;
+    line-height: 1.5; color: #333;
+    opacity: 0; visibility: hidden;
+    transition: opacity 0.15s;
+}
+.help-tip.tip-visible { opacity: 1; visibility: visible; }
+.help-tip-title { font-weight: bold; font-size: 12px; color: #1565c0; margin-bottom: 3px; }
+/* 上向き矢印（吹き出しが要素の下に表示） */
+.help-tip::before {
+    content: ''; position: absolute; top: -8px; left: 12px;
+    width: 0; height: 0;
+    border-left: 7px solid transparent; border-right: 7px solid transparent;
+    border-bottom: 8px solid #1565c0;
+}
+.help-tip::after {
+    content: ''; position: absolute; top: -5px; left: 13px;
+    width: 0; height: 0;
+    border-left: 6px solid transparent; border-right: 6px solid transparent;
+    border-bottom: 6px solid #fff;
+}
+/* 下向き矢印（吹き出しが要素の上に表示） */
+.help-tip.tip-above::before {
+    top: auto; bottom: -8px;
+    border-bottom: none; border-top: 8px solid #1565c0;
+}
+.help-tip.tip-above::after {
+    top: auto; bottom: -5px;
+    border-bottom: none; border-top: 6px solid #fff;
+}
+
+/* ===== パスワード設定ダイアログ ===== */
+#setpw_overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6); z-index: 200001;
+    align-items: center; justify-content: center;
+}
+#setpw_overlay.open { display: flex; }
+#setpw_dialog {
+    background: #fff; border-radius: 8px; padding: 32px 28px;
+    width: 320px; box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+#setpw_dialog h2 { margin: 0 0 8px; font-size: 15px; text-align: center; color: #333; }
+#setpw_dialog p { margin: 0 0 20px; font-size: 12px; text-align: center; color: #888; }
+#setpw_dialog input {
+    width: 100%; padding: 8px 10px; margin-bottom: 12px;
+    border: 1px solid #ccc; border-radius: 4px;
+    font-size: 13px; font-family: 'メイリオ', Meiryo, sans-serif;
+    box-sizing: border-box;
+}
+#setpw_error { color: #e74c3c; font-size: 12px; margin-bottom: 10px; display: none; }
+#setpw_btn_submit {
+    width: 100%; padding: 9px; background: #2ecc71; color: #fff;
+    border: none; border-radius: 4px; font-size: 13px; cursor: pointer;
+    font-family: 'メイリオ', Meiryo, sans-serif;
+}
+#setpw_btn_submit:hover { background: #27ae60; }
