@@ -58,6 +58,7 @@ var MODE_FILTER_TIPS = {
 var HELP_TIPS = [
     { id: 'zoom_day_btn',        title: '日単位',            text: '1日単位で詳細表示（デフォルト）' },
     { id: 'zoom_week_btn',       title: '週単位',            text: '週単位で全体スケジュールを把握' },
+    { id: 'help_btn',            title: '？使い方ガイド',      text: 'クリックで各ボタンの説明を表示\nもう一度クリックで閉じます' },
     { id: 'auth_btn',            title: 'ログイン',           text: '編集者としてログイン\nタスクの追加・編集・削除が可能になります' },
     { id: 'project_filter_btn',  title: '工事番号フィルター',   text: 'クリックで工事番号を選択\n複数選択可。「全表示」で全件に戻す' },
     { id: 'owner_filter_btn',    title: '担当者フィルター',    text: '特定担当者のみ絞り込み（複数選択可）\nリソース表示時に表示されます' },
@@ -185,6 +186,11 @@ function addHelpItem(container, tip, rect) {
     // ホバーで吹き出しを表示/非表示
     hl.addEventListener('mouseenter', function() { tipDiv.classList.add('tip-visible'); });
     hl.addEventListener('mouseleave', function() { tipDiv.classList.remove('tip-visible'); });
+    // help_btnのハイライトをクリックしたらヘルプを閉じる
+    if (tip === HELP_TIPS.find(function(t){ return t.id === 'help_btn'; })) {
+        hl.style.cursor = 'pointer';
+        hl.addEventListener('click', closeHelp);
+    }
 }
 
 function closeHelp() {
