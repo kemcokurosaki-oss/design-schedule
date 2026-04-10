@@ -667,6 +667,8 @@ function _renderWishDateMarks() {
     const dataArea = document.querySelector('#gantt_here .gantt_data_area');
     if (!dataArea) return;
     dataArea.querySelectorAll('.wish-date-mark').forEach(el => el.remove());
+    // 計画・出張モードでは▼マークを表示しない
+    if (currentTaskTypeFilter === 'planning' || currentTaskTypeFilter === 'business_trip') return;
 
     const label = currentTaskTypeFilter === 'long_lead_item' ? '手配期日' : '出希望日';
 
