@@ -360,7 +360,7 @@ async function createTask(afterTaskId) {
             total_sheets: 0,
             completed_sheets: 0,
             task_type: currentTaskTypeFilter || "drawing",
-            wish_date: _toDateStr(today),
+            wish_date: (currentTaskTypeFilter === 'planning' || currentTaskTypeFilter === 'business_trip') ? null : _toDateStr(today),
             is_detailed: true,
             sort_order: newSortOrder
         }])
