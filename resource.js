@@ -38,6 +38,14 @@ function getOwnerColorClass(ownerStr) {
     return "owner-default";
 }
 
+// タスクタイプ別の色定義
+const TASK_TYPE_COLORS = {
+    planning:       { bg: '#e3f2fd', color: '#1565c0' },  // 青系（計画）
+    drawing:        { bg: '#e8f5e9', color: '#2e7d32' },  // 緑系（図面）
+    long_lead_item: { bg: '#fff3e0', color: '#e65100' },  // オレンジ系（長納期品）
+    business_trip:  { bg: '#f3e5f5', color: '#6a1b9a' },  // 紫系（出張）
+};
+
 // レイアウト定義
 const mainLayout = {
     css: "gantt_container",
@@ -243,13 +251,14 @@ function renderResourceTimeline(owners) {
             const borderBottom = isLastRow  ? 'border-bottom: 2px solid #aaa;' : 'border-bottom: 1px solid #eee;';
 
             // 左セル：先頭行は担当者名＋ラベル、2行目以降はラベルのみ
+            const typeClr = TASK_TYPE_COLORS[rowDef.type] || { bg: '#e0e0e0', color: '#555' };
             const leftCellContent = isFirstRow
                 ? `<div style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:0 5px;box-sizing:border-box;">
                        <div class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="クリックして詳細表示" style="font-weight:bold;font-size:11px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${ownerName}</div>
-                       <div style="font-size:10px;color:#555;background:#ddd;border-radius:2px;padding:1px 4px;margin-left:3px;white-space:nowrap;">${rowDef.label}</div>
+                       <div style="font-size:10px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;padding:1px 4px;margin-left:3px;white-space:nowrap;font-weight:bold;">${rowDef.label}</div>
                    </div>`
                 : `<div style="width:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:5px;">
-                       <div style="font-size:10px;color:#555;background:#eee;border-radius:2px;padding:1px 4px;white-space:nowrap;">${rowDef.label}</div>
+                       <div style="font-size:10px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;padding:1px 4px;white-space:nowrap;font-weight:bold;">${rowDef.label}</div>
                    </div>`;
 
             html += `
@@ -368,12 +377,13 @@ function renderOwnerDetailTimeline(ownerName) {
         const right = hasDate ? gantt.posFromDate(t.end_date) : 0;
         const barWidth = hasDate ? Math.max(2, right - left) : 0;
         const typeLabel = TASK_TYPE_LABEL[String(t.task_type)] || String(t.task_type || '');
+        const typeClr = TASK_TYPE_COLORS[String(t.task_type)] || { bg: '#e0e0e0', color: '#555' };
 
         html += `
             <div class="resource-item" style="display: flex; border-bottom: 1px solid #eee; min-height: 30px; height: 30px; align-items: stretch; width: ${totalWidth}px;">
                 <div class="resource-grid-container" style="width: ${actualGridWidth}px; min-width: ${actualGridWidth}px; flex-shrink: 0; display: flex; border-right: 1px solid #ddd; background: #f9f9f9; position: sticky; left: 0; z-index: 5; overflow: hidden;">
                     <div style="display: flex; align-items: center; padding: 0 6px; font-size: 12px; color: #333; width: 100%; overflow: hidden; white-space: nowrap; gap: 6px;">
-                        <span style="flex-shrink: 0; font-size: 10px; color: #555; background: #e0e0e0; border-radius: 2px; padding: 1px 4px;">${typeLabel}</span>
+                        <span style="flex-shrink: 0; font-size: 10px; color: ${typeClr.color}; background: ${typeClr.bg}; border-radius: 2px; padding: 1px 4px; font-weight: bold;">${typeLabel}</span>
                         <span style="flex-shrink: 0; font-weight: bold; color: #546e7a; min-width: 60px;">${t.project_number || '-'}</span>
                         <span style="overflow: hidden; text-overflow: ellipsis;">${t.text}</span>
                     </div>
