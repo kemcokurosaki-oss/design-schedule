@@ -1,8 +1,8 @@
 name: 新規タスク追加通知
 
 on:
-  # schedule:
-  #   - cron: '0 0 * * *'  # 毎朝9時JST（UTC 0:00）← 開始時にコメントを外す
+  schedule:
+    - cron: '0 0 * * *'  # 毎朝9時JST（UTC 0:00）
   workflow_dispatch:
     inputs:
       test_mode:
