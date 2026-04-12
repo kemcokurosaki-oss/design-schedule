@@ -1,8 +1,8 @@
 name: タスク期日通知
 
 on:
-  # schedule:
-  #   - cron: '0 0 * * *'  # 毎朝9時JST（UTC 0:00）← 開始時にコメントを外す
+  schedule:
+    - cron: '0 0 * * *'  # 毎朝9時JST（UTC 0:00）
   workflow_dispatch:      # GitHub画面から手動実行も可能
     inputs:
       test_mode:
