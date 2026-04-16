@@ -595,7 +595,7 @@ function toggleResourceView() {
     const panel = document.getElementById("resource_panel");
 
     if (isResourceView) {
-        btn.innerText = "リソース表示中 ✕";
+        btn.innerText = "リソース表示中 ×";
         btn.classList.add('active');
         // コンテンツを描画してからパネルを表示（古い内容が一瞬見えるのを防ぐ）
         updateResourceData();

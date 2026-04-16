@@ -24,7 +24,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 
 .btn-primary { background: #2ecc71; color: #fff; border-color: #27ae60; font-weight: bold; }
 .btn-info { background: #f0f0f0; color: #333; border-color: #ccc; font-weight: normal; }
-.btn-info.active { background: #1565c0; color: #fff; border-color: #0d47a1; font-weight: normal; }
+.btn-info.active { background: #3498db; color: #fff; border-color: #2980b9; font-weight: bold; }
 .btn-filter {
     background: transparent; color: #666; border-color: transparent;
     font-weight: bold; border-radius: 0; padding: 4px 12px;
