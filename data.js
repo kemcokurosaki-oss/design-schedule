@@ -571,13 +571,11 @@ async function initialize() {
 
     // 1. Gantt初期化（デフォルトは読み取り専用、ログイン後に解除）
     gantt.config.readonly = true;
-    gantt.config.columns = _applyStoredColumnWidths(_getDrawingColumns(), 'default');
-    gantt.config._activeColumnSetKey = 'default';
+    gantt.config.columns = _getDrawingColumns();
     gantt.config._columnFilterType = 'drawing';
     _setLayout(_getColsSum(gantt.config.columns));
 
     gantt.init("gantt_here");
-    _syncGridColResetButtonVisibility();
 
     // インライン編集の input がログイン用パスワード欄と同ページにあると、
     // ブラウザ／拡張が「パスワードを保存」と誤検知することがあるため、
@@ -616,10 +614,9 @@ async function initialize() {
         setTimeout(_updateMultiDeleteBtn, 0);
         return true;
     });
-    // 再描画後にグリッド選択ハイライトを復元・列幅リセットボタン表示を同期
+    // 再描画後にグリッド選択ハイライトを復元
     gantt.attachEvent("onGanttRender", function() {
         _applyGridSelection();
-        _syncGridColResetButtonVisibility();
     });
 
     // キャプチャフェーズでグリッドセルのクリックを横取り

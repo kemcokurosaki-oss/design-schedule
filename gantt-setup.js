@@ -186,106 +186,7 @@ function _getColsSum(cols) {
     return cols.reduce((sum, c) => sum + (c.width || 0), 0);
 }
 
-var GANTT_COL_WIDTH_STORAGE_KEY = 'gantt_grid_col_widths_v1';
-function _loadColumnWidthStore() {
-    try {
-        var raw = localStorage.getItem(GANTT_COL_WIDTH_STORAGE_KEY);
-        var o = raw ? JSON.parse(raw) : null;
-        if (!o || typeof o !== 'object') o = {};
-        return {
-            default: o.default && typeof o.default === 'object' ? o.default : {},
-            longterm: o.longterm && typeof o.longterm === 'object' ? o.longterm : {},
-            trip: o.trip && typeof o.trip === 'object' ? o.trip : {}
-        };
-    } catch (e) {
-        return { default: {}, longterm: {}, trip: {} };
-    }
-}
-var _ganttColumnWidthStore = _loadColumnWidthStore();
-function _saveColumnWidthStore() {
-    try {
-        localStorage.setItem(GANTT_COL_WIDTH_STORAGE_KEY, JSON.stringify(_ganttColumnWidthStore));
-    } catch (e) {}
-}
-
-/** 列幅ドラッグの上限（CSS px）。下限は 20。 */
-var GANTT_COL_DRAG_MAX_WIDTH = 1100;
-
-function _getBaseColumnsForSetKey(colSetKey) {
-    if (colSetKey === 'longterm') return _getLongtermColumns();
-    if (colSetKey === 'trip') return _getTripColumns();
-    return _getDrawingColumns();
-}
-
-/** 保存幅がコード上の初期幅と実際に異なるときだけ true（初期と同じ値はストアからも削除する） */
-function _hasMeaningfulColumnWidthOverrides(colSetKey) {
-    var store = _ganttColumnWidthStore[colSetKey] || {};
-    var base = _getBaseColumnsForSetKey(colSetKey);
-    for (var i = 0; i < base.length; i++) {
-        var bc = base[i];
-        if (!bc.name || typeof bc.width !== 'number') continue;
-        var sw = store[bc.name];
-        if (sw == null || typeof sw !== 'number') continue;
-        if (sw !== bc.width) return true;
-    }
-    return false;
-}
-
-function _pruneColumnWidthStoreToDefaults(colSetKey) {
-    var store = _ganttColumnWidthStore[colSetKey];
-    if (!store) return;
-    var base = _getBaseColumnsForSetKey(colSetKey);
-    var changed = false;
-    for (var i = 0; i < base.length; i++) {
-        var bc = base[i];
-        if (!bc.name || typeof bc.width !== 'number') continue;
-        if (store[bc.name] === bc.width) {
-            delete store[bc.name];
-            changed = true;
-        }
-    }
-    if (changed) _saveColumnWidthStore();
-}
-
-function _syncGridColResetButtonVisibility() {
-    var fl = document.getElementById('gantt_col_reset_floater');
-    var btn = document.getElementById('grid_col_reset_btn');
-    if (!fl || !btn) return;
-    var key = (gantt.config && gantt.config._activeColumnSetKey) || 'default';
-    _pruneColumnWidthStoreToDefaults(key);
-    var has = _hasMeaningfulColumnWidthOverrides(key);
-    var prev = fl.getAttribute('data-visible') === '1';
-    fl.style.display = has ? 'flex' : 'none';
-    if (has && !prev) {
-        fl.classList.remove('gantt-col-reset-floater--pop');
-        void fl.offsetWidth;
-        fl.classList.add('gantt-col-reset-floater--pop');
-        clearTimeout(fl._ganttColResetPopTimer);
-        fl._ganttColResetPopTimer = setTimeout(function () {
-            fl.classList.remove('gantt-col-reset-floater--pop');
-        }, 600);
-    }
-    fl.setAttribute('data-visible', has ? '1' : '0');
-}
-
-function _ensureColResizeGuide() {
-    var guide = document.getElementById('gantt-col-resize-guide');
-    if (!guide) {
-        guide = document.createElement('div');
-        guide.id = 'gantt-col-resize-guide';
-        var host = document.getElementById('gantt_host') || document.body;
-        host.appendChild(guide);
-    }
-    return guide;
-}
-
-function _teardownColDragVisual() {
-    document.body.classList.remove('gantt-column-resizing');
-    var guide = document.getElementById('gantt-col-resize-guide');
-    if (guide) guide.style.display = '';
-}
-
-_setLayout(_getColsSum(_applyStoredColumnWidths(_getDrawingColumns(), 'default')));
+_setLayout(_getColsSum(_getDrawingColumns()));
 gantt.config.min_column_width = 22; // カレンダーの列幅を22に設定
 gantt.config.inline_editors_save_on_blur = true; // フォーカスが外れたとき自動保存
 gantt.config.row_height = 30;
@@ -1069,9 +970,8 @@ function _getLongtermColumns() {
 }
 // 長納期品列合計: 32+42+190+85+28+70+32+60+20 = 559px
 
-// 列設定の初期化
-gantt.config.columns = _applyStoredColumnWidths(_getDrawingColumns(), 'default');
-gantt.config._activeColumnSetKey = 'default';
+// 列設定の初期化（固定初期幅）
+gantt.config.columns = _getDrawingColumns();
 gantt.config._columnFilterType = 'drawing';
 
 // 出張列定義
@@ -1104,169 +1004,17 @@ function _colSetKeyFromFilter(filterType) {
     return 'default';
 }
 
-function _applyStoredColumnWidths(cols, colSetKey) {
-    var store = (_ganttColumnWidthStore[colSetKey] || {});
-    return cols.map(function (c) {
-        var w = store[c.name];
-        if (w == null || typeof w !== 'number') return c;
-        return Object.assign({}, c, { width: w });
-    });
-}
-
 // 列セット切り替え
 function switchColumns(filterType) {
     var baseCols;
     if (filterType === 'long_lead_item') baseCols = _getLongtermColumns();
     else if (filterType === 'business_trip' || filterType === 'planning') baseCols = _getTripColumns();
     else baseCols = _getDrawingColumns();
-    var colSetKey = _colSetKeyFromFilter(filterType);
-    var cols = _applyStoredColumnWidths(baseCols, colSetKey);
-    gantt.config.columns = cols;
-    gantt.config._activeColumnSetKey = colSetKey;
+    gantt.config.columns = baseCols;
     gantt.config._columnFilterType = filterType;
-    _setLayout(_getColsSum(cols));
+    _setLayout(_getColsSum(baseCols));
     gantt.render();
 }
-
-/**
- * ドラッグで保存した列幅を破棄し、コード上の初期幅に戻す（現在のガント表示モードのみ）。
- */
-function resetGridColumnWidthsToDefault() {
-    var key = gantt.config._activeColumnSetKey || 'default';
-    _ganttColumnWidthStore[key] = {};
-    _saveColumnWidthStore();
-    var ft = (typeof currentTaskTypeFilter !== 'undefined' && currentTaskTypeFilter)
-        ? currentTaskTypeFilter
-        : (gantt.config._columnFilterType || 'drawing');
-    switchColumns(ft);
-}
-
-var _ganttColResizeRaf = null;
-function _scheduleGridColumnResizeHandles() {
-    if (_ganttColResizeRaf) cancelAnimationFrame(_ganttColResizeRaf);
-    _ganttColResizeRaf = requestAnimationFrame(function () {
-        _ganttColResizeRaf = null;
-        _installGridColumnResizeHandles();
-    });
-}
-
-function _installGridColumnResizeHandles() {
-    var root = document.getElementById('gantt_here');
-    if (!root) return;
-    var scale = root.querySelector('.gantt_grid_scale');
-    if (!scale) return;
-    var heads = scale.querySelectorAll('.gantt_grid_head_cell');
-    var cols = gantt.config.columns;
-    if (!cols || heads.length !== cols.length) return;
-    for (var i = 0; i < heads.length; i++) {
-        var cell = heads[i];
-        var old = cell.querySelector('.gantt-col-resize-handle');
-        if (old) old.remove();
-        var col = cols[i];
-        if (!col || typeof col.width !== 'number') continue;
-        var h = document.createElement('div');
-        h.className = 'gantt-col-resize-handle';
-        h.setAttribute('data-col-index', String(i));
-        h.title = 'ドラッグで列幅を変更';
-        cell.appendChild(h);
-    }
-}
-
-var _ganttColDragState = null;
-var _ganttColResizeRenderPending = false;
-function _requestGanttColResizeRender() {
-    if (_ganttColResizeRenderPending) return;
-    _ganttColResizeRenderPending = true;
-    requestAnimationFrame(function () {
-        _ganttColResizeRenderPending = false;
-        if (!gantt.config || !gantt.config.columns) return;
-        _setLayout(_getColsSum(gantt.config.columns));
-        gantt.render();
-    });
-}
-
-function _initGridColumnResizeInteraction() {
-    var root = document.getElementById('gantt_here');
-    if (!root || root._ganttColResizeBound) return;
-    root._ganttColResizeBound = true;
-    root.addEventListener('mousedown', function (e) {
-        var handle = e.target.closest('.gantt-col-resize-handle');
-        if (!handle) return;
-        e.preventDefault();
-        e.stopPropagation();
-        var i = parseInt(handle.getAttribute('data-col-index'), 10);
-        var col = gantt.config.columns[i];
-        if (!col || typeof col.width !== 'number') return;
-        var cell = handle.closest('.gantt_grid_head_cell');
-        var cellLeft = cell ? cell.getBoundingClientRect().left : (e.clientX - col.width);
-        _ganttColDragState = { index: i, originX: e.clientX, originW: col.width, cellLeft: cellLeft };
-        document.body.style.cursor = 'col-resize';
-        document.body.style.userSelect = 'none';
-        document.body.classList.add('gantt-column-resizing');
-        var guide = _ensureColResizeGuide();
-        var hostRect = (document.getElementById('gantt_host') || { getBoundingClientRect: function(){ return {left:0}; } }).getBoundingClientRect();
-        guide.style.display = 'block';
-        guide.style.left = (cellLeft + col.width - hostRect.left) + 'px';
-    });
-    document.addEventListener('mousemove', function (e) {
-        if (!_ganttColDragState) return;
-        e.preventDefault();
-        var st = _ganttColDragState;
-        var guide = document.getElementById('gantt-col-resize-guide');
-        var rawW = st.originW + (e.clientX - st.originX);
-        var newW = Math.min(GANTT_COL_DRAG_MAX_WIDTH, Math.max(20, rawW));
-        if (guide) {
-            var inRange = rawW >= 20 && rawW <= GANTT_COL_DRAG_MAX_WIDTH;
-            if (inRange) {
-                var hostRect = (document.getElementById('gantt_host') || { getBoundingClientRect: function(){ return {left:0}; } }).getBoundingClientRect();
-                guide.style.display = 'block';
-                guide.style.left = (st.cellLeft + newW - hostRect.left) + 'px';
-            } else {
-                guide.style.display = 'none';
-            }
-        }
-        gantt.config.columns[st.index].width = newW;
-        _requestGanttColResizeRender();
-    });
-    function _finishColDrag() {
-        if (!_ganttColDragState) return;
-        var st = _ganttColDragState;
-        _ganttColDragState = null;
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-        _teardownColDragVisual();
-        var setKey = gantt.config._activeColumnSetKey || 'default';
-        var col = gantt.config.columns[st.index];
-        if (col && col.name) {
-            var baseCols = _getBaseColumnsForSetKey(setKey);
-            var baseW = null;
-            for (var bi = 0; bi < baseCols.length; bi++) {
-                if (baseCols[bi].name === col.name) {
-                    baseW = baseCols[bi].width;
-                    break;
-                }
-            }
-            if (typeof baseW === 'number' && col.width === baseW) {
-                if (_ganttColumnWidthStore[setKey]) delete _ganttColumnWidthStore[setKey][col.name];
-                _saveColumnWidthStore();
-            } else {
-                if (!_ganttColumnWidthStore[setKey]) _ganttColumnWidthStore[setKey] = {};
-                _ganttColumnWidthStore[setKey][col.name] = col.width;
-                _saveColumnWidthStore();
-            }
-            _syncGridColResetButtonVisibility();
-        }
-    }
-    window.addEventListener('mouseup', _finishColDrag);
-    window.addEventListener('blur', function () {
-        if (_ganttColDragState) _finishColDrag();
-    });
-}
-
-gantt.attachEvent('onGanttRender', function () {
-    _scheduleGridColumnResizeHandles();
-});
-_initGridColumnResizeInteraction();
 
 // スタイルとテンプレート
 gantt.templates.task_text = function(start, end, task) {
