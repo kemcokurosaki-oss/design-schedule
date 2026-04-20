@@ -888,28 +888,23 @@ gantt.templates.scale_cell_class = function(date) {
     return '';
 };
 
-// フィルタリング（is_detailedのみ表示、かつ工事番号フィルタ）
+// フィルタリング（is_detailedのみ表示、かつ各種フィルタ）— data.js の _taskVisibleOnGantt と同期
 gantt.attachEvent("onBeforeTaskDisplay", function(id, task) {
-    // is_detailed が TRUE または "TRUE" のもののみ表示
+    if (typeof _taskVisibleOnGantt === 'function') {
+        return _taskVisibleOnGantt(task);
+    }
     const isDetailed = (task.is_detailed === true || String(task.is_detailed).toUpperCase() === 'TRUE');
     if (!isDetailed) return false;
-
-    // 工事番号フィルタ
-    if (currentProjectFilter.length > 0) {
-        if (!currentProjectFilter.includes(String(task.project_number))) return false;
-    }
-
-    // task_typeフィルタ
-    if (currentTaskTypeFilter) {
-        if (String(task.task_type) !== currentTaskTypeFilter) return false;
-    }
-
-    // 担当者フィルタ（複数選択対応）
+    if (currentProjectFilter.length > 0 && !currentProjectFilter.includes(String(task.project_number))) return false;
+    if (currentTaskTypeFilter && String(task.task_type) !== currentTaskTypeFilter) return false;
     if (currentOwnerFilter.length > 0) {
         const taskOwners = String(task.owner || '').split(/[,、\s]+/).map(o => o.trim());
         if (!currentOwnerFilter.some(f => taskOwners.includes(f))) return false;
     }
-
+    if (currentMachineFilter.length > 0) {
+        const m = String(task.machine || '').trim();
+        if (!currentMachineFilter.includes(m)) return false;
+    }
     return true;
 });
 
