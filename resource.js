@@ -540,6 +540,7 @@ function _enterResourceFullscreen() {
     _rebuildMachineFilterOptionsFromGantt();
     const panel = document.getElementById("resource_panel");
     const ganttEl = document.getElementById("gantt_here");
+    const ganttHost = document.getElementById("gantt_host");
     const btn = document.getElementById("resource_toggle");
     panel.classList.add('resource-fullscreen');
     // ガントを一時的に表示したままリサイズを確定させてからリソース描画
@@ -548,6 +549,7 @@ function _enterResourceFullscreen() {
     updateResourceData();
     ganttEl.style.visibility = "";
     ganttEl.style.display = "none";
+    if (ganttHost) ganttHost.style.display = "none";
     panel.style.display = "flex";
     void panel.offsetHeight; // 強制リフロー：レイアウトを確定させる
     btn.style.display = "none";
@@ -570,9 +572,11 @@ function _exitResourceFullscreen() {
     isResourceView = false;
     const panel = document.getElementById("resource_panel");
     const ganttEl = document.getElementById("gantt_here");
+    const ganttHost = document.getElementById("gantt_host");
     const btn = document.getElementById("resource_toggle");
     panel.classList.remove('resource-fullscreen');
     panel.style.display = "none";
+    if (ganttHost) ganttHost.style.display = "";
     ganttEl.style.display = "";
     btn.style.display = ""; // リソースボタンを復元
     btn.innerText = "リソース表示";
