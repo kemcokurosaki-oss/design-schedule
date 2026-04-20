@@ -4,7 +4,27 @@ const S_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJl
 // createClient呼び出し前にURLのtype情報を保存（Supabaseがhashを処理・クリアする前に取得）
 const _pageInitType = new URLSearchParams(window.location.hash.replace('#', '?')).get('type')
                    || new URLSearchParams(window.location.search).get('type');
-const supabaseClient = supabase.createClient(S_URL, S_KEY);
+
+// file:// では同一パスでもエンコード差で別オリジンとみなされ、認証まわりの iframe が
+// 「Unsafe attempt to load URL … from frame …」でブロックされることがある。
+// その場合は http://localhost 等で配信して開くのが確実（下記 autoRefreshToken 緩和は補助的）。
+const _isFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:';
+if (_isFileProtocol) {
+    console.warn(
+        '[設計工程表] file:// で開いています。ブラウザの制限でエラーが出る場合は、' +
+        'このフォルダで「npx --yes serve .」や「python -m http.server 8080」を実行し、' +
+        'http://localhost で開いてください。'
+    );
+}
+const supabaseClient = supabase.createClient(S_URL, S_KEY, {
+    auth: {
+        persistSession: true,
+        // file:// では URL ハッシュ連携が別オリジン扱いで iframe 警告の原因になり得るため無効化
+        detectSessionInUrl: !_isFileProtocol,
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        autoRefreshToken: !_isFileProtocol
+    }
+});
 
 // ===== 認証管理 =====
 // 編集可能なメールアドレスリスト
