@@ -531,12 +531,13 @@ function _syncCalendarHeaderScroll(left) {
 function _enterResourceFullscreen() {
     isResourceFullscreen = true;
     isResourceView = true;
-    // 担当者フィルターをリセット
+    // 担当者・機械フィルターをリセット
     currentOwnerFilter = [];
-    document.querySelectorAll('.owner-chk-item').forEach(chk => { chk.checked = false; });
-    const allChk = document.getElementById('owner_chk_all');
-    if (allChk) allChk.checked = true;
     _updateOwnerFilterBtn();
+    currentMachineFilter = [];
+    _updateMachineFilterBtn();
+    _rebuildOwnerFilterOptionsFromGantt();
+    _rebuildMachineFilterOptionsFromGantt();
     const panel = document.getElementById("resource_panel");
     const ganttEl = document.getElementById("gantt_here");
     const btn = document.getElementById("resource_toggle");
@@ -660,8 +661,11 @@ async function _saveWishDate(taskId, dateStr) {
     if (error) console.error('wish_date 保存エラー:', error);
 }
 
-// onBeforeTaskDisplay と同じフィルター条件を手動で判定
+// onBeforeTaskDisplay と同じフィルター条件を手動で判定（data.js の _taskVisibleOnGantt と同期）
 function _isTaskDisplayed(task) {
+    if (typeof _taskVisibleOnGantt === 'function') {
+        return _taskVisibleOnGantt(task);
+    }
     const isDetailed = (task.is_detailed === true || String(task.is_detailed).toUpperCase() === 'TRUE');
     if (!isDetailed) return false;
     if (currentProjectFilter.length > 0 && !currentProjectFilter.includes(String(task.project_number))) return false;
@@ -669,6 +673,10 @@ function _isTaskDisplayed(task) {
     if (currentOwnerFilter.length > 0) {
         const taskOwners = String(task.owner || '').split(/[,、\s]+/).map(o => o.trim());
         if (!currentOwnerFilter.some(f => taskOwners.includes(f))) return false;
+    }
+    if (currentMachineFilter.length > 0) {
+        const m = String(task.machine || '').trim();
+        if (!currentMachineFilter.includes(m)) return false;
     }
     return true;
 }
