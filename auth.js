@@ -64,7 +64,7 @@ var HELP_TIPS = [
     { id: 'machine_filter_btn',  title: '機械フィルター',      text: '現在の表示条件に合う機械のみ候補に表示\n複数選択可。「すべて」で解除' },
     { id: 'owner_filter_btn',    title: '担当者フィルター',    text: '現在の表示条件に合う担当者のみ候補に表示\n複数選択可。「全員」で解除' },
     { id: 'resource_toggle',     title: 'リソース表示',       text: 'ガントチャート下部に\n担当者別の業務状況を並列表示' },
-    { id: 'create_task_btn',     title: '新規タスク追加',     text: 'タスクを末尾に追加します（要ログイン）' },
+    { id: 'create_task_btn',     title: '新規タスク追加',     text: '編集画面で入力してから追加します。並びは工事番号・機械・ユニットが同じ行の直後になります（要ログイン）' },
     { id: 'archive_btn_wrap',    title: 'アーカイブ',         text: '完了工事の保管・参照\n▼クリックでメニュー表示（要ログイン）' },
 ];
 var GRID_TIP = {
