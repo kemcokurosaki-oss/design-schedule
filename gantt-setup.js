@@ -8,7 +8,7 @@ gantt.config.editor_types.owner_select = {
         const opts = OWNER_OPTIONS.map(n =>
             `<option value="${n}">${n}</option>`
         ).join('');
-        placeholder.innerHTML = `<select style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:13px;box-sizing:border-box;"><option value=""></option>${opts}</select>`;
+        placeholder.innerHTML = `<select autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:13px;box-sizing:border-box;"><option value=""></option>${opts}</select>`;
     },
     hide: function() {},
     set_value: function(value, id, column, node) {
@@ -31,7 +31,7 @@ gantt.config.editor_types.owner_select = {
 // ステータスプルダウン用インラインエディタ
 gantt.config.editor_types.status_select = {
     show: function(id, column, config, placeholder) {
-        placeholder.innerHTML = `<select style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:13px;box-sizing:border-box;">
+        placeholder.innerHTML = `<select autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:13px;box-sizing:border-box;">
             <option value=""></option>
             <option value="未">未</option>
             <option value="完了">完了</option>
@@ -58,7 +58,7 @@ gantt.config.editor_types.status_select = {
 // 開始日インラインエディタ（計画・出張モード用）
 gantt.config.editor_types.start_date_editor = {
     show: function(id, column, config, placeholder) {
-        placeholder.innerHTML = '<input type="date" style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:12px;box-sizing:border-box;">';
+        placeholder.innerHTML = '<input type="date" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:12px;box-sizing:border-box;">';
     },
     hide: function() {},
     set_value: function(value, id, column, node) {
@@ -89,7 +89,7 @@ gantt.config.editor_types.start_date_editor = {
 // Supabaseには実際の完了日(YYYY-MM-DD)を保存し、gantt内部では+1日した排他的終了日を使う
 gantt.config.editor_types.completion_date = {
     show: function(id, column, config, placeholder) {
-        placeholder.innerHTML = '<input type="date" name="' + column.name + '">';
+        placeholder.innerHTML = '<input type="date" name="' + column.name + '" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">';
         placeholder.querySelector('input').addEventListener('change', function() {
             if (!this.value) _completionDateClear(id);
         });

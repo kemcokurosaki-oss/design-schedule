@@ -396,6 +396,29 @@ async function initialize() {
 
     gantt.init("gantt_here");
 
+    // インライン編集の input がログイン用パスワード欄と同ページにあると、
+    // ブラウザ／拡張が「パスワードを保存」と誤検知することがあるため、
+    // エディタ表示直後に autocomplete と誤認抑止属性を付与する。
+    if (gantt.ext && gantt.ext.inlineEditors) {
+        function _disableInlineEditorPasswordHeuristics() {
+            var root = document.getElementById("gantt_here");
+            if (!root) return;
+            root.querySelectorAll(
+                ".gantt_grid_editor_placeholder input, .gantt_grid_editor_placeholder select, .gantt_grid_editor_placeholder textarea"
+            ).forEach(function (el) {
+                if (el.type === "password") return;
+                el.setAttribute("autocomplete", "off");
+                el.setAttribute("data-lpignore", "true");
+                el.setAttribute("data-1p-ignore", "true");
+                el.setAttribute("data-form-type", "other");
+            });
+        }
+        gantt.ext.inlineEditors.attachEvent("onEditStart", function () {
+            requestAnimationFrame(_disableInlineEditorPasswordHeuristics);
+            setTimeout(_disableInlineEditorPasswordHeuristics, 0);
+        });
+    }
+
     // === グリッド操作設定 ===
 
     // タスク選択が変わるたびに選択削除ボタンを更新
