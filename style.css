@@ -57,65 +57,6 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     overflow: hidden;
 }
 
-/* 列幅カスタム保存時：ガント領域右上に表示（グリッドヘッダー付近） */
-.gantt-col-reset-floater {
-    position: absolute;
-    top: 6px;
-    right: 10px;
-    z-index: 30;
-    pointer-events: none;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.gantt-col-reset-floater .btn-grid-col-reset {
-    pointer-events: auto;
-    font-size: 12px;
-    padding: 4px 10px;
-    font-weight: bold;
-    background: linear-gradient(180deg, #fff8e1 0%, #ffe082 100%);
-    border: 1px solid #f9a825;
-    color: #bf360c;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-    border-radius: 5px;
-}
-.gantt-col-reset-floater .btn-grid-col-reset:hover {
-    filter: brightness(1.03);
-}
-@keyframes gantt-col-reset-pop {
-    0% { transform: scale(0.92); opacity: 0.6; }
-    40% { transform: scale(1.04); }
-    100% { transform: scale(1); opacity: 1; }
-}
-.gantt-col-reset-floater.gantt-col-reset-floater--pop {
-    animation: gantt-col-reset-pop 0.55s ease-out;
-}
-
-/* 列幅ドラッグ中 */
-#gantt-col-resize-guide {
-    display: none;
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: rgba(80, 80, 80, 0.55);
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
-    z-index: 10001;
-    pointer-events: none;
-}
-/* ガイドラインの表示はJSで制御 */
-body.gantt-column-resizing #gantt_here .gantt_task,
-body.gantt-column-resizing #gantt_here .gantt_task .gantt_data_area {
-    opacity: 0.86;
-    transition: opacity 0.12s ease;
-}
-body.gantt-column-resizing #gantt_here .gantt_grid_data {
-    opacity: 0.95;
-}
-body.gantt-column-resizing #gantt_here .gantt_grid_scale .gantt_grid_head_cell .gantt-col-resize-handle {
-    background: rgba(255, 255, 255, 0.35);
-}
-
 /* 独立したリソースパネル */
 #resource_panel {
     display: none;
@@ -480,32 +421,25 @@ body.gantt-column-resizing #gantt_here .gantt_grid_scale .gantt_grid_head_cell .
     position: relative !important;
 }
 
-/* グリッド列ヘッダー右縁のドラッグリサイズ */
-#gantt_here .gantt_grid_scale .gantt_grid_head_cell .gantt-col-resize-handle {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 7px;
-    margin-right: -3px;
-    height: 100%;
-    cursor: col-resize;
-    z-index: 12;
-    box-sizing: border-box;
-}
-#gantt_here .gantt_grid_scale .gantt_grid_head_cell .gantt-col-resize-handle:hover {
-    background: rgba(255, 255, 255, 0.18);
-}
-
 /* グリッドヘッダーを青にする */
 .gantt_grid_scale, .gantt_grid_head_cell {
     background-color: #546e7a !important; /* くすんだ青（ブルーグレー） */
     color: #ffffff !important;
     border-right: 1px solid #455a64 !important;
     line-height: normal !important; /* 改行を許可するために追加 */
-    display: flex !important;
+    text-align: center !important;
+}
+.gantt_grid_scale {
+    /* ヘッダー全体を flex にすると列同士が縮み合うため block を維持 */
+    display: block !important;
+    white-space: nowrap !important;
+}
+.gantt_grid_head_cell {
+    /* block-level flex だと縦積み崩れするため inline-flex で横並び維持 */
+    display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    text-align: center !important;
+    vertical-align: top !important;
 }
 
 /* 階層構造を使用しないためインデントとアイコンのスペースをゼロに */
