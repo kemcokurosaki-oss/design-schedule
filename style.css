@@ -2,7 +2,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .main-container { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 .gantt-host {
     flex: 1 1 0 !important;
-    min-height: 90px;
+    min-height: 180px; /* グリッドヘッダー + スケール60 + 横スクロール + 最低データ行（resource.js の minGanttBody と揃える） */
     overflow: hidden;
     position: relative;
     display: flex;
@@ -429,6 +429,11 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     line-height: normal !important; /* 改行を許可するために追加 */
     text-align: center !important;
 }
+#gantt_here .gantt_grid_scale {
+    flex-shrink: 0 !important;
+    min-height: 28px !important;
+    box-sizing: border-box !important;
+}
 .gantt_grid_scale {
     /* ヘッダー全体を flex にすると列同士が縮み合うため block を維持 */
     display: block !important;
@@ -490,11 +495,16 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 #gantt_here .gantt_task_scale {
     background: #546e7a !important;
     border-bottom: 1px solid #607d8b !important;
+    /* リソースパネル縦リサイズ時に flex 子が縮みすぎて日付が消えるのを防ぐ */
+    flex-shrink: 0 !important;
+    min-height: 60px !important;
+    box-sizing: border-box !important;
 }
 #gantt_here .gantt_scale_line {
     background: #546e7a !important;
     border-top: none !important;
     border-bottom: none !important;
+    flex-shrink: 0 !important;
 }
 #gantt_here .gantt_scale_line:first-child {
     background: #546e7a !important;

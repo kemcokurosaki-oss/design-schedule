@@ -62,19 +62,100 @@ const mainLayout = {
     ]
 };
 
+function _getActiveGanttZoomLevel() {
+    return document.querySelector('.zoom-btn.active')?.textContent === '週単位' ? 'week' : 'day';
+}
+
+/**
+ * メインガントのタイムライン日付ヘッダーは setSizes だけでは再描画されず空になることがある。
+ * ズームの再適用でセルを描き直す。withScrollNudge が true のときは微小横スクロールも行う（toggleResourceView と同じ）。
+ * @param {boolean} [withScrollNudge=true]
+ */
+function _refreshMainGanttTimelineScale(withScrollNudge) {
+    if (!window.gantt) return;
+    if (typeof isResourceFullscreen !== 'undefined' && isResourceFullscreen) return;
+    const ge = document.getElementById('gantt_here');
+    if (!ge || ge.style.display === 'none') return;
+    if (withScrollNudge === undefined) withScrollNudge = true;
+
+    gantt.setSizes();
+    if (gantt.ext && gantt.ext.zoom) {
+        gantt.ext.zoom.setLevel(_getActiveGanttZoomLevel());
+    }
+    if (!withScrollNudge) return;
+    const s = gantt.getScrollState();
+    gantt.scrollTo(s.x + 1, s.y);
+    requestAnimationFrame(() => {
+        if (!window.gantt) return;
+        gantt.scrollTo(s.x, s.y);
+    });
+}
+
 // リサイズ機能
 (function() {
     let isResizing = false;
     let animationFrameId = null;
+    /** flex 確定後に setSizes するため 2 フレーム遅延（同一フレームだと高さ 0 扱いで日付が消えることがある） */
+    let ganttSizeRaf1 = null;
+    let ganttSizeRaf2 = null;
     const minHeight = 50;
     const maxHeight = 800;
+
+    function _cancelPendingGanttSizeRaf() {
+        if (ganttSizeRaf1 != null) {
+            cancelAnimationFrame(ganttSizeRaf1);
+            ganttSizeRaf1 = null;
+        }
+        if (ganttSizeRaf2 != null) {
+            cancelAnimationFrame(ganttSizeRaf2);
+            ganttSizeRaf2 = null;
+        }
+    }
+
+    /** 連続呼び出しは 1 サイクルにまとめる（第 2 rAF は直前の予約を差し替え） */
+    function _queueGanttSetSizesAfterFlexTwoFrames(requireResizing) {
+        if (!window.gantt) return;
+        if (typeof isResourceFullscreen !== 'undefined' && isResourceFullscreen) return;
+        const ge = document.getElementById('gantt_here');
+        if (ge && ge.style.display === 'none') return;
+        if (ganttSizeRaf1 != null) return;
+        ganttSizeRaf1 = requestAnimationFrame(() => {
+            ganttSizeRaf1 = null;
+            if (ganttSizeRaf2 != null) cancelAnimationFrame(ganttSizeRaf2);
+            ganttSizeRaf2 = requestAnimationFrame(() => {
+                ganttSizeRaf2 = null;
+                if (!window.gantt) return;
+                if (typeof isResourceFullscreen !== 'undefined' && isResourceFullscreen) return;
+                if (requireResizing && !isResizing) return;
+                const el = document.getElementById('gantt_here');
+                if (el && el.style.display === 'none') return;
+                // ドラッグ中は横の微スクロールを省略（画面の揺れ防止）。ズーム再適用で日付を復元する。
+                _refreshMainGanttTimelineScale(!requireResizing);
+            });
+        });
+    }
 
     window.addEventListener('DOMContentLoaded', () => {
         const resizer = document.getElementById('resource_resizer');
         const panel = document.getElementById('resource_panel');
-        const ganttContainer = document.getElementById('gantt_here');
+        const ganttHost = document.getElementById('gantt_host');
 
         if (!resizer || !panel) return;
+
+        resizer.setAttribute('title', 'メイン工程表とリソース表示の境界の高さを変更');
+
+        // メインガント領域の flex 高さが変わったときに DHTMLX のレイアウトを追従
+        if (ganttHost && window.ResizeObserver) {
+            const ro = new ResizeObserver(() => {
+                if (isResizing) return; // ドラッグ中は mousemove 側で setSizes（二重適用を避ける）
+                if (!window.gantt) return;
+                if (typeof isResourceFullscreen !== 'undefined' && isResourceFullscreen) return;
+                const ge = document.getElementById('gantt_here');
+                if (ge && ge.style.display === 'none') return;
+                _queueGanttSetSizesAfterFlexTwoFrames(false);
+            });
+            ro.observe(ganttHost);
+        }
 
         resizer.addEventListener('mousedown', (e) => {
             isResizing = true;
@@ -94,17 +175,17 @@ const mainLayout = {
 
                 if (newHeight < minHeight) newHeight = minHeight;
                 if (newHeight > maxHeight) newHeight = maxHeight;
-                // ガントのカレンダーヘッダー（scale_height=60px）＋最低1行（30px）が常に見えるよう上限を制限
+                // ガントのカレンダーヘッダー（scale_height=60px）＋横スクロール＋最低1行分を常に確保
                 const headerEl = document.querySelector('.header-panel');
                 const headerH = headerEl ? headerEl.offsetHeight : 100;
-                const maxByGantt = windowHeight - headerH - 90;
+                // グリッドヘッダー + タイムラインスケール(60) + 横スクロール + 最低1データ行
+                const minGanttBody = 180; // .gantt-host の min-height と揃える
+                const maxByGantt = windowHeight - headerH - minGanttBody;
                 if (newHeight > maxByGantt) newHeight = maxByGantt;
-                
-                // パネルの高さを更新（flexboxによりメインガントは自動で縮む）
-                // setSizes() はドラッグ中に呼ばない: 毎フレーム呼ぶとDHTMLXが内部高さを一時0にするため
-                // カレンダースケールの文字が消える問題の原因。マウスアップ時のみ呼び出す。
+
                 panel.style.height = newHeight + 'px';
-                
+                _queueGanttSetSizesAfterFlexTwoFrames(true);
+
                 animationFrameId = null;
             });
         });
@@ -118,9 +199,13 @@ const mainLayout = {
                     cancelAnimationFrame(animationFrameId);
                     animationFrameId = null;
                 }
-                // 最後に確実にサイズを合わせる
+                _cancelPendingGanttSizeRaf();
                 if (window.gantt) {
-                    gantt.setSizes();
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            _refreshMainGanttTimelineScale(true);
+                        });
+                    });
                 }
             }
         });
