@@ -91,6 +91,24 @@ function _refreshMainGanttTimelineScale(withScrollNudge) {
     });
 }
 
+/** 他タブ・他画面から戻った直後はレイアウト確定前に setSizes すると日付ヘッダーが空のまま残るため、2 フレーム後に再描画する */
+function _scheduleRefreshMainGanttAfterShow() {
+    requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+            _refreshMainGanttTimelineScale(true);
+        });
+    });
+}
+
+document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    _scheduleRefreshMainGanttAfterShow();
+});
+
+window.addEventListener('pageshow', function (ev) {
+    if (ev.persisted) _scheduleRefreshMainGanttAfterShow();
+});
+
 // リサイズ機能
 (function() {
     let isResizing = false;
