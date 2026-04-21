@@ -347,6 +347,8 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 /* 標準的なタスクスタイル */
 .gantt_task_line { border-radius: 4px; }
 .gantt_task_content { font-size: 11px; font-family: "メイリオ", Meiryo, sans-serif; }
+/* バー上の進捗ドラッグハンドルを非表示 */
+.gantt_task_progress_drag { display: none !important; }
 
 /* wish_date ▼マーク */
 .wish-date-mark {

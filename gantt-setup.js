@@ -182,6 +182,8 @@ function _completionDateClear(taskId) {
     gantt.updateTask(taskId);
 }
 gantt.config.auto_scheduling = true; // 自動スケジューリングを有効化
+gantt.config.drag_links = false; // バー周辺のリンク作成用ハンドル（▲）を非表示
+gantt.config.drag_progress = false; // バー上の進捗ドラッグハンドルを非表示
 gantt.config.start_date = new Date(2025, 0, 1);  // 2025年1月1日
 gantt.config.end_date = new Date(2027, 0, 1);    // 2026年12月31日まで含める
 gantt.config.fit_tasks = false; // 自動調整を無効化
