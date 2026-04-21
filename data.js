@@ -326,9 +326,9 @@ function toggleOwnerFilterDropdown() {
 function ownerFilterAllChanged(checkbox) {
     document.querySelectorAll('.owner-chk-item').forEach(chk => { chk.checked = false; });
     currentOwnerFilter = [];
-    gantt.render();
     _updateOwnerFilterBtn();
     _rebuildMachineFilterOptionsFromGantt();
+    updateDisplay();
 }
 
 function ownerFilterItemChanged() {
@@ -337,9 +337,9 @@ function ownerFilterItemChanged() {
     currentOwnerFilter = selected;
     const allChk = document.getElementById('owner_chk_all');
     if (allChk) allChk.checked = selected.length === 0;
-    gantt.render();
     _updateOwnerFilterBtn();
     _rebuildMachineFilterOptionsFromGantt();
+    updateDisplay();
 }
 
 function _updateOwnerFilterBtn() {
@@ -512,6 +512,11 @@ function updateDisplay() {
         updateResourceData();
     }
     gantt.render();
+    setTimeout(() => {
+        gantt.setSizes();
+        const currentLevel = document.querySelector('.zoom-btn.active')?.textContent === '週単位' ? 'week' : 'day';
+        gantt.ext.zoom.setLevel(currentLevel);
+    }, 0);
 }
 
 // 工事番号フィルターの初期化
