@@ -357,10 +357,15 @@ function renderResourceTimeline(owners) {
             // 左セル：先頭行は担当者名＋ラベル、2行目以降はラベルのみ
             const typeClr = TASK_TYPE_COLORS[rowDef.type] || { bg: '#e0e0e0', color: '#555' };
             const leftCellContent = isFirstRow
-                ? `<div style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:0 5px;box-sizing:border-box;">
-                       <div class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="クリックして詳細表示" style="font-weight:bold;font-size:11px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${ownerName}</div>
-                       <div style="font-size:10px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;padding:1px 4px;margin-left:3px;white-space:nowrap;font-weight:bold;">${rowDef.label}</div>
-                   </div>`
+                ? (isResourceFullscreen
+                    ? `<div style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:0 5px;box-sizing:border-box;">
+                           <div class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="クリックして詳細表示" style="font-weight:bold;font-size:12px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${ownerName}</div>
+                           <div style="font-size:10px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;padding:1px 4px;margin-left:3px;white-space:nowrap;font-weight:bold;">${rowDef.label}</div>
+                       </div>`
+                    : `<div style="width:100%;display:flex;align-items:center;justify-content:flex-end;padding:0 8px 0 5px;box-sizing:border-box;gap:10px;">
+                           <div class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="クリックして詳細表示" style="font-weight:bold;font-size:12px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 0 110px;width:110px;text-align:left;padding:1px 2px;">${ownerName}</div>
+                           <div style="font-size:10px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;padding:1px 4px;white-space:nowrap;font-weight:bold;flex-shrink:0;">${rowDef.label}</div>
+                       </div>`)
                 : `<div style="width:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:5px;">
                        <div style="font-size:10px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;padding:1px 4px;white-space:nowrap;font-weight:bold;">${rowDef.label}</div>
                    </div>`;
