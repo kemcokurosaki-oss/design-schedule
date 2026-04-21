@@ -1,6 +1,24 @@
 // Gantt 基本構成
 gantt.config.date_format = "%Y-%m-%d";
 
+// date入力で値を選択した時点でインライン編集を確定する
+function _commitInlineDateEdit(inputEl) {
+    if (!inputEl) return;
+    setTimeout(function() {
+        try { inputEl.blur(); } catch (e) {}
+        try {
+            if (gantt.ext && gantt.ext.inlineEditors && gantt.ext.inlineEditors.save) {
+                gantt.ext.inlineEditors.save();
+            }
+        } catch (e) {}
+        try {
+            if (gantt.ext && gantt.ext.inlineEditors && gantt.ext.inlineEditors.hide) {
+                gantt.ext.inlineEditors.hide();
+            }
+        } catch (e) {}
+    }, 0);
+}
+
 // 担当者プルダウン用インラインエディタ
 const OWNER_OPTIONS = ['藤山','田中','安岡','川邊','檀','堀井','宮﨑','津田','古村','柴田','橋本','松本(英)'];
 gantt.config.editor_types.owner_select = {
@@ -59,6 +77,12 @@ gantt.config.editor_types.status_select = {
 gantt.config.editor_types.start_date_editor = {
     show: function(id, column, config, placeholder) {
         placeholder.innerHTML = '<input type="date" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:12px;box-sizing:border-box;">';
+        var inp = placeholder.querySelector('input');
+        if (inp) {
+            inp.addEventListener('change', function() {
+                _commitInlineDateEdit(inp);
+            });
+        }
     },
     hide: function() {},
     set_value: function(value, id, column, node) {
@@ -90,8 +114,13 @@ gantt.config.editor_types.start_date_editor = {
 gantt.config.editor_types.completion_date = {
     show: function(id, column, config, placeholder) {
         placeholder.innerHTML = '<input type="date" name="' + column.name + '" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">';
-        placeholder.querySelector('input').addEventListener('change', function() {
-            if (!this.value) _completionDateClear(id);
+        var inp = placeholder.querySelector('input');
+        inp.addEventListener('change', function() {
+            if (!this.value) {
+                _completionDateClear(id);
+                return;
+            }
+            _commitInlineDateEdit(inp);
         });
     },
     hide: function() {},
