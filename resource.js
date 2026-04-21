@@ -313,9 +313,9 @@ function renderResourceTimeline(owners) {
     
     const backgroundStyle = `background-image: ${gridBackground}; background-position: ${-firstPos}px 0; background-size: ${columnWidth}px 30px; height: 100%;`;
     const todayPos = gantt.posFromDate(new Date());
-    const todayLineHtml = `<div class="resource-today-line" style="left: ${todayPos}px;"></div>`;
+    const todayLineLeft = actualGridWidth + todayPos;
 
-    let html = `<div style="width: ${totalWidth}px;">`; // 全体の幅を指定するコンテナを追加
+    let html = `<div style="width: ${totalWidth}px; position: relative;">`; // 全体の幅を指定するコンテナを追加
     // 担当者1人につき4行（計画・図面・長納期品・出張）で表示
     const TASK_TYPE_ROWS = [
         { type: 'planning',       label: '計画' },
@@ -378,7 +378,6 @@ function renderResourceTimeline(owners) {
                     <div class="resource-timeline" style="width:${timelineWidth}px;flex-shrink:0;position:relative;background:#fff;">
                         <div style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:0;">${weekendBackgroundHtml}</div>
                         <div style="position:absolute;top:0;left:0;right:0;bottom:0;${backgroundStyle}z-index:1;"></div>
-                        ${todayLineHtml}
                         <div style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:2;">
             `;
 
@@ -402,7 +401,7 @@ function renderResourceTimeline(owners) {
             `;
         });
     });
-    html += `</div>`; // 閉じタグを追加
+    html += `<div class="resource-today-line" style="left:${todayLineLeft}px;z-index:30;"></div></div>`; // 全体に1本だけ表示
 
     container.innerHTML = html;
     renderResourceCalendarHeader();
@@ -435,7 +434,7 @@ function renderOwnerDetailTimeline(ownerName) {
 
     const backgroundStyle = `background-image: ${gridBackground}; background-position: ${-firstPos}px 0; background-size: ${columnWidth}px 30px;`;
     const todayPos = gantt.posFromDate(new Date());
-    const todayLineHtml = `<div class="resource-today-line" style="left: ${todayPos}px;"></div>`;
+    const todayLineLeft = actualGridWidth + todayPos;
 
     // 担当者のタスクを収集
     const ownerTasks = [];
@@ -479,7 +478,7 @@ function renderOwnerDetailTimeline(ownerName) {
     const colorClass = getOwnerColorClass(ownerName);
     const textColor = (["owner-tsuda", "owner-shibata", "owner-matsumoto"].includes(colorClass)) ? "#222" : "#fff";
 
-    let html = `<div style="width: ${totalWidth}px;">`;
+    let html = `<div style="width: ${totalWidth}px; position: relative;">`;
     ownerTasks.forEach(t => {
         const hasDate = !t.has_no_date && t.start_date && t.end_date;
         const left = hasDate ? gantt.posFromDate(t.start_date) : 0;
@@ -500,7 +499,6 @@ function renderOwnerDetailTimeline(ownerName) {
                 <div class="resource-timeline" style="width: ${timelineWidth}px; flex-shrink: 0; position: relative; background: #fff; overflow: hidden; z-index: 2;">
                     <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 0;">${weekendBackgroundHtml}</div>
                     <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; ${backgroundStyle} z-index: 1;"></div>
-                    ${todayLineHtml}
                     ${hasDate ? `
                     <div class="resource-cell-bar ${colorClass}"
                          style="position: absolute; top: 4px; height: 22px; left: ${left}px; width: ${barWidth}px; z-index: 10;"
@@ -511,7 +509,7 @@ function renderOwnerDetailTimeline(ownerName) {
             </div>
         `;
     });
-    html += `</div>`;
+    html += `<div class="resource-today-line" style="left:${todayLineLeft}px;z-index:30;"></div></div>`;
     container.innerHTML = html;
     renderResourceCalendarHeader();
     syncResourceScroll();
