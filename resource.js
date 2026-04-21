@@ -91,18 +91,19 @@ const mainLayout = {
             animationFrameId = requestAnimationFrame(() => {
                 const windowHeight = window.innerHeight;
                 let newHeight = windowHeight - e.clientY;
-                
+
                 if (newHeight < minHeight) newHeight = minHeight;
                 if (newHeight > maxHeight) newHeight = maxHeight;
-                if (newHeight > windowHeight * 0.8) newHeight = windowHeight * 0.8;
+                // ガントのカレンダーヘッダー（scale_height=60px）＋最低1行（30px）が常に見えるよう上限を制限
+                const headerEl = document.querySelector('.header-panel');
+                const headerH = headerEl ? headerEl.offsetHeight : 100;
+                const maxByGantt = windowHeight - headerH - 90;
+                if (newHeight > maxByGantt) newHeight = maxByGantt;
                 
                 // パネルの高さを更新（flexboxによりメインガントは自動で縮む）
+                // setSizes() はドラッグ中に呼ばない: 毎フレーム呼ぶとDHTMLXが内部高さを一時0にするため
+                // カレンダースケールの文字が消える問題の原因。マウスアップ時のみ呼び出す。
                 panel.style.height = newHeight + 'px';
-                
-                // ガントのサイズ調整（描画を伴うので負荷が高い）
-                if (window.gantt) {
-                    gantt.setSizes();
-                }
                 
                 animationFrameId = null;
             });
