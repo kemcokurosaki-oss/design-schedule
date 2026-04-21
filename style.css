@@ -189,7 +189,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .resource-grid-container { background: #f9f9f9; }
 .resource-cell { display: flex; align-items: center; padding: 0 4px; box-sizing: border-box; }
 .resource-timeline { position: relative; background: #fff; }
-.resource-today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #ff5252 !important; opacity: 1.0; z-index: 2 !important; pointer-events: none; }
+.resource-today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #ff5252 !important; opacity: 1.0; z-index: 20 !important; pointer-events: none; }
 .resource-cell-bar {
     position: absolute;
     border-radius: 3px;
