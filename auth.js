@@ -40,6 +40,9 @@ const EDITORS = [
     'y-dan@kusakabe.com',       // 檀
     'm-horii@kusakabe.com',     // 堀井
     'm-tsuda@kusakabe.com',     // 津田
+    'y-nomura@kusakabe.com',    // 野村
+    's-yokoyama@kusakabe.com',  // 横山
+    'i-tanabe@kusakabe.com',    // 田邊
 ];
 let _isEditor = false;
 
