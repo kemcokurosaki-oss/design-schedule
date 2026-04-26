@@ -1094,6 +1094,10 @@ gantt.attachEvent("onBeforeTaskDisplay", function(id, task) {
         const m = String(task.machine || '').trim();
         if (!currentMachineFilter.includes(m)) return false;
     }
+    if (currentUnitFilter.length > 0) {
+        const u = String(task.unit || '').trim();
+        if (!currentUnitFilter.includes(u)) return false;
+    }
     return true;
 });
 

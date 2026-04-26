@@ -24,7 +24,18 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     appearance: none;
     -webkit-appearance: none;
     cursor: pointer;
-    min-width: 150px;
+    min-width: 120px;
+}
+#dropdowns_row .header-select {
+    width: 130px;
+}
+#project_filter_btn {
+    width: 150px !important;
+}
+#machine_filter_btn,
+#unit_filter_btn,
+#owner_filter_btn {
+    width: 130px !important;
 }
 .action-controls { margin-left: auto; display: flex; gap: 5px; }
 .btn { padding: 2px 10px; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: "メイリオ", Meiryo, sans-serif; }
