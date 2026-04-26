@@ -61,6 +61,16 @@
                         <div id="machine_chk_list"></div>
                     </div>
                 </div>
+                <div id="unit_filter_wrap" style="position:relative; display:none;">
+                    <button type="button" id="unit_filter_btn" onclick="toggleUnitFilterDropdown()" class="header-select" style="white-space:nowrap; text-align:left;">ユニット: すべて</button>
+                    <div id="unit_filter_dropdown" style="display:none; position:absolute; top:calc(100% + 2px); left:0; background:#fff; border:1px solid #ccc; border-radius:3px; z-index:9999; padding:4px 0; min-width:130px; max-height:300px; overflow-y:auto; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+                        <label style="display:block; padding:4px 10px; cursor:pointer; white-space:nowrap; font-size:13px; font-family:'メイリオ',Meiryo,sans-serif;">
+                            <input type="checkbox" id="unit_chk_all" onchange="unitFilterAllChanged(this)" checked> すべて
+                        </label>
+                        <div style="border-top:1px solid #eee; margin:2px 0;"></div>
+                        <div id="unit_chk_list"></div>
+                    </div>
+                </div>
                 <div id="owner_filter_wrap" style="position:relative; display:none;">
                     <button type="button" id="owner_filter_btn" onclick="toggleOwnerFilterDropdown()" class="header-select" style="white-space:nowrap; text-align:left;">担当者: 全員</button>
                     <div id="owner_filter_dropdown" style="display:none; position:absolute; top:calc(100% + 2px); left:0; background:#fff; border:1px solid #ccc; border-radius:3px; z-index:9999; padding:4px 0; min-width:130px; max-height:300px; overflow-y:auto; box-shadow:0 2px 8px rgba(0,0,0,0.15);">

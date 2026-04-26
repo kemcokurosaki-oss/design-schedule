@@ -78,6 +78,7 @@ async function loadData() {
     });
 
     _rebuildMachineFilterFromRows(data);
+    _rebuildUnitFilterFromRows(data);
     _rebuildOwnerFilterFromRows(data);
 
     // 追加：データ読み込み完了直後にリソースデータを更新
@@ -116,6 +117,7 @@ function _isHoliday(date) {
 }
 let currentOwnerFilter = [];      // 空配列 = 全担当者
 let currentMachineFilter = [];    // 空配列 = 機械で絞り込みなし
+let currentUnitFilter = [];       // 空配列 = ユニットで絞り込みなし
 let _clearingEndDateId = null;   // 完了予定日クリア中のタスクID
 let isResourceFullscreen = false;
 
@@ -148,6 +150,10 @@ function _taskVisibleIgnoringMachineFilter(task) {
         const taskOwners = String(task.owner || '').split(/[,、\s]+/).map(o => o.trim());
         if (!currentOwnerFilter.some(f => taskOwners.includes(f))) return false;
     }
+    if (currentUnitFilter.length > 0) {
+        const u = String(task.unit || '').trim();
+        if (!currentUnitFilter.includes(u)) return false;
+    }
     return true;
 }
 
@@ -161,6 +167,26 @@ function _taskVisibleIgnoringOwnerFilter(task) {
         const m = String(task.machine || '').trim();
         if (!currentMachineFilter.includes(m)) return false;
     }
+    if (currentUnitFilter.length > 0) {
+        const u = String(task.unit || '').trim();
+        if (!currentUnitFilter.includes(u)) return false;
+    }
+    return true;
+}
+
+/**
+ * ユニットフィルター以外（機械・担当者まで）でガントに表示される行か（ユニット候補一覧用）
+ */
+function _taskVisibleIgnoringUnitFilter(task) {
+    if (!_taskPassesCommonFilters(task)) return false;
+    if (currentMachineFilter.length > 0) {
+        const m = String(task.machine || '').trim();
+        if (!currentMachineFilter.includes(m)) return false;
+    }
+    if (currentOwnerFilter.length > 0) {
+        const taskOwners = String(task.owner || '').split(/[,、\s]+/).map(o => o.trim());
+        if (!currentOwnerFilter.some(f => taskOwners.includes(f))) return false;
+    }
     return true;
 }
 
@@ -168,6 +194,7 @@ function _taskVisibleIgnoringOwnerFilter(task) {
 function _taskVisibleOnGantt(task) {
     if (!_taskVisibleIgnoringOwnerFilter(task)) return false;
     if (!_taskVisibleIgnoringMachineFilter(task)) return false;
+    if (!_taskVisibleIgnoringUnitFilter(task)) return false;
     return true;
 }
 
@@ -181,12 +208,30 @@ function _collectMachineValues(rows) {
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
 }
 
+function _collectUnitValues(rows) {
+    const set = new Set();
+    (rows || []).forEach(row => {
+        if (!_taskVisibleIgnoringUnitFilter(row)) return;
+        const u = row.unit != null ? String(row.unit).trim() : '';
+        if (u) set.add(u);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
+}
+
 /** 現在のガント内タスクから機械フィルター候補を再計算 */
 function _rebuildMachineFilterOptionsFromGantt() {
     if (typeof gantt === 'undefined' || !gantt.eachTask) return;
     const rows = [];
     gantt.eachTask(function(task) { rows.push(task); });
     _rebuildMachineFilterFromRows(rows);
+}
+
+/** 現在のガント内タスクからユニットフィルター候補を再計算 */
+function _rebuildUnitFilterOptionsFromGantt() {
+    if (typeof gantt === 'undefined' || !gantt.eachTask) return;
+    const rows = [];
+    gantt.eachTask(function(task) { rows.push(task); });
+    _rebuildUnitFilterFromRows(rows);
 }
 
 function _collectOwnerFilterOptions(rows) {
@@ -227,6 +272,25 @@ function _rebuildOwnerFilterOptionsFromGantt() {
     _rebuildOwnerFilterFromRows(rows);
 }
 
+/** タスク行データからユニットチェックリストを再構築（選択は存在するユニットのみ維持） */
+function _rebuildUnitFilterFromRows(rows) {
+    const list = document.getElementById('unit_chk_list');
+    if (!list) return;
+    const units = _collectUnitValues(rows);
+    const prev = new Set(currentUnitFilter);
+    currentUnitFilter = [...prev].filter(u => units.includes(u));
+    const esc = _escapeHtmlAttr;
+    list.innerHTML = units.map(u => {
+        const checked = currentUnitFilter.includes(u) ? ' checked' : '';
+        const ev = esc(u);
+        return `<label style="display:block; padding:4px 10px; cursor:pointer; white-space:nowrap; font-size:13px; font-family:'メイリオ',Meiryo,sans-serif;">
+            <input type="checkbox" class="unit-chk-item" value="${ev}" onchange="unitFilterItemChanged()"${checked}> ${ev}</label>`;
+    }).join('');
+    const allChk = document.getElementById('unit_chk_all');
+    if (allChk) allChk.checked = currentUnitFilter.length === 0;
+    _updateUnitFilterBtn();
+}
+
 /** タスク行データから機械チェックリストを再構築（選択は存在する機械のみ維持） */
 function _rebuildMachineFilterFromRows(rows) {
     const list = document.getElementById('machine_chk_list');
@@ -257,6 +321,7 @@ function projectFilterAllChanged(checkbox) {
     gantt.render();
     _updateProjectFilterBtn();
     _rebuildMachineFilterOptionsFromGantt();
+    _rebuildUnitFilterOptionsFromGantt();
     _rebuildOwnerFilterOptionsFromGantt();
     updateDisplay();
 }
@@ -270,6 +335,7 @@ function projectFilterItemChanged() {
     gantt.render();
     _updateProjectFilterBtn();
     _rebuildMachineFilterOptionsFromGantt();
+    _rebuildUnitFilterOptionsFromGantt();
     _rebuildOwnerFilterOptionsFromGantt();
     updateDisplay();
 }
@@ -328,6 +394,7 @@ function ownerFilterAllChanged(checkbox) {
     currentOwnerFilter = [];
     _updateOwnerFilterBtn();
     _rebuildMachineFilterOptionsFromGantt();
+    _rebuildUnitFilterOptionsFromGantt();
     updateDisplay();
 }
 
@@ -339,6 +406,7 @@ function ownerFilterItemChanged() {
     if (allChk) allChk.checked = selected.length === 0;
     _updateOwnerFilterBtn();
     _rebuildMachineFilterOptionsFromGantt();
+    _rebuildUnitFilterOptionsFromGantt();
     updateDisplay();
 }
 
@@ -364,6 +432,7 @@ function machineFilterAllChanged(checkbox) {
     currentMachineFilter = [];
     gantt.render();
     _updateMachineFilterBtn();
+    _rebuildUnitFilterOptionsFromGantt();
     _rebuildOwnerFilterOptionsFromGantt();
     updateDisplay();
 }
@@ -376,6 +445,7 @@ function machineFilterItemChanged() {
     if (allChk) allChk.checked = selected.length === 0;
     gantt.render();
     _updateMachineFilterBtn();
+    _rebuildUnitFilterOptionsFromGantt();
     _rebuildOwnerFilterOptionsFromGantt();
     updateDisplay();
 }
@@ -392,6 +462,46 @@ function _updateMachineFilterBtn() {
     }
 }
 
+function toggleUnitFilterDropdown() {
+    const dd = document.getElementById('unit_filter_dropdown');
+    if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+}
+
+function unitFilterAllChanged(checkbox) {
+    document.querySelectorAll('.unit-chk-item').forEach(chk => { chk.checked = false; });
+    currentUnitFilter = [];
+    gantt.render();
+    _updateUnitFilterBtn();
+    _rebuildMachineFilterOptionsFromGantt();
+    _rebuildOwnerFilterOptionsFromGantt();
+    updateDisplay();
+}
+
+function unitFilterItemChanged() {
+    const selected = [];
+    document.querySelectorAll('.unit-chk-item:checked').forEach(chk => selected.push(chk.value));
+    currentUnitFilter = selected;
+    const allChk = document.getElementById('unit_chk_all');
+    if (allChk) allChk.checked = selected.length === 0;
+    gantt.render();
+    _updateUnitFilterBtn();
+    _rebuildMachineFilterOptionsFromGantt();
+    _rebuildOwnerFilterOptionsFromGantt();
+    updateDisplay();
+}
+
+function _updateUnitFilterBtn() {
+    const btn = document.getElementById('unit_filter_btn');
+    if (!btn) return;
+    if (currentUnitFilter.length === 0) {
+        btn.textContent = 'ユニット: すべて';
+    } else if (currentUnitFilter.length === 1) {
+        btn.textContent = currentUnitFilter[0];
+    } else {
+        btn.textContent = currentUnitFilter[0] + ' 他' + (currentUnitFilter.length - 1) + '件';
+    }
+}
+
 // ドロップダウン外クリックで閉じる
 document.addEventListener('click', function(e) {
     const ownerWrap = document.getElementById('owner_filter_wrap');
@@ -402,6 +512,11 @@ document.addEventListener('click', function(e) {
     const machineWrap = document.getElementById('machine_filter_wrap');
     if (machineWrap && !machineWrap.contains(e.target)) {
         const dd = document.getElementById('machine_filter_dropdown');
+        if (dd) dd.style.display = 'none';
+    }
+    const unitWrap = document.getElementById('unit_filter_wrap');
+    if (unitWrap && !unitWrap.contains(e.target)) {
+        const dd = document.getElementById('unit_filter_dropdown');
         if (dd) dd.style.display = 'none';
     }
     const projectWrap = document.getElementById('project_filter_wrap');
@@ -437,6 +552,8 @@ function updateFilterButtons() {
     if (ownerWrap) ownerWrap.style.display = isResourceFullscreen ? 'none' : '';
     const machineWrap = document.getElementById('machine_filter_wrap');
     if (machineWrap) machineWrap.style.display = isResourceFullscreen ? 'none' : '';
+    const unitWrap = document.getElementById('unit_filter_wrap');
+    if (unitWrap) unitWrap.style.display = isResourceFullscreen ? 'none' : '';
     const addBtn = document.getElementById('create_task_btn');
     if (addBtn) addBtn.style.display = (isResourceFullscreen || !_isEditor) ? 'none' : '';
 }
@@ -478,6 +595,7 @@ function setTaskTypeFilter(type) {
         // フィルター全オフ → リソース全画面に戻す
         _enterResourceFullscreen();
         _rebuildMachineFilterOptionsFromGantt();
+        _rebuildUnitFilterOptionsFromGantt();
         _rebuildOwnerFilterOptionsFromGantt();
     } else {
         // フィルターON → ガントビューに切り替え
@@ -490,6 +608,7 @@ function setTaskTypeFilter(type) {
             gantt.refreshData();
         }
         _rebuildMachineFilterOptionsFromGantt();
+        _rebuildUnitFilterOptionsFromGantt();
         _rebuildOwnerFilterOptionsFromGantt();
         // ブラウザの描画確定後にズームレベルを再設定してカレンダーヘッダーを完全再描画
         setTimeout(() => {
@@ -523,7 +642,7 @@ function updateDisplay() {
 async function initProjectSelect(projectParam) {
     const { data } = await supabaseClient
         .from('tasks')
-        .select('project_number, customer_name, project_details, machine, is_detailed, task_type, owner')
+        .select('project_number, customer_name, project_details, machine, unit, is_detailed, task_type, owner')
         .neq('is_archived', true);
     if (!data) return;
 
@@ -558,6 +677,7 @@ async function initProjectSelect(projectParam) {
 
     _updateProjectFilterBtn();
     _rebuildMachineFilterFromRows(data);
+    _rebuildUnitFilterFromRows(data);
     _rebuildOwnerFilterFromRows(data);
     updateDisplay();
 }
@@ -1046,6 +1166,7 @@ async function initialize() {
             updateFilterButtons();
             switchColumns(taskTypeParam);
             _rebuildMachineFilterOptionsFromGantt();
+            _rebuildUnitFilterOptionsFromGantt();
             _rebuildOwnerFilterOptionsFromGantt();
             // フィルターボタンクリック時と同様にズームレベルを再設定してカレンダーヘッダーを完全再描画
             setTimeout(() => {
