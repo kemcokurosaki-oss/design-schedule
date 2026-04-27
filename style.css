@@ -476,9 +476,19 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .gantt_row.odd {
     background-color: #e2e8f0 !important; /* 落ち着いた薄いブルーグレー */
 }
+.gantt_row.gantt-row-completed,
+.gantt_row.odd.gantt-row-completed {
+    background-color: #eeeeee !important;
+}
+.gantt_row.gantt-row-completed .gantt_cell {
+    color: #666 !important;
+}
 /* ホバー時の色も調整 */
 .gantt_row:hover {
     background-color: #cbd5e1 !important; /* 少し濃いくすんだ青 */
+}
+.gantt_row.gantt-row-completed:hover {
+    background-color: #e0e0e0 !important;
 }
 
 /* 進捗列の背景色（グラデーションによる進捗表示） */
@@ -502,6 +512,9 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 }
 .progress-overdue {
     background-color: #e53935 !important; /* 鮮やかさと落ち着きのバランスが良い赤 */
+}
+.progress-complete {
+    background-color: #eeeeee !important;
 }
 
 /* タイムラインカレンダーヘッダー（横線はすべて縦罫線と同じ 1px / #607d8b） */

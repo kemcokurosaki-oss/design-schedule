@@ -1264,19 +1264,42 @@ function _fmtDate(obj) {
 function _progressTemplate(obj) {
     const total = parseFloat(obj.total_sheets) || 0;
     const completed = parseFloat(obj.completed_sheets) || 0;
+    const taskType = String(obj.task_type || "");
     let progress = 0;
     if (total > 0) {
         progress = Math.min(100, Math.round((completed / total) * 100));
     }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const isDrawingComplete = (taskType === "drawing" && progress >= 100);
     const isOverdue = (progress === 0 && obj.end_date && obj.end_date < today);
-    const fillClass = isOverdue ? "progress-fill progress-overdue" : "progress-fill";
+    const fillClass = isDrawingComplete
+        ? "progress-fill progress-complete"
+        : (isOverdue ? "progress-fill progress-overdue" : "progress-fill");
+    const textColor = isDrawingComplete ? "#666" : "black";
     const fillWidth = isOverdue ? "100%" : `${progress}%`;
     return `<div class="progress-cell-container">
                 <div class="${fillClass}" style="width:${fillWidth};"></div>
-                <span style="position:relative; z-index:2; color:black; font-weight:normal;">${progress}%</span>
+                <span style="position:relative; z-index:2; color:${textColor}; font-weight:normal;">${progress}%</span>
             </div>`;
+}
+
+function _isCompletedForDisplay(task) {
+    const taskType = String(task.task_type || "");
+
+    if (taskType === "drawing") {
+        const total = parseFloat(task.total_sheets) || 0;
+        if (total <= 0) return false;
+        const completed = parseFloat(task.completed_sheets) || 0;
+        const progress = Math.min(100, Math.round((completed / total) * 100));
+        return progress >= 100;
+    }
+
+    if (taskType === "long_lead_item") {
+        return String(task.status || "").trim() === "完了";
+    }
+
+    return false;
 }
 
 // 図面列定義（デフォルト）
@@ -1390,7 +1413,7 @@ gantt.templates.timeline_cell_class = function(task, date) {
 };
 
 gantt.templates.grid_row_class = function(start, end, task) {
-    return "";
+    return _isCompletedForDisplay(task) ? "gantt-row-completed" : "";
 };
 // スケールヘッダーの土日・社内休日セルにクラスを付与（描画時に適用されるためスクロールで崩れない）
 gantt.templates.scale_cell_class = function(date) {
