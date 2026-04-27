@@ -726,22 +726,28 @@ async function initialize() {
     }
 
     // === グリッド操作設定 ===
+    function _syncSelectionActionButtons() {
+        if (typeof _updateMultiDeleteBtn === "function") {
+            _updateMultiDeleteBtn();
+        }
+    }
 
     // タスク選択が変わるたびに選択削除ボタンを更新
     gantt.attachEvent("onTaskClick", function(id, e) {
-        setTimeout(_updateMultiDeleteBtn, 0);
+        setTimeout(_syncSelectionActionButtons, 0);
         return true;
     });
     gantt.attachEvent("onEmptyClick", function(e) {
         _gridSelection.clear();
         _lastGridClickId = null;
         _applyGridSelection();
-        setTimeout(_updateMultiDeleteBtn, 0);
+        setTimeout(_syncSelectionActionButtons, 0);
         return true;
     });
     // 再描画後にグリッド選択ハイライトを復元
     gantt.attachEvent("onGanttRender", function() {
         _applyGridSelection();
+        _syncSelectionActionButtons();
     });
 
     // キャプチャフェーズでグリッドセルのクリックを横取り
@@ -787,7 +793,7 @@ async function initialize() {
             gantt.scrollTo(null, scrollY);
         }
         _applyGridSelection();
-        _updateMultiDeleteBtn();
+        _syncSelectionActionButtons();
     }, true);
 
     // ダブルクリック: インラインエディタを開く（ライトボックスはブロック）
@@ -816,6 +822,8 @@ async function initialize() {
         '<div id="gantt_ctx_copy"       class="gantt_ctx_item">このタスクをコピー</div>' +
         '<div id="gantt_ctx_copy_multi" class="gantt_ctx_item">選択した行をコピー（<span id="gantt_ctx_copy_multi_count">0</span>件）</div>' +
         '<div class="gantt_ctx_sep"></div>' +
+        '<div id="gantt_ctx_edit_multi" class="gantt_ctx_item">このタスクを編集</div>' +
+        '<div class="gantt_ctx_sep"></div>' +
         '<div id="gantt_ctx_paste"      class="gantt_ctx_item disabled">コピーした行を貼り付け</div>' +
         '<div class="gantt_ctx_sep"></div>' +
         '<div id="gantt_ctx_delete"     class="gantt_ctx_item">このタスクを削除</div>';
@@ -834,8 +842,11 @@ async function initialize() {
         document.getElementById("gantt_ctx_copy_multi_count").textContent = _gridSelection.size;
         // 削除ラベルを選択数に応じて切り替え
         const isMultiDelete = _gridSelection.size > 1 && _gridSelection.has(String(_ctxTaskId));
+        const isMultiEdit = _gridSelection.size > 1 && _gridSelection.has(String(_ctxTaskId));
         document.getElementById("gantt_ctx_delete").textContent =
             isMultiDelete ? `選択した ${_gridSelection.size} 件を削除` : "このタスクを削除";
+        document.getElementById("gantt_ctx_edit_multi").textContent =
+            isMultiEdit ? `選択した ${_gridSelection.size} 件を編集` : "このタスクを編集";
         // コピーの有効/無効（工事番号が1つ選択されていない場合は不可）
         const _copyDisabled = currentProjectFilter.length !== 1;
         document.getElementById("gantt_ctx_copy").classList.toggle('disabled', _copyDisabled);
@@ -1031,6 +1042,19 @@ async function initialize() {
             .map(id => gantt.isTaskExists(id) ? gantt.getTask(id) : null)
             .filter(Boolean);
         alert(`${_copiedTasks.length} 行をコピーしました。\n貼り付け先の工事番号を選択して右クリック →「コピーした行を貼り付け」してください。`);
+        _ctxTaskId = null;
+    });
+
+    // 複数行一括編集
+    document.getElementById("gantt_ctx_edit_multi").addEventListener("click", function() {
+        _ctxMenu.style.display = "none";
+        if (_ctxTaskId && (!_gridSelection.has(String(_ctxTaskId)) || _gridSelection.size <= 1)) {
+            _gridSelection.clear();
+            _gridSelection.add(String(_ctxTaskId));
+            _applyGridSelection();
+            _syncSelectionActionButtons();
+        }
+        openMultiEditModal();
         _ctxTaskId = null;
     });
 

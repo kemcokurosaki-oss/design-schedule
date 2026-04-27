@@ -758,6 +758,76 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     font-weight: bold;
 }
 #multi_delete_btn:hover { background: #c62828; }
+#multi_edit_btn {
+    display: none;
+    background: #2e7d32;
+    color: #fff;
+    border-color: #1b5e20;
+    font-weight: bold;
+}
+#multi_edit_btn:hover { background: #1b5e20; }
+.multi-edit-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+    align-items: start;
+}
+#multi_edit_form.multi-edit-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    max-height: 58vh;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.multi-edit-grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #444;
+    min-width: 0;
+}
+.multi-edit-grid input {
+    width: 100%;
+    min-width: 0;
+    height: 28px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 0 8px;
+    font-size: 12px;
+    font-family: "メイリオ", Meiryo, sans-serif;
+    box-sizing: border-box;
+}
+.multi-edit-grid select {
+    width: 100%;
+    min-width: 0;
+    height: 28px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 0 8px;
+    font-size: 12px;
+    font-family: "メイリオ", Meiryo, sans-serif;
+    box-sizing: border-box;
+}
+.multi-edit-row {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px 10px;
+    align-items: flex-end;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 0 8px;
+    border-bottom: 1px solid #eef3f8;
+}
+.multi-edit-row:last-child {
+    border-bottom: none;
+    padding-bottom: 2px;
+}
+.multi-edit-row label {
+    flex: 0 0 140px;
+    min-width: 140px;
+    margin: 0;
+}
 /* アーカイブドロップダウン */
 #archive_dropdown_menu {
     display: none; position: absolute; top: calc(100% + 2px); right: 0;
@@ -788,6 +858,10 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .archive-dialog h3 {
     margin: 0 0 14px; font-size: 14px; color: #1565c0;
     border-bottom: 1px solid #e3f2fd; padding-bottom: 8px; flex-shrink: 0;
+}
+#multi_edit_overlay .archive-dialog h3 {
+    cursor: move;
+    user-select: none;
 }
 .archive-table { overflow-y: auto; flex: 1; border: 1px solid #e0e0e0; border-radius: 3px; }
 .archive-table table { width: 100%; border-collapse: collapse; }
