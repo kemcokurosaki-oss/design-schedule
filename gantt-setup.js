@@ -455,6 +455,11 @@ function _computeSortOrderForInsert(projectNumber, machine, unit, taskType, excl
     return 1000;
 }
 
+function _getSingleFilterValue(filterValues) {
+    if (!Array.isArray(filterValues) || filterValues.length !== 1) return "";
+    return String(filterValues[0] || "").trim();
+}
+
 // 新規タスク追加：まずライトボックスで入力 → 保存で Supabase に挿入
 // afterTaskId: グリッドの+ボタンから呼ばれた場合はその行の機械・ユニットを初期値に使う
 function createTask(afterTaskId) {
@@ -477,24 +482,35 @@ function createTask(afterTaskId) {
         return true;
     }).sort((a, b) => _sortOrderValue(a) - _sortOrderValue(b));
 
-    let inheritMachine = "";
-    let inheritUnit = "";
+    let inheritMachine = _getSingleFilterValue(currentMachineFilter);
+    let inheritUnit = _getSingleFilterValue(currentUnitFilter);
+    let inheritOwner = _getSingleFilterValue(currentOwnerFilter);
     if (afterTaskId != null) {
         const t = gantt.getTask(afterTaskId);
         if (t) {
             inheritMachine = t.machine || "";
             inheritUnit = t.unit || "";
+            if (!inheritOwner) {
+                inheritOwner = t.owner || "";
+            }
         }
     } else if (visibleTasks.length > 0) {
         const last = visibleTasks[visibleTasks.length - 1];
-        inheritMachine = last.machine || "";
-        inheritUnit = last.unit || "";
+        if (!inheritMachine) inheritMachine = last.machine || "";
+        if (!inheritUnit) inheritUnit = last.unit || "";
     }
 
     const today = new Date();
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() - 13);
     const taskType = currentTaskTypeFilter || "drawing";
+    const initialSortOrder = _computeSortOrderForInsert(
+        projectNumber,
+        inheritMachine,
+        inheritUnit,
+        taskType,
+        null
+    );
 
     const newId = gantt.uid();
     _pendingNewTaskLightboxId = newId;
@@ -520,13 +536,13 @@ function createTask(afterTaskId) {
         project_details: "",
         characteristic: "",
         derivation: "",
-        owner: "",
+        owner: inheritOwner,
         total_sheets: 0,
         completed_sheets: 0,
         task_type: taskType,
         wish_date: wishDefault,
         is_detailed: true,
-        sort_order: 0,
+        sort_order: initialSortOrder,
         has_no_date: false
     });
 
