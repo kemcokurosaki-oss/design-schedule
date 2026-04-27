@@ -85,6 +85,7 @@ var HELP_TIPS = [
     { id: 'auth_btn',            title: 'ログイン',           text: '編集者としてログイン\nタスクの追加・編集・削除が可能になります' },
     { id: 'project_filter_btn',  title: '工事番号フィルター',   text: 'クリックで工事番号を選択\n複数選択可。「全表示」で全件に戻す' },
     { id: 'machine_filter_btn',  title: '機械フィルター',      text: '現在の表示条件に合う機械のみ候補に表示\n複数選択可。「すべて」で解除' },
+    { id: 'unit_filter_btn',     title: 'ユニットフィルター',  text: '現在の表示条件に合うユニットのみ候補に表示\n複数選択可。「すべて」で解除' },
     { id: 'owner_filter_btn',    title: '担当者フィルター',    text: '現在の表示条件に合う担当者のみ候補に表示\n複数選択可。「全員」で解除' },
     { id: 'resource_toggle',     title: 'リソース表示',       text: 'ガントチャート下部に\n担当者別の業務状況を並列表示' },
     { id: 'create_task_btn',     title: '新規タスク追加',     text: '編集画面で入力してから追加します。並びは工事番号・機械・ユニットが同じ行の直後になります（要ログイン）' },
