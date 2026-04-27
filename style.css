@@ -30,11 +30,17 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     width: 130px;
 }
 #project_filter_btn {
-    width: 150px !important;
+    width: 132px !important;
+    padding: 4px 20px 4px 6px;
 }
 #machine_filter_btn,
-#unit_filter_btn,
 #owner_filter_btn {
+    width: 100px !important;
+    min-width: 100px !important;
+    padding: 5px 20px 5px 4px;
+    background-position: right 6px center;
+}
+#unit_filter_btn {
     width: 130px !important;
 }
 .action-controls { margin-left: auto; display: flex; gap: 5px; }
