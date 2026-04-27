@@ -1389,8 +1389,8 @@ function _getTripColumns() {
         { name: "project_number",  label: "工事番号", width: 60,  align: "center", editor: { type: "text", map_to: "project_number" } },
         { name: "machine",         label: "機械",     width: 40,  align: "center", editor: { type: "text", map_to: "machine" } },
         { name: "unit",            label: "ユニ",     width: 40,  align: "center", editor: { type: "text", map_to: "unit" } },
-        { name: "text",            label: "タスク",   width: 230, tree: true,      editor: { type: "text", map_to: "text" } },
-        { name: "owner",           label: "担当",     width: 40,  align: "center", editor: { type: "owner_select", map_to: "owner" } },
+        { name: "text",            label: "タスク",   width: 210, tree: true,      editor: { type: "text", map_to: "text" } },
+        { name: "owner",           label: "担当",     width: 60,  align: "center", editor: { type: "owner_select", map_to: "owner" } },
         { name: "start_date",      label: "開始日",   width: 65,  align: "center",
           template: function(task) {
             if (!task.start_date) return "";
