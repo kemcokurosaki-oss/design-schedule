@@ -164,6 +164,37 @@ gantt.config.editor_types.completion_date = {
     }
 };
 
+// 総枚数/完了枚数用インラインエディタ（100上限に丸めない）
+gantt.config.editor_types.sheet_count = {
+    show: function(id, column, config, placeholder) {
+        const min = (column && column.editor && column.editor.min != null) ? String(column.editor.min) : "0";
+        const maxAttr = (column && column.editor && column.editor.max != null) ? ` max="${String(column.editor.max)}"` : "";
+        placeholder.innerHTML = `<input type="number" min="${min}"${maxAttr} autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:12px;box-sizing:border-box;">`;
+    },
+    hide: function() {},
+    set_value: function(value, id, column, node) {
+        const inp = node.querySelector("input");
+        inp.value = (value == null || value === "") ? "" : String(value);
+    },
+    get_value: function(id, column, node) {
+        const inp = node.querySelector("input");
+        const raw = inp ? inp.value : "";
+        if (raw === "") return 0;
+        const num = Number(raw);
+        if (!Number.isFinite(num)) return 0;
+        return Math.max(0, Math.floor(num));
+    },
+    is_changed: function(value, id, column, node) {
+        return Number(value) !== Number(this.get_value(id, column, node));
+    },
+    is_valid: function() { return true; },
+    save: function() {},
+    focus: function(node) {
+        const inp = node.querySelector("input");
+        if (inp) inp.focus();
+    }
+};
+
 // 完了予定日クリアボタン：エディタAPIを使わずタスクを直接更新
 function _completionDateClear(taskId) {
     // インラインエディターを閉じる（APIがあれば使う）
@@ -1315,8 +1346,8 @@ function _getDrawingColumns() {
         { name: "characteristic",   label: "特性",           width: 30, align: "center", editor: { type: "text",   map_to: "characteristic" } },
         { name: "derivation",       label: "派生",           width: 30, align: "center", editor: { type: "text",   map_to: "derivation" } },
         { name: "owner",            label: "担当",           width: 30, align: "center", editor: { type: "owner_select", map_to: "owner" } },
-        { name: "total_sheets",     label: "総<br>枚数",     width: 40, align: "center", editor: { type: "number", map_to: "total_sheets",     min: 0 } },
-        { name: "completed_sheets", label: "完了<br>枚数",   width: 40, align: "center", editor: { type: "number", map_to: "completed_sheets", min: 0 } },
+        { name: "total_sheets",     label: "総<br>枚数",     width: 40, align: "center", editor: { type: "sheet_count", map_to: "total_sheets",     min: 0 } },
+        { name: "completed_sheets", label: "完了<br>枚数",   width: 40, align: "center", editor: { type: "sheet_count", map_to: "completed_sheets", min: 0 } },
         { name: "progress",         label: "進捗",           width: 40, align: "center", template: _progressTemplate },
         { name: "end_date",         label: "完了<br>予定日", width: 65, align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
         { name: "add_btn",          label: "",               width: 30, align: "center", template: (task) => _isEditor ? `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` : '' }
@@ -1332,7 +1363,7 @@ function _getLongtermColumns() {
         { name: "unit",       label: "ユニ",           width: 32,  align: "center", editor: { type: "text",   map_to: "unit" } },
         { name: "text",       label: "品名",           width: 173, tree: true,      editor: { type: "text",   map_to: "text" } },
         { name: "part_number", label: "型式・図番",     width: 115, align: "left", editor: { type: "text",   map_to: "part_number" } },
-        { name: "quantity",   label: "個数",           width: 28,  align: "center", editor: { type: "number", map_to: "quantity", min: 0 } },
+        { name: "quantity",   label: "個数",           width: 28,  align: "center", editor: { type: "number", map_to: "quantity", min: 0, max: 99 } },
         { name: "manufacturer",      label: "メーカー",       width: 70,  align: "center", editor: { type: "text",   map_to: "manufacturer" } },
         { name: "owner",      label: "担当",           width: 32,  align: "center", editor: { type: "owner_select", map_to: "owner" } },
         { name: "end_date",   label: "手配<br>予定日", width: 60,  align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
