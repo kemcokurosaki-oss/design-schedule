@@ -273,12 +273,18 @@ function setZoom(level, btn) {
 // 選択削除ボタンの表示更新
 function _updateMultiDeleteBtn() {
     const btn = document.getElementById('multi_delete_btn');
-    if (!btn) return;
-    if (_isEditor && _gridSelection.size >= 1) {
-        document.getElementById('multi_delete_count').textContent = _gridSelection.size;
-        btn.style.display = '';
-    } else {
-        btn.style.display = 'none';
+    const editBtn = document.getElementById('multi_edit_btn');
+    const count = _gridSelection.size;
+    const show = _isEditor && count >= 1;
+    if (btn) {
+        const delCount = document.getElementById('multi_delete_count');
+        if (delCount) delCount.textContent = count;
+        btn.style.display = show ? '' : 'none';
+    }
+    if (editBtn) {
+        const editCount = document.getElementById('multi_edit_count');
+        if (editCount) editCount.textContent = count;
+        editBtn.style.display = show ? '' : 'none';
     }
 }
 
@@ -310,6 +316,271 @@ async function deleteSelectedTasks() {
     document.getElementById('multi_delete_btn').style.display = 'none';
 }
 
+function _resetMultiEditForm() {
+    const container = document.getElementById("multi_edit_form");
+    if (container) {
+        container.querySelectorAll("[data-me-key]").forEach(function(el) {
+            el.value = "";
+        });
+    }
+}
+
+function _sanitizeLabelHtml(html) {
+    return String(html || "")
+        .replace(/<br\s*\/?>/gi, " ")
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function _buildMultiEditFieldDefs() {
+    const cols = Array.isArray(gantt.config.columns) ? gantt.config.columns : [];
+    const defs = [];
+    const used = new Set();
+    const mode = String(gantt.config._columnFilterType || currentTaskTypeFilter || "drawing");
+    const isDrawingMode = (mode === "drawing");
+    const isLongLeadMode = (mode === "long_lead_item" || mode === "longterm");
+
+    cols.forEach(function(col) {
+        if (!col || !col.editor || !col.name) return;
+        if (col.name === "add_btn" || col.name === "progress") return;
+        const mapTo = col.editor.map_to || col.name;
+        if (!mapTo || used.has(mapTo)) return;
+        used.add(mapTo);
+
+        let inputType = "text";
+        let options = null;
+        if (mapTo === "start_date" || mapTo === "end_date") {
+            inputType = "date";
+        } else if (col.editor.type === "number") {
+            inputType = "number";
+        } else if (mapTo === "owner") {
+            inputType = "select";
+            options = ["", ...OWNER_OPTIONS];
+        } else if (mapTo === "status") {
+            inputType = "select";
+            options = ["", "未", "完了"];
+        }
+
+        let group = _getMultiEditGroup(mapTo);
+        if (isLongLeadMode && mapTo === "status") {
+            // 長納期品モードでは「状態」を進捗グループに表示する
+            group = "progress";
+        }
+
+        defs.push({
+            key: mapTo,
+            label: _sanitizeLabelHtml(col.label || mapTo),
+            inputType: inputType,
+            options: options,
+            group: group
+        });
+    });
+
+    // 期日（wish_date）はグリッド列に無いので、対象モードのみ末尾に追加する
+    const shouldAddWishDate = (isDrawingMode || isLongLeadMode);
+    if (shouldAddWishDate && !used.has("wish_date")) {
+        defs.push({
+            key: "wish_date",
+            label: isLongLeadMode ? "手配期日" : "出図希望日",
+            inputType: "date",
+            options: null,
+            group: "dates"
+        });
+        used.add("wish_date");
+    }
+
+    // 長納期品では「状態」を「担当」の直後に移動して表示
+    if (isLongLeadMode) {
+        const ownerIdx = defs.findIndex(function(def) { return def.key === "owner"; });
+        const statusIdx = defs.findIndex(function(def) { return def.key === "status"; });
+        if (ownerIdx >= 0 && statusIdx >= 0 && statusIdx !== ownerIdx + 1) {
+            const statusDef = defs.splice(statusIdx, 1)[0];
+            const insertIdx = defs.findIndex(function(def) { return def.key === "owner"; });
+            defs.splice(insertIdx + 1, 0, statusDef);
+        }
+    }
+    return defs;
+}
+
+function _getMultiEditGroup(key) {
+    if (["project_number", "machine", "unit"].includes(key)) return "project";
+    if (key === "text") return "task_name";
+    if (key === "owner") return "owner";
+    if (["start_date", "end_date", "wish_date"].includes(key)) return "dates";
+    if (["total_sheets", "completed_sheets"].includes(key)) return "progress";
+    return "details";
+}
+
+function _renderMultiEditForm() {
+    const container = document.getElementById("multi_edit_form");
+    if (!container) return [];
+    const defs = _buildMultiEditFieldDefs();
+
+    const mode = String(gantt.config._columnFilterType || currentTaskTypeFilter || "drawing");
+    const isLongLeadMode = (mode === "long_lead_item" || mode === "longterm");
+    const sections = isLongLeadMode
+        ? [
+            { id: "project",  title: "① 工事番号・機械・ユニット" },
+            { id: "task_name", title: "② タスク名" },
+            { id: "details",  title: "③ 詳細情報" },
+            { id: "owner",    title: "④ 担当者" },
+            { id: "progress", title: "⑥ 進捗" },
+            { id: "dates",    title: "⑤ 開始日・終了日・期日" }
+        ]
+        : [
+            { id: "project",  title: "① 工事番号・機械・ユニット" },
+            { id: "task_name", title: "② タスク名" },
+            { id: "details",  title: "③ 詳細情報" },
+            { id: "owner",    title: "④ 担当者" },
+            { id: "progress", title: "⑥ 進捗" },
+            { id: "dates",    title: "⑤ 開始日・終了日・期日" }
+        ];
+
+    function renderField(def) {
+        if (def.inputType === "select") {
+            const opts = (def.options || []).map(function(v) {
+                const txt = v || "変更しない";
+                return `<option value="${v}">${txt}</option>`;
+            }).join("");
+            return `<label>${def.label}<select data-me-key="${def.key}" data-me-type="select">${opts}</select></label>`;
+        }
+        const type = def.inputType === "number" ? "number" : (def.inputType === "date" ? "date" : "text");
+        const placeholder = type === "text" ? "未入力なら変更しない" : "";
+        return `<label>${def.label}<input type="${type}" data-me-key="${def.key}" data-me-type="${def.inputType}" placeholder="${placeholder}"></label>`;
+    }
+
+    container.innerHTML = sections.map(function(section) {
+        const fields = defs.filter(function(def) { return def.group === section.id; });
+        if (fields.length === 0) return "";
+        return `<div class="multi-edit-row">
+            ${fields.map(renderField).join("")}
+        </div>`;
+    }).join("");
+    return defs;
+}
+
+let _multiEditDragInitDone = false;
+function _initMultiEditDrag() {
+    if (_multiEditDragInitDone) return;
+    const overlay = document.getElementById("multi_edit_overlay");
+    if (!overlay) return;
+    const dialog = overlay.querySelector(".archive-dialog");
+    const handle = dialog ? dialog.querySelector("h3") : null;
+    if (!dialog || !handle) return;
+
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    function onMove(e) {
+        if (!dragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        dialog.style.margin = "0";
+        dialog.style.position = "fixed";
+        dialog.style.left = `${Math.max(8, startLeft + dx)}px`;
+        dialog.style.top = `${Math.max(8, startTop + dy)}px`;
+    }
+
+    function onUp() {
+        if (!dragging) return;
+        dragging = false;
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+    }
+
+    handle.addEventListener("mousedown", function(e) {
+        if (e.button !== 0) return;
+        const rect = dialog.getBoundingClientRect();
+        dragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = rect.left;
+        startTop = rect.top;
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+        e.preventDefault();
+    });
+
+    _multiEditDragInitDone = true;
+}
+
+function openMultiEditModal() {
+    if (!_isEditor) return;
+    const ids = [..._gridSelection];
+    if (ids.length === 0) {
+        alert("行を選択してから一括編集してください。");
+        return;
+    }
+    const overlay = document.getElementById("multi_edit_overlay");
+    if (!overlay) return;
+    _initMultiEditDrag();
+    const label = document.getElementById("multi_edit_count_label");
+    if (label) label.textContent = `対象: ${ids.length}件`;
+    _renderMultiEditForm();
+    overlay.classList.add("open");
+}
+
+function closeMultiEditModal() {
+    const overlay = document.getElementById("multi_edit_overlay");
+    if (!overlay) return;
+    overlay.classList.remove("open");
+}
+
+async function applyMultiEdit() {
+    const ids = [..._gridSelection].map(function(id) { return Number(id); }).filter(Boolean);
+    if (ids.length === 0) {
+        alert("対象行がありません。");
+        closeMultiEditModal();
+        return;
+    }
+
+    const patch = {};
+    const container = document.getElementById("multi_edit_form");
+    if (container) {
+        container.querySelectorAll("[data-me-key]").forEach(function(el) {
+            const key = el.getAttribute("data-me-key");
+            const type = el.getAttribute("data-me-type");
+            const raw = el.value;
+            if (!key) return;
+            if (type === "number") {
+                if (raw === "") return;
+                const n = Number(raw);
+                if (!Number.isFinite(n)) return;
+                patch[key] = n;
+                return;
+            }
+            if (String(raw).trim() === "") return;
+            patch[key] = (type === "text") ? raw.trim() : raw;
+        });
+    }
+
+    if (Object.keys(patch).length === 0) {
+        alert("更新する項目を入力してください。");
+        return;
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from("tasks")
+            .update(patch)
+            .in("id", ids);
+        if (error) {
+            console.error("Error in applyMultiEdit:", error);
+            alert("一括編集に失敗しました。\n" + error.message);
+            return;
+        }
+        closeMultiEditModal();
+        await loadData();
+    } catch (e) {
+        console.error("Exception in applyMultiEdit:", e);
+        alert("一括編集中に予期せぬエラーが発生しました。");
+    }
+}
+
 // ライトボックスで入力してから Supabase に保存する仮タスク（createTask 用）
 let _pendingNewTaskLightboxId = null;
 // ライトボックス「保存」後、フォーム反映済みのタスクで INSERT する（onAfterTaskUpdate が発火しない環境向け）
@@ -330,19 +601,20 @@ async function _finalizePendingNewTaskToDb(id) {
     try {
         const item = gantt.getTask(id);
         const taskTypeResolved = item.task_type || currentTaskTypeFilter || "drawing";
-        const newSortOrder = _computeSortOrderForInsert(
+        const baseSortOrder = _computeSortOrderForInsert(
             item.project_number,
             item.machine,
             item.unit,
             taskTypeResolved,
             id
         );
+        const addRowCount = Math.max(1, Math.min(100, Number(item.add_row_count) || 1));
 
         const endDateStr = item.has_no_date
             ? null
             : _toDateStr(gantt.date.add(new Date(item.end_date), -1, "day"));
 
-        const insertRow = {
+        const insertBaseRow = {
             text: item.text || "",
             start_date: _toDateStr(item.start_date),
             end_date: endDateStr,
@@ -365,13 +637,19 @@ async function _finalizePendingNewTaskToDb(id) {
             task_type: taskTypeResolved,
             wish_date: item.wish_date || null,
             is_detailed: true,
-            sort_order: newSortOrder,
             hyphen: item.hyphen ?? null
         };
 
+        const insertRows = Array.from({ length: addRowCount }, function(_, idx) {
+            return {
+                ...insertBaseRow,
+                sort_order: baseSortOrder + (idx * 1000)
+            };
+        });
+
         const { data, error } = await supabaseClient
             .from("tasks")
-            .insert([insertRow])
+            .insert(insertRows)
             .select();
 
         if (error) {
@@ -543,7 +821,8 @@ function createTask(afterTaskId) {
         wish_date: wishDefault,
         is_detailed: true,
         sort_order: initialSortOrder,
-        has_no_date: false
+        has_no_date: false,
+        add_row_count: 1
     });
 
     gantt.showLightbox(newId);
@@ -675,6 +954,7 @@ function _getLightboxSections(taskType) {
             { name: "owner",            height: 30, map_to: "owner",           type: "owner_select_lb" },
             { name: "end_date",         height: 30, map_to: "end_date",        type: "template" },
             { name: "wish_date_lb",     height: 30, map_to: "wish_date",       type: "wish_date_lb" },
+            { name: "add_row_count",    height: 30, map_to: "add_row_count",   type: "add_row_count_lb" },
         ];
     } else if (taskType === 'planning' || taskType === 'business_trip') {
         return [
@@ -684,6 +964,7 @@ function _getLightboxSections(taskType) {
             { name: "description",     height: 30, map_to: "text",            type: "textarea_full" },
             { name: "owner",           height: 30, map_to: "owner",           type: "owner_select_lb" },
             { name: "date_range",      height: 30, map_to: "start_date",      type: "date_range" },
+            { name: "add_row_count",   height: 30, map_to: "add_row_count",   type: "add_row_count_lb" },
         ];
     } else {
         // drawing（デフォルト）
@@ -700,6 +981,7 @@ function _getLightboxSections(taskType) {
             { name: "sheets_pair",      height: 30, map_to: "total_sheets",     type: "sheets_pair" },
             { name: "date_range",       height: 30, map_to: "start_date",       type: "date_range" },
             { name: "wish_date_lb",     height: 30, map_to: "wish_date",        type: "wish_date_lb" },
+            { name: "add_row_count",    height: 30, map_to: "add_row_count",    type: "add_row_count_lb" },
         ];
     }
 }
@@ -727,6 +1009,7 @@ gantt.locale.labels.section_manufacturer            = "メーカー";
 gantt.locale.labels.section_customer_name    = "客先";
 gantt.locale.labels.section_project_details  = "工事名";
 gantt.locale.labels.section_wish_date_lb     = "出図希望日 / 手配期日";
+gantt.locale.labels.section_add_row_count    = "追加行数";
 
 // カスタムテンプレート（input type="date"）
 // 全幅テキストエリア（組立図面名・品名など）
@@ -760,6 +1043,31 @@ gantt.form_blocks["owner_select_lb"] = {
     },
     focus: function(node) {
         node.querySelector("select").focus();
+    }
+};
+
+// 新規追加時にまとめて何行追加するか指定するプルダウン
+gantt.form_blocks["add_row_count_lb"] = {
+    render: function(sns) {
+        return `<div class='gantt_cal_ltext' style='display:flex;align-items:center;gap:6px;'>
+            <input type='number' min='1' max='100' step='1' style='width:70px;height:26px;border:1px solid #ccc;border-radius:4px;padding:0 4px;font-size:12px;'>
+            <span style='font-size:12px;color:#555;'>行</span>
+        </div>`;
+    },
+    set_value: function(node, value, task, sns) {
+        const select = node.querySelector("input[type='number']");
+        const normalized = Number(value) || 1;
+        select.value = String(Math.max(1, Math.min(100, normalized)));
+        const isPendingNew = (_pendingNewTaskLightboxId != null && String(_pendingNewTaskLightboxId) === String(task.id));
+        select.disabled = !isPendingNew;
+    },
+    get_value: function(node, task, sns) {
+        const val = Number(node.querySelector("input[type='number']").value) || 1;
+        return Math.max(1, Math.min(100, val));
+    },
+    focus: function(node) {
+        const el = node.querySelector("input[type='number']");
+        if (el && !el.disabled) el.focus();
     }
 };
 
