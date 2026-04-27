@@ -840,6 +840,12 @@ async function initialize() {
         _ctxTaskId = row.getAttribute("task_id");
         // 選択件数を更新
         document.getElementById("gantt_ctx_copy_multi_count").textContent = _gridSelection.size;
+        // 単一選択時は「このタスクをコピー」、複数選択時は「選択した行をコピー」を表示
+        const isMultiCopy = _gridSelection.size > 1 && _gridSelection.has(String(_ctxTaskId));
+        document.getElementById("gantt_ctx_copy").style.display = isMultiCopy ? "none" : "";
+        document.getElementById("gantt_ctx_copy_multi").style.display = isMultiCopy ? "" : "none";
+        // 一括編集は複数選択時のみ表示（単一選択時は非表示）
+        document.getElementById("gantt_ctx_edit_multi").style.display = isMultiCopy ? "" : "none";
         // 削除ラベルを選択数に応じて切り替え
         const isMultiDelete = _gridSelection.size > 1 && _gridSelection.has(String(_ctxTaskId));
         const isMultiEdit = _gridSelection.size > 1 && _gridSelection.has(String(_ctxTaskId));
