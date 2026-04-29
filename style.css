@@ -546,6 +546,10 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 #gantt_here .gantt_scale_line:nth-child(2):not(:last-child) {
     border-bottom: 1px solid #607d8b !important;
 }
+/* setSizes/zoom 再描画時のちらつきを防ぐ（GPUレイヤー分離） */
+#gantt_here .gantt_scale, #gantt_here .gantt_scale_line, #gantt_here .gantt_scale_cell { backface-visibility: hidden; }
+/* JS から gantt-scale-hiding クラスを付与している間、スケールを非表示にする */
+#gantt_here.gantt-scale-hiding .gantt_scale { visibility: hidden !important; }
 /* セルは左右のみ。上下は付与しない（行の border と重なると横線だけ倍の太さに見える） */
 #gantt_here .gantt_scale_cell {
     color: #fff !important;

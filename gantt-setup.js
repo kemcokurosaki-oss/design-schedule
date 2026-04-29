@@ -19,6 +19,70 @@ function _commitInlineDateEdit(inputEl) {
     }, 0);
 }
 
+// パスワードマネージャの誤検知を避ける共通属性
+function _gridInputAttrs(extraAttrs) {
+    const base = 'autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other"';
+    return extraAttrs ? `${base} ${extraAttrs}` : base;
+}
+
+// 文字列用インラインエディタ（ブラウザの資格情報候補を抑制）
+gantt.config.editor_types.text = {
+    show: function(id, column, config, placeholder) {
+        placeholder.innerHTML = `<input type="text" ${_gridInputAttrs('name="grid_inline_text"')} style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:12px;box-sizing:border-box;">`;
+    },
+    hide: function() {},
+    set_value: function(value, id, column, node) {
+        const inp = node.querySelector("input");
+        if (inp) inp.value = (value == null) ? "" : String(value);
+    },
+    get_value: function(id, column, node) {
+        const inp = node.querySelector("input");
+        return inp ? inp.value : "";
+    },
+    is_changed: function(value, id, column, node) {
+        return String(value ?? "") !== String(this.get_value(id, column, node) ?? "");
+    },
+    is_valid: function() { return true; },
+    save: function() {},
+    focus: function(node) {
+        const inp = node.querySelector("input");
+        if (inp) inp.focus();
+    }
+};
+
+// 数値用インラインエディタ（ブラウザの資格情報候補を抑制）
+gantt.config.editor_types.number = {
+    show: function(id, column, config, placeholder) {
+        const minAttr = (column && column.editor && column.editor.min != null) ? ` min="${String(column.editor.min)}"` : "";
+        const maxAttr = (column && column.editor && column.editor.max != null) ? ` max="${String(column.editor.max)}"` : "";
+        const stepAttr = (column && column.editor && column.editor.step != null) ? ` step="${String(column.editor.step)}"` : "";
+        placeholder.innerHTML = `<input type="number"${minAttr}${maxAttr}${stepAttr} ${_gridInputAttrs('name="grid_inline_number"')} style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:12px;box-sizing:border-box;">`;
+    },
+    hide: function() {},
+    set_value: function(value, id, column, node) {
+        const inp = node.querySelector("input");
+        if (inp) inp.value = (value == null || value === "") ? "" : String(value);
+    },
+    get_value: function(id, column, node) {
+        const inp = node.querySelector("input");
+        if (!inp) return "";
+        if (inp.value === "") return "";
+        const num = Number(inp.value);
+        return Number.isFinite(num) ? num : "";
+    },
+    is_changed: function(value, id, column, node) {
+        const current = this.get_value(id, column, node);
+        if (current === "" && (value == null || value === "")) return false;
+        return Number(value) !== Number(current);
+    },
+    is_valid: function() { return true; },
+    save: function() {},
+    focus: function(node) {
+        const inp = node.querySelector("input");
+        if (inp) inp.focus();
+    }
+};
+
 // 担当者プルダウン用インラインエディタ
 const OWNER_OPTIONS = ['藤山','田中','安岡','川邊','檀','堀井','宮﨑','津田','古村','柴田','橋本','松本(英)'];
 gantt.config.editor_types.owner_select = {
@@ -26,7 +90,7 @@ gantt.config.editor_types.owner_select = {
         const opts = OWNER_OPTIONS.map(n =>
             `<option value="${n}">${n}</option>`
         ).join('');
-        placeholder.innerHTML = `<select autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:13px;box-sizing:border-box;"><option value=""></option>${opts}</select>`;
+        placeholder.innerHTML = `<select ${_gridInputAttrs('name="grid_inline_owner"')} style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:13px;box-sizing:border-box;"><option value=""></option>${opts}</select>`;
     },
     hide: function() {},
     set_value: function(value, id, column, node) {
@@ -49,7 +113,7 @@ gantt.config.editor_types.owner_select = {
 // ステータスプルダウン用インラインエディタ
 gantt.config.editor_types.status_select = {
     show: function(id, column, config, placeholder) {
-        placeholder.innerHTML = `<select autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:13px;box-sizing:border-box;">
+        placeholder.innerHTML = `<select ${_gridInputAttrs('name="grid_inline_status"')} style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:13px;box-sizing:border-box;">
             <option value=""></option>
             <option value="未">未</option>
             <option value="完了">完了</option>
@@ -76,7 +140,7 @@ gantt.config.editor_types.status_select = {
 // 開始日インラインエディタ（計画・出張モード用）
 gantt.config.editor_types.start_date_editor = {
     show: function(id, column, config, placeholder) {
-        placeholder.innerHTML = '<input type="date" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:12px;box-sizing:border-box;">';
+        placeholder.innerHTML = `<input type="date" ${_gridInputAttrs('name="grid_inline_start_date"')} style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:12px;box-sizing:border-box;">`;
         var inp = placeholder.querySelector('input');
         if (inp) {
             inp.addEventListener('change', function() {
@@ -113,7 +177,7 @@ gantt.config.editor_types.start_date_editor = {
 // Supabaseには実際の完了日(YYYY-MM-DD)を保存し、gantt内部では+1日した排他的終了日を使う
 gantt.config.editor_types.completion_date = {
     show: function(id, column, config, placeholder) {
-        placeholder.innerHTML = '<input type="date" name="' + column.name + '" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other">';
+        placeholder.innerHTML = '<input type="date" ' + _gridInputAttrs('name="grid_inline_end_date"') + '>';
         var inp = placeholder.querySelector('input');
         inp.addEventListener('change', function() {
             if (!this.value) {
@@ -169,7 +233,7 @@ gantt.config.editor_types.sheet_count = {
     show: function(id, column, config, placeholder) {
         const min = (column && column.editor && column.editor.min != null) ? String(column.editor.min) : "0";
         const maxAttr = (column && column.editor && column.editor.max != null) ? ` max="${String(column.editor.max)}"` : "";
-        placeholder.innerHTML = `<input type="number" min="${min}"${maxAttr} autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:12px;box-sizing:border-box;">`;
+        placeholder.innerHTML = `<input type="number" min="${min}"${maxAttr} ${_gridInputAttrs('name="grid_inline_sheet_count"')} style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:12px;box-sizing:border-box;">`;
     },
     hide: function() {},
     set_value: function(value, id, column, node) {
