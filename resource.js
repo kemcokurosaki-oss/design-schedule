@@ -78,16 +78,27 @@ function _refreshMainGanttTimelineScale(withScrollNudge) {
     if (!ge || ge.style.display === 'none') return;
     if (withScrollNudge === undefined) withScrollNudge = true;
 
+    // クラスで制御：zoom.setLevel() でDOMが再構築されても親要素のクラスは維持される
+    ge.classList.add('gantt-scale-hiding');
+
     gantt.setSizes();
     if (gantt.ext && gantt.ext.zoom) {
         gantt.ext.zoom.setLevel(_getActiveGanttZoomLevel());
     }
-    if (!withScrollNudge) return;
-    const s = gantt.getScrollState();
-    gantt.scrollTo(s.x + 1, s.y);
+
+    // 2フレーム待機してDOM再構築を完全に終えてから表示を戻す
     requestAnimationFrame(() => {
-        if (!window.gantt) return;
-        gantt.scrollTo(s.x, s.y);
+        requestAnimationFrame(() => {
+            if (!window.gantt) return;
+            ge.classList.remove('gantt-scale-hiding');
+            if (!withScrollNudge) return;
+            const s = gantt.getScrollState();
+            gantt.scrollTo(s.x + 1, s.y);
+            requestAnimationFrame(() => {
+                if (!window.gantt) return;
+                gantt.scrollTo(s.x, s.y);
+            });
+        });
     });
 }
 
@@ -662,6 +673,16 @@ function _enterResourceFullscreen() {
     btn.style.display = "none";
     document.getElementById("resource_close_btn").style.display = "none";
     document.querySelector(".resource-header-bar").style.display = "none";
+    // リソースズームバーを表示して現在のズームレベルを同期
+    const rZoomBar = document.getElementById('resource_zoom_bar');
+    if (rZoomBar) {
+        const lvl = gantt.getState ? (gantt.getState().scale_unit || 'day') : 'day';
+        rZoomBar.style.display = 'flex';
+        const rdBtn = document.getElementById('resource_zoom_day_btn');
+        const rwBtn = document.getElementById('resource_zoom_week_btn');
+        if (rdBtn) rdBtn.classList.toggle('active', lvl === 'day');
+        if (rwBtn) rwBtn.classList.toggle('active', lvl === 'week');
+    }
     updateFilterButtons();
     // レイアウト確定後にスクロール位置を設定
     setTimeout(() => {
@@ -688,16 +709,18 @@ function _exitResourceFullscreen() {
     btn.style.display = ""; // リソースボタンを復元
     btn.innerText = "リソース表示";
     document.getElementById("resource_close_btn").style.display = "";
+    // リソースズームバーを非表示にしてメインのズームボタンを復元
+    const rZoomBar = document.getElementById('resource_zoom_bar');
+    if (rZoomBar) {
+        const lvl = gantt.getState ? (gantt.getState().scale_unit || 'day') : 'day';
+        rZoomBar.style.display = 'none';
+        const dBtn = document.getElementById('zoom_day_btn');
+        const wBtn = document.getElementById('zoom_week_btn');
+        if (dBtn) dBtn.classList.toggle('active', lvl === 'day');
+        if (wBtn) wBtn.classList.toggle('active', lvl === 'week');
+    }
     updateFilterButtons();
-    setTimeout(() => {
-        gantt.setSizes();
-        const currentLevel = document.querySelector('.zoom-btn.active')?.textContent === '週単位' ? 'week' : 'day';
-        gantt.ext.zoom.setLevel(currentLevel);
-        // スクロールを微小に動かしてタイムラインを強制再描画
-        const s = gantt.getScrollState();
-        gantt.scrollTo(s.x + 1, s.y);
-        requestAnimationFrame(() => gantt.scrollTo(s.x, s.y));
-    }, 50);
+    setTimeout(() => { _refreshMainGanttTimelineScale(true); }, 50);
 }
 
 function toggleResourceView() {
@@ -722,15 +745,7 @@ function toggleResourceView() {
         document.getElementById('resource_back_btn').style.display = 'none';
     }
 
-    setTimeout(() => {
-        gantt.setSizes();
-        const currentLevel = document.querySelector('.zoom-btn.active')?.textContent === '週単位' ? 'week' : 'day';
-        gantt.ext.zoom.setLevel(currentLevel);
-        // スクロールを微小に動かしてタイムラインを強制再描画
-        const s = gantt.getScrollState();
-        gantt.scrollTo(s.x + 1, s.y);
-        requestAnimationFrame(() => gantt.scrollTo(s.x, s.y));
-    }, 50);
+    setTimeout(() => { _refreshMainGanttTimelineScale(true); }, 50);
 }
 
 // 今日の赤線：.gantt_task（ビューポート全高）に配置し、
