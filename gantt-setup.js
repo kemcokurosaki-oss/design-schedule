@@ -658,6 +658,9 @@ async function applyMultiEdit() {
         return;
     }
 
+    const _editorForPatch = (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || '';
+    if (_editorForPatch) patch.last_updated_by = _editorForPatch;
+
     try {
         const { error } = await supabaseClient
             .from("tasks")
@@ -732,7 +735,8 @@ async function _finalizePendingNewTaskToDb(id) {
             task_type: taskTypeResolved,
             wish_date: item.wish_date || null,
             is_detailed: true,
-            hyphen: item.hyphen ?? null
+            hyphen: item.hyphen ?? null,
+            last_updated_by: (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || ''
         };
 
         const insertRows = Array.from({ length: addRowCount }, function(_, idx) {
@@ -974,7 +978,8 @@ gantt.attachEvent("onAfterTaskUpdate", async function(id, item) {
                 completed_sheets: Number(item.completed_sheets) || 0,
                 duration: item.duration,
                 task_type: item.task_type || currentTaskTypeFilter || "drawing",
-                wish_date: item.wish_date || null
+                wish_date: item.wish_date || null,
+                last_updated_by: (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || ''
             })
             .eq('id', id);
 
@@ -1005,6 +1010,7 @@ gantt.attachEvent("onAfterTaskDrag", async function(id, mode, e) {
             .update({
                 start_date: _toDateStr(item.start_date),
                 end_date: _toDateStr(completionDate),
+                last_updated_by: (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || ''
             })
             .eq('id', id);
         if (error) console.error("Error saving drag:", error);

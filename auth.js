@@ -44,7 +44,28 @@ const EDITORS = [
     's-yokoyama@kusakabe.com',  // 横山
     'i-tanabe@kusakabe.com',    // 田邊
 ];
+const EDITOR_NAMES = {
+    'm2-kusakabe@kusakabe.com': '常務',
+    'e-kurosaki@kusakabe.com':  '黒崎',
+    's-morimura@kusakabe.com':  '森村',
+    's-fujiyama@kusakabe.com':  '藤山',
+    'y2-tanaka@kusakabe.com':   '田中',
+    'm-yasuoka@kusakabe.com':   '安岡',
+    'k-miyazaki@kusakabe.com':  '宮﨑',
+    'h-kawabe@kusakabe.com':    '川邊',
+    'y-dan@kusakabe.com':       '檀',
+    'm-horii@kusakabe.com':     '堀井',
+    'm-tsuda@kusakabe.com':     '津田',
+    'y-nomura@kusakabe.com':    '野村',
+    's-yokoyama@kusakabe.com':  '横山',
+    'i-tanabe@kusakabe.com':    '田邊',
+};
 let _isEditor = false;
+let _currentEditorEmail = '';
+window._getCurrentEditorName = function() {
+    if (!_isEditor || !_currentEditorEmail) return '';
+    return EDITOR_NAMES[_currentEditorEmail] || _currentEditorEmail.split('@')[0];
+};
 
 function _updateUIForAuth(isEditor) {
     _isEditor = isEditor;
@@ -307,6 +328,7 @@ supabaseClient.auth.onAuthStateChange((_event, session) => {
         openSetPasswordDialog();
     } else {
         const email = session?.user?.email || '';
+        _currentEditorEmail = email;
         _updateUIForAuth(!!session && EDITORS.includes(email));
     }
 });
