@@ -1001,9 +1001,10 @@ async function initialize() {
             return src[key] instanceof Date ? _toDateStr(src[key]) : src[key];
         };
 
+        const _lb = (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || '';
         const { data, error } = await supabaseClient
             .from('tasks')
-            .insert([{
+            .insert([Object.assign({
                 text:             _v('text', ""),
                 start_date:       _dt('start_date'),
                 end_date:         _dt('end_date'),
@@ -1027,7 +1028,7 @@ async function initialize() {
                 task_type:        currentTaskTypeFilter || src.task_type || "drawing",
                 is_detailed:      true,
                 sort_order:       insertSortOrder
-            }])
+            }, _lb ? { last_updated_by: _lb } : {})])
             .select();
 
         if (error) {
@@ -1089,6 +1090,8 @@ async function initialize() {
         // コピー元タスクをsort_order順に並べて貼り付け順序を維持
         const sortedCopied = [..._copiedTasks].sort((a, b) => _getSO(a) - _getSO(b));
 
+        const _lb = (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || '';
+
         const insertRows = sortedCopied.map((src, i) => {
             const endDate = src.end_date instanceof Date
                 ? _toDateStr(gantt.date.add(new Date(src.end_date), -1, 'day'))
@@ -1096,7 +1099,7 @@ async function initialize() {
             const startDate = src.start_date instanceof Date
                 ? _toDateStr(src.start_date)
                 : src.start_date;
-            return {
+            return Object.assign({
                 text:             src.text             || "",
                 start_date:       startDate,
                 end_date:         endDate,
@@ -1120,7 +1123,7 @@ async function initialize() {
                 task_type:        currentTaskTypeFilter || src.task_type || "drawing",
                 is_detailed:      true,
                 sort_order:       baseSO + (i + 1) * 1000
-            };
+            }, _lb ? { last_updated_by: _lb } : {});
         });
 
         const { error } = await supabaseClient.from('tasks').insert(insertRows);
