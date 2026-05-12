@@ -735,9 +735,10 @@ async function _finalizePendingNewTaskToDb(id) {
             task_type: taskTypeResolved,
             wish_date: item.wish_date || null,
             is_detailed: true,
-            hyphen: item.hyphen ?? null,
-            last_updated_by: (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || ''
+            hyphen: item.hyphen ?? null
         };
+        const _lbIns = (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || '';
+        if (_lbIns) insertBaseRow.last_updated_by = _lbIns;
 
         const insertRows = Array.from({ length: addRowCount }, function(_, idx) {
             return {
@@ -953,9 +954,8 @@ gantt.attachEvent("onAfterTaskUpdate", async function(id, item) {
             ? null
             : _toDateStr(gantt.date.add(new Date(item.end_date), -1, 'day'));
 
-        const { error } = await supabaseClient
-            .from('tasks')
-            .update({
+        const _lb = (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || '';
+        const updDesign = {
                 text: item.text,
                 start_date: _toDateStr(item.start_date),
                 end_date: endDateStr,
@@ -978,9 +978,13 @@ gantt.attachEvent("onAfterTaskUpdate", async function(id, item) {
                 completed_sheets: Number(item.completed_sheets) || 0,
                 duration: item.duration,
                 task_type: item.task_type || currentTaskTypeFilter || "drawing",
-                wish_date: item.wish_date || null,
-                last_updated_by: (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || ''
-            })
+                wish_date: item.wish_date || null
+        };
+        if (_lb) updDesign.last_updated_by = _lb;
+
+        const { error } = await supabaseClient
+            .from('tasks')
+            .update(updDesign)
             .eq('id', id);
 
         if (error) {
@@ -1005,13 +1009,17 @@ gantt.attachEvent("onAfterTaskDrag", async function(id, mode, e) {
     const item = gantt.getTask(id);
     const completionDate = gantt.date.add(new Date(item.end_date), -1, 'day');
     try {
-        const { error } = await supabaseClient
-            .from('tasks')
-            .update({
+        const _lb = (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || '';
+        const dragUpdD = {
                 start_date: _toDateStr(item.start_date),
                 end_date: _toDateStr(completionDate),
-                last_updated_by: (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || ''
-            })
+                duration: item.duration != null ? Number(item.duration) : null
+        };
+        if (dragUpdD.duration == null || !Number.isFinite(dragUpdD.duration) || dragUpdD.duration < 1) delete dragUpdD.duration;
+        if (_lb) dragUpdD.last_updated_by = _lb;
+        const { error } = await supabaseClient
+            .from('tasks')
+            .update(dragUpdD)
             .eq('id', id);
         if (error) console.error("Error saving drag:", error);
         else if (isResourceView) updateResourceData();

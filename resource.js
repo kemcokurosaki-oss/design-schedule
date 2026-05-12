@@ -780,9 +780,10 @@ function _toDateStr(d) {
 }
 
 async function _saveWishDate(taskId, dateStr) {
+    const _lb = (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || '';
     const { error } = await supabaseClient
         .from('tasks')
-        .update({ wish_date: dateStr })
+        .update(Object.assign({ wish_date: dateStr }, _lb ? { last_updated_by: _lb } : {}))
         .eq('id', taskId);
     if (error) console.error('wish_date 保存エラー:', error);
 }
