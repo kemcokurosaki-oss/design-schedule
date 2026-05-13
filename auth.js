@@ -272,6 +272,10 @@ async function doLogin() {
     if (error) {
         errEl.textContent = 'メールアドレスまたはパスワードが正しくありません';
         errEl.style.display = 'block';
+    } else if (!EDITORS.some(e => e.toLowerCase() === email.toLowerCase())) {
+        await supabaseClient.auth.signOut();
+        errEl.textContent = 'この工程表へのアクセス権限がありません';
+        errEl.style.display = 'block';
     } else {
         closeLoginDialog();
     }
