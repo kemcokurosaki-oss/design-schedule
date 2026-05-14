@@ -228,6 +228,22 @@ gantt.config.editor_types.completion_date = {
     }
 };
 
+// Supabase 保存用：総枚数（未入力・0・不正値は null）
+function _totalSheetsToDb(v) {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return Math.floor(n);
+}
+
+// Supabase 保存用：完了枚数（未入力・不正値は null。0 は有効）
+function _completedSheetsToDb(v) {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    return Math.max(0, Math.floor(n));
+}
+
 // 総枚数/完了枚数用インラインエディタ（100上限に丸めない）
 gantt.config.editor_types.sheet_count = {
     show: function(id, column, config, placeholder) {
@@ -238,18 +254,42 @@ gantt.config.editor_types.sheet_count = {
     hide: function() {},
     set_value: function(value, id, column, node) {
         const inp = node.querySelector("input");
-        inp.value = (value == null || value === "") ? "" : String(value);
+        const mapTo = column && column.editor && column.editor.map_to;
+        if (value == null || value === "") {
+            inp.value = "";
+            return;
+        }
+        const n = Number(value);
+        if (!Number.isFinite(n)) {
+            inp.value = "";
+            return;
+        }
+        const f = Math.floor(n);
+        if (mapTo === "total_sheets" && f <= 0) {
+            inp.value = "";
+            return;
+        }
+        inp.value = String(f);
     },
     get_value: function(id, column, node) {
         const inp = node.querySelector("input");
         const raw = inp ? inp.value : "";
-        if (raw === "") return 0;
+        const mapTo = column && column.editor && column.editor.map_to;
+        if (raw === "") return null;
         const num = Number(raw);
-        if (!Number.isFinite(num)) return 0;
-        return Math.max(0, Math.floor(num));
+        if (!Number.isFinite(num)) return null;
+        const f = Math.max(0, Math.floor(num));
+        if (mapTo === "total_sheets" && f === 0) return null;
+        return f;
     },
     is_changed: function(value, id, column, node) {
-        return Number(value) !== Number(this.get_value(id, column, node));
+        const nv = this.get_value(id, column, node);
+        const norm = function(x) {
+            if (x == null || x === "") return null;
+            const n = Number(x);
+            return Number.isFinite(n) ? n : null;
+        };
+        return norm(value) !== norm(nv);
     },
     is_valid: function() { return true; },
     save: function() {},
@@ -730,8 +770,8 @@ async function _finalizePendingNewTaskToDb(id) {
             characteristic: item.characteristic || "",
             derivation: item.derivation || "",
             owner: item.owner || "",
-            total_sheets: Number(item.total_sheets) || 0,
-            completed_sheets: Number(item.completed_sheets) || 0,
+            total_sheets: _totalSheetsToDb(item.total_sheets),
+            completed_sheets: _completedSheetsToDb(item.completed_sheets),
             task_type: taskTypeResolved,
             wish_date: item.wish_date || null,
             is_detailed: true,
@@ -915,8 +955,8 @@ function createTask(afterTaskId) {
         characteristic: "",
         derivation: "",
         owner: inheritOwner,
-        total_sheets: 0,
-        completed_sheets: 0,
+        total_sheets: null,
+        completed_sheets: null,
         task_type: taskType,
         wish_date: wishDefault,
         is_detailed: true,
@@ -974,8 +1014,8 @@ gantt.attachEvent("onAfterTaskUpdate", async function(id, item) {
                 characteristic: item.characteristic,
                 derivation: item.derivation,
                 owner: item.owner,
-                total_sheets: Number(item.total_sheets) || 0,
-                completed_sheets: Number(item.completed_sheets) || 0,
+                total_sheets: _totalSheetsToDb(item.total_sheets),
+                completed_sheets: _completedSheetsToDb(item.completed_sheets),
                 duration: item.duration,
                 task_type: item.task_type || currentTaskTypeFilter || "drawing",
                 wish_date: item.wish_date || null
@@ -1229,12 +1269,35 @@ gantt.form_blocks["sheets_pair"] = {
         </div>`;
     },
     set_value: function(node, value, task, sns) {
-        document.getElementById('lb_total_sheets').value     = task.total_sheets     || '';
-        document.getElementById('lb_completed_sheets').value = task.completed_sheets || '';
+        const tsEl = document.getElementById('lb_total_sheets');
+        const csEl = document.getElementById('lb_completed_sheets');
+        const ts = task.total_sheets;
+        const cs = task.completed_sheets;
+        if (tsEl) {
+            if (ts == null || ts === "") tsEl.value = "";
+            else {
+                const tn = Number(ts);
+                tsEl.value = (!Number.isFinite(tn) || Math.floor(tn) <= 0) ? "" : String(Math.floor(tn));
+            }
+        }
+        if (csEl) {
+            if (cs == null || cs === "") csEl.value = "";
+            else csEl.value = String(Math.max(0, Math.floor(Number(cs))));
+        }
     },
     get_value: function(node, task, sns) {
-        task.total_sheets     = document.getElementById('lb_total_sheets').value;
-        task.completed_sheets = document.getElementById('lb_completed_sheets').value;
+        const tsRaw = document.getElementById('lb_total_sheets').value;
+        const csRaw = document.getElementById('lb_completed_sheets').value;
+        if (tsRaw === "") task.total_sheets = null;
+        else {
+            const tn = Number(tsRaw);
+            task.total_sheets = (!Number.isFinite(tn) || Math.floor(tn) <= 0) ? null : Math.floor(tn);
+        }
+        if (csRaw === "") task.completed_sheets = null;
+        else {
+            const cn = Number(csRaw);
+            task.completed_sheets = !Number.isFinite(cn) ? null : Math.max(0, Math.floor(cn));
+        }
         return task.total_sheets;
     },
     focus: function(node) {
@@ -1371,13 +1434,15 @@ function _fmtDate(obj) {
 
 // 進捗テンプレート
 function _progressTemplate(obj) {
-    const total = parseFloat(obj.total_sheets) || 0;
-    const completed = parseFloat(obj.completed_sheets) || 0;
-    const taskType = String(obj.task_type || "");
-    let progress = 0;
-    if (total > 0) {
-        progress = Math.min(100, Math.round((completed / total) * 100));
+    const totalNum = Number(obj.total_sheets);
+    const totalPositive = Number.isFinite(totalNum) && totalNum > 0;
+    if (!totalPositive) {
+        return `<div class="progress-cell-container"></div>`;
     }
+    const completed = Math.max(0, Math.floor(parseFloat(obj.completed_sheets) || 0));
+    const total = Math.floor(totalNum);
+    const taskType = String(obj.task_type || "");
+    const progress = Math.min(100, Math.round((completed / total) * 100));
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const isDrawingComplete = (taskType === "drawing" && progress >= 100);
@@ -1397,9 +1462,9 @@ function _isCompletedForDisplay(task) {
     const taskType = String(task.task_type || "");
 
     if (taskType === "drawing") {
-        const total = parseFloat(task.total_sheets) || 0;
-        if (total <= 0) return false;
-        const completed = parseFloat(task.completed_sheets) || 0;
+        const total = Number(task.total_sheets);
+        if (!Number.isFinite(total) || total <= 0) return false;
+        const completed = Math.max(0, Math.floor(parseFloat(task.completed_sheets) || 0));
         const progress = Math.min(100, Math.round((completed / total) * 100));
         return progress >= 100;
     }
@@ -1409,6 +1474,22 @@ function _isCompletedForDisplay(task) {
     }
 
     return false;
+}
+
+function _templateTotalSheetsCell(task) {
+    const v = task.total_sheets;
+    if (v == null || v === "") return "";
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) return "";
+    return String(Math.floor(n));
+}
+
+function _templateCompletedSheetsCell(task) {
+    const v = task.completed_sheets;
+    if (v == null || v === "") return "";
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) return "";
+    return String(Math.floor(n));
 }
 
 // 図面列定義（デフォルト）
@@ -1424,8 +1505,8 @@ function _getDrawingColumns() {
         { name: "characteristic",   label: "特性",           width: 30, align: "center", editor: { type: "text",   map_to: "characteristic" } },
         { name: "derivation",       label: "派生",           width: 30, align: "center", editor: { type: "text",   map_to: "derivation" } },
         { name: "owner",            label: "担当",           width: 45, align: "center", editor: { type: "owner_select", map_to: "owner" } },
-        { name: "total_sheets",     label: "総<br>枚数",     width: 50, align: "center", editor: { type: "sheet_count", map_to: "total_sheets",     min: 0 } },
-        { name: "completed_sheets", label: "完了<br>枚数",   width: 50, align: "center", editor: { type: "sheet_count", map_to: "completed_sheets", min: 0 } },
+        { name: "total_sheets",     label: "総<br>枚数",     width: 50, align: "center", template: _templateTotalSheetsCell, editor: { type: "sheet_count", map_to: "total_sheets",     min: 0 } },
+        { name: "completed_sheets", label: "完了<br>枚数",   width: 50, align: "center", template: _templateCompletedSheetsCell, editor: { type: "sheet_count", map_to: "completed_sheets", min: 0 } },
         { name: "progress",         label: "進捗",           width: 40, align: "center", template: _progressTemplate },
         { name: "end_date",         label: "完了<br>予定日", width: 65, align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
         { name: "add_btn",          label: "",               width: 30, align: "center", template: (task) => _isEditor ? `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` : '' }
