@@ -23,6 +23,22 @@ function _parseSupabaseDate(str) {
     return new Date(s);
 }
 
+// 図面モード：総枚数（未設定・0は null として扱い、画面上は空欄）
+function _normalizeTotalSheetsLoad(v) {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return Math.floor(n);
+}
+
+// 図面モード：完了枚数（未入力のみ null。0 は「0枚完了」として残す）
+function _normalizeCompletedSheetsLoad(v) {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) return null;
+    return Math.floor(n);
+}
+
 // データ読み込み
 async function loadData() {
     const { data, error } = await supabaseClient
@@ -51,11 +67,19 @@ async function loadData() {
             ? gantt.date.add(_parseSupabaseDate(t.end_date), 1, 'day')
             : gantt.date.add(startDate, 1, 'day');
 
+        let totalSheets = _normalizeTotalSheetsLoad(t.total_sheets);
+        let completedSheets = _normalizeCompletedSheetsLoad(t.completed_sheets);
+        if (totalSheets == null && completedSheets != null && completedSheets <= 0) {
+            completedSheets = null;
+        }
+
         return {
             ...t,
             start_date: startDate,
             end_date:   endDate,
-            has_no_date: hasNoDate
+            has_no_date: hasNoDate,
+            total_sheets: totalSheets,
+            completed_sheets: completedSheets
         };
     });
 
@@ -1022,8 +1046,8 @@ async function initialize() {
                 characteristic:   _v('characteristic', ""),
                 derivation:       _v('derivation', ""),
                 owner:            _v('owner', ""),
-                total_sheets:     _n('total_sheets'),
-                completed_sheets: _n('completed_sheets'),
+                total_sheets:     checked['total_sheets'] ? _totalSheetsToDb(src.total_sheets) : null,
+                completed_sheets: checked['completed_sheets'] ? _completedSheetsToDb(src.completed_sheets) : null,
                 wish_date:        src.wish_date || null,
                 task_type:        currentTaskTypeFilter || src.task_type || "drawing",
                 is_detailed:      true,
@@ -1117,8 +1141,8 @@ async function initialize() {
                 characteristic:   src.characteristic   || "",
                 derivation:       src.derivation       || "",
                 owner:            src.owner            || "",
-                total_sheets:     Number(src.total_sheets)     || 0,
-                completed_sheets: Number(src.completed_sheets) || 0,
+                total_sheets:     _totalSheetsToDb(src.total_sheets),
+                completed_sheets: _completedSheetsToDb(src.completed_sheets),
                 wish_date:        src.wish_date        || null,
                 task_type:        currentTaskTypeFilter || src.task_type || "drawing",
                 is_detailed:      true,
