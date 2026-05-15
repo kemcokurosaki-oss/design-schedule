@@ -327,7 +327,7 @@ async function doSetPassword() {
 
 // 認証状態の変化を監視（ページロード時・ログイン・ログアウト時に自動で呼ばれる）
 supabaseClient.auth.onAuthStateChange((_event, session) => {
-    if (_event === 'PASSWORD_RECOVERY' || (_event === 'SIGNED_IN' && _pageInitType === 'invite')) {
+    if (_event === 'PASSWORD_RECOVERY' || (_event === 'SIGNED_IN' && (_pageInitType === 'invite' || _pageInitType === 'recovery'))) {
         // 招待メール・パスワードリセットのリンクからのアクセス
         openSetPasswordDialog();
     } else {
