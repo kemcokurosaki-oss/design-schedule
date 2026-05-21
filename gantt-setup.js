@@ -901,13 +901,14 @@ function _computeSortOrderForInsert(projectNumber, machine, unit, taskType, excl
 
 function _getSingleFilterValue(filterValues) {
     if (!Array.isArray(filterValues) || filterValues.length !== 1) return "";
+    if (filterValues[0] === FILTER_NONE) return "";
     return String(filterValues[0] || "").trim();
 }
 
 // 新規タスク追加：まずライトボックスで入力 → 保存で Supabase に挿入
 // afterTaskId: グリッドの+ボタンから呼ばれた場合はその行の機械・ユニットを初期値に使う
 function createTask(afterTaskId) {
-    if (currentProjectFilter.length !== 1) {
+    if (currentProjectFilter.length !== 1 || currentProjectFilter[0] === FILTER_NONE) {
         alert("工事番号を選択してからタスクを追加してください。");
         return;
     }
