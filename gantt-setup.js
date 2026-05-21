@@ -29,6 +29,12 @@ function _gridInputAttrs(extraAttrs) {
 gantt.config.editor_types.text = {
     show: function(id, column, config, placeholder) {
         placeholder.innerHTML = `<input type="text" ${_gridInputAttrs('name="grid_inline_text"')} style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:12px;box-sizing:border-box;">`;
+        var inp = placeholder.querySelector("input");
+        if (inp) {
+            inp.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); _commitInlineDateEdit(inp); }
+            });
+        }
     },
     hide: function() {},
     set_value: function(value, id, column, node) {
@@ -57,6 +63,12 @@ gantt.config.editor_types.number = {
         const maxAttr = (column && column.editor && column.editor.max != null) ? ` max="${String(column.editor.max)}"` : "";
         const stepAttr = (column && column.editor && column.editor.step != null) ? ` step="${String(column.editor.step)}"` : "";
         placeholder.innerHTML = `<input type="number"${minAttr}${maxAttr}${stepAttr} ${_gridInputAttrs('name="grid_inline_number"')} style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:12px;box-sizing:border-box;">`;
+        var inp = placeholder.querySelector("input");
+        if (inp) {
+            inp.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); _commitInlineDateEdit(inp); }
+            });
+        }
     },
     hide: function() {},
     set_value: function(value, id, column, node) {
@@ -91,6 +103,10 @@ gantt.config.editor_types.owner_select = {
             `<option value="${n}">${n}</option>`
         ).join('');
         placeholder.innerHTML = `<select ${_gridInputAttrs('name="grid_inline_owner"')} style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:13px;box-sizing:border-box;"><option value=""></option>${opts}</select>`;
+        var sel = placeholder.querySelector('select');
+        if (sel) {
+            sel.addEventListener('change', function() { _commitInlineDateEdit(sel); });
+        }
     },
     hide: function() {},
     set_value: function(value, id, column, node) {
@@ -118,6 +134,10 @@ gantt.config.editor_types.status_select = {
             <option value="未">未</option>
             <option value="完了">完了</option>
         </select>`;
+        var sel = placeholder.querySelector('select');
+        if (sel) {
+            sel.addEventListener('change', function() { _commitInlineDateEdit(sel); });
+        }
     },
     hide: function() {},
     set_value: function(value, id, column, node) {
@@ -250,6 +270,12 @@ gantt.config.editor_types.sheet_count = {
         const min = (column && column.editor && column.editor.min != null) ? String(column.editor.min) : "0";
         const maxAttr = (column && column.editor && column.editor.max != null) ? ` max="${String(column.editor.max)}"` : "";
         placeholder.innerHTML = `<input type="number" min="${min}"${maxAttr} ${_gridInputAttrs('name="grid_inline_sheet_count"')} style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:12px;box-sizing:border-box;">`;
+        var inp = placeholder.querySelector("input");
+        if (inp) {
+            inp.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); _commitInlineDateEdit(inp); }
+            });
+        }
     },
     hide: function() {},
     set_value: function(value, id, column, node) {
