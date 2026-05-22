@@ -177,6 +177,8 @@ gantt.config.editor_types.start_date_editor = {
     get_value: function(id, column, node) {
         const val = node.querySelector('input').value;
         if (!val) return gantt.getTask(id).start_date;
+        const task = gantt.getTask(id);
+        task.has_no_start = false;
         const parts = val.split('-').map(Number);
         return new Date(parts[0], parts[1] - 1, parts[2]);
     },
@@ -780,7 +782,7 @@ async function _finalizePendingNewTaskToDb(id) {
 
         const insertBaseRow = {
             text: item.text || "",
-            start_date: _toDateStr(item.start_date),
+            start_date: item.has_no_start ? null : _toDateStr(item.start_date),
             end_date: endDateStr,
             project_number: item.project_number,
             machine: item.machine || "",
@@ -946,8 +948,6 @@ function createTask(afterTaskId) {
     }
 
     const today = new Date();
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - 13);
     const taskType = currentTaskTypeFilter || "drawing";
     const initialSortOrder = _computeSortOrderForInsert(
         projectNumber,
@@ -966,7 +966,7 @@ function createTask(afterTaskId) {
         id: newId,
         $new: true,
         text: "",
-        start_date: startDate,
+        start_date: today,
         end_date: gantt.date.add(today, 1, 'day'),
         project_number: projectNumber,
         machine: inheritMachine,
@@ -988,7 +988,8 @@ function createTask(afterTaskId) {
         wish_date: wishDefault,
         is_detailed: true,
         sort_order: initialSortOrder,
-        has_no_date: false,
+        has_no_start: true,
+        has_no_date: true,
         add_row_count: 1
     });
 
@@ -1024,7 +1025,7 @@ gantt.attachEvent("onAfterTaskUpdate", async function(id, item) {
         const _lb = (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || '';
         const updDesign = {
                 text: item.text,
-                start_date: _toDateStr(item.start_date),
+                start_date: item.has_no_start ? null : _toDateStr(item.start_date),
                 end_date: endDateStr,
                 project_number: item.project_number,
                 machine: item.machine,
@@ -1074,6 +1075,8 @@ gantt.attachEvent("onAfterTaskDrag", async function(id, mode, e) {
         return;
     }
     const item = gantt.getTask(id);
+    item.has_no_start = false;
+    item.has_no_date  = false;
     const completionDate = gantt.date.add(new Date(item.end_date), -1, 'day');
     try {
         const _lb = (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || '';
@@ -1346,11 +1349,13 @@ gantt.form_blocks["date_range"] = {
     set_value: function(node, value, task, sns) {
         const startInput = document.getElementById('cal_start_date');
         const endInput   = document.getElementById('cal_end_date');
-        if (task.start_date) {
+        startInput.value = '';
+        endInput.value   = '';
+        if (task.start_date && !task.has_no_start) {
             const d = new Date(task.start_date);
             startInput.value = `${d.getFullYear()}-${("0"+(d.getMonth()+1)).slice(-2)}-${("0"+d.getDate()).slice(-2)}`;
         }
-        if (task.end_date) {
+        if (task.end_date && !task.has_no_date) {
             // end_date はDHTMLX排他的終了（翌日0時）なので1日引いて表示
             const d = new Date(task.end_date.getTime() - 24*60*60*1000);
             endInput.value = `${d.getFullYear()}-${("0"+(d.getMonth()+1)).slice(-2)}-${("0"+d.getDate()).slice(-2)}`;
@@ -1380,20 +1385,31 @@ gantt.attachEvent("onLightboxSave", function(id, task, is_new){
     const endEl   = document.getElementById("cal_end_date");
     const startStr = startEl ? startEl.value : "";
     const endStr   = endEl   ? endEl.value   : "";
-    const duration = parseInt(task.duration) || 1;
 
     if (startStr && endStr) {
+        // 両方入力 → そのまま使用
         task.start_date = new Date(startStr);
-        task.end_date = new Date(endStr);
-        task.end_date = gantt.date.add(task.end_date, 1, "day");
-        task.duration = gantt.calculateDuration(task.start_date, task.end_date);
-    } else if (startStr && duration) {
+        task.end_date   = gantt.date.add(new Date(endStr), 1, "day");
+        task.duration   = gantt.calculateDuration(task.start_date, task.end_date);
+        task.has_no_start = false;
+        task.has_no_date  = false;
+    } else if (endStr && !startStr) {
+        // 完了予定日のみ → 開始日を完了予定日-13日に自動設定
+        task.end_date   = gantt.date.add(new Date(endStr), 1, "day");
+        task.start_date = gantt.date.add(task.end_date, -13, "day");
+        task.duration   = 13;
+        task.has_no_start = false;
+        task.has_no_date  = false;
+    } else if (startStr && !endStr) {
+        // 開始日のみ → 完了予定日は開始日+1日
         task.start_date = new Date(startStr);
-        task.end_date = gantt.date.add(task.start_date, duration, "day");
-    } else if (endStr && duration) {
-        task.end_date = new Date(endStr);
-        task.end_date = gantt.date.add(task.end_date, 1, "day");
-        task.start_date = gantt.date.add(task.end_date, -duration, "day");
+        task.end_date   = gantt.date.add(task.start_date, 1, "day");
+        task.has_no_start = false;
+        task.has_no_date  = true;
+    } else {
+        // 両方未入力 → null のまま
+        task.has_no_start = true;
+        task.has_no_date  = true;
     }
 
     if (_pendingNewTaskLightboxId != null && String(_pendingNewTaskLightboxId) === String(id)) {
