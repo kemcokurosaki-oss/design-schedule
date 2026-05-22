@@ -1131,7 +1131,7 @@ function _getLightboxSections(taskType) {
             { name: "quantity",         height: 30, map_to: "quantity",        type: "textarea" },
             { name: "manufacturer",            height: 30, map_to: "manufacturer",           type: "textarea" },
             { name: "owner",            height: 30, map_to: "owner",           type: "owner_select_lb" },
-            { name: "end_date",         height: 30, map_to: "end_date",        type: "template" },
+            { name: "date_range",       height: 30, map_to: "start_date",      type: "date_range" },
             { name: "wish_date_lb",     height: 30, map_to: "wish_date",       type: "wish_date_lb" },
             { name: "add_row_count",    height: 30, map_to: "add_row_count",   type: "add_row_count_lb" },
         ];
@@ -1342,15 +1342,21 @@ gantt.form_blocks["date_range"] = {
         return `<div class='gantt_cal_ltext' style='display:flex;gap:6px;align-items:center;'>
             <span style='font-size:11px;white-space:nowrap;color:#555;'>開始日</span>
             <input type='date' id='cal_start_date' style='width:110px;height:26px;border:1px solid #ccc;border-radius:4px;padding:0 4px;font-size:12px;'>
-            <span style='font-size:11px;white-space:nowrap;color:#555;'>完了予定日</span>
+            <span id='cal_end_date_label' style='font-size:11px;white-space:nowrap;color:#555;'>完了予定日</span>
             <input type='date' id='cal_end_date' style='width:110px;height:26px;border:1px solid #ccc;border-radius:4px;padding:0 4px;font-size:12px;'>
         </div>`;
     },
     set_value: function(node, value, task, sns) {
         const startInput = document.getElementById('cal_start_date');
         const endInput   = document.getElementById('cal_end_date');
+        const endLabel   = document.getElementById('cal_end_date_label');
         startInput.value = '';
         endInput.value   = '';
+        if (endLabel) {
+            if (task.task_type === 'long_lead_item') endLabel.textContent = '手配予定日';
+            else if (task.task_type === 'planning' || task.task_type === 'business_trip') endLabel.textContent = '終了日';
+            else endLabel.textContent = '完了予定日';
+        }
         if (task.start_date && !task.has_no_start) {
             const d = new Date(task.start_date);
             startInput.value = `${d.getFullYear()}-${("0"+(d.getMonth()+1)).slice(-2)}-${("0"+d.getDate()).slice(-2)}`;
