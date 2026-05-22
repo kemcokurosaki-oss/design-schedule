@@ -1522,11 +1522,11 @@ function _progressTemplate(obj) {
     const fillClass = isDrawingComplete
         ? "progress-fill progress-complete"
         : (isOverdue ? "progress-fill progress-overdue" : "progress-fill");
-    const textColor = isDrawingComplete ? "#666" : "black";
+    const textClass = isDrawingComplete ? "progress-text-complete" : "";
     const fillWidth = isOverdue ? "100%" : `${progress}%`;
     return `<div class="progress-cell-container">
                 <div class="${fillClass}" style="width:${fillWidth};"></div>
-                <span style="position:relative; z-index:2; color:${textColor}; font-weight:normal;">${progress}%</span>
+                <span class="${textClass}" style="position:relative; z-index:2; font-weight:normal;">${progress}%</span>
             </div>`;
 }
 
