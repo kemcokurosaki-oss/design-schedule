@@ -522,6 +522,9 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .progress-complete {
     background-color: #eeeeee !important;
 }
+.progress-text-complete {
+    color: #666;
+}
 
 /* タイムラインカレンダーヘッダー（横線はすべて縦罫線と同じ 1px / #607d8b） */
 #gantt_here .gantt_task_scale {
@@ -727,6 +730,9 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 }
 #gantt_here .gantt_row.grid-row-selected .progress-fill {
     background-color: transparent !important;
+}
+#gantt_here .gantt_row.grid-row-selected .progress-text-complete {
+    color: #0d2f6e !important;
 }
 /* コピー項目選択モーダル */
 #copy_options_overlay {
