@@ -496,6 +496,9 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .gantt_row.gantt-row-completed:hover {
     background-color: #e0e0e0 !important;
 }
+.gantt_row.gantt-row-completed:hover .progress-fill {
+    background-color: transparent !important;
+}
 
 /* 進捗列の背景色（グラデーションによる進捗表示） */
 .progress-cell-container {
