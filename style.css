@@ -725,6 +725,9 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 #gantt_here .gantt_row.grid-row-selected .gantt_cell {
     color: #0d2f6e !important;
 }
+#gantt_here .gantt_row.grid-row-selected .progress-fill {
+    background-color: transparent !important;
+}
 /* コピー項目選択モーダル */
 #copy_options_overlay {
     display: none;

@@ -164,6 +164,10 @@ gantt.config.editor_types.start_date_editor = {
         var inp = placeholder.querySelector('input');
         if (inp) {
             inp.addEventListener('change', function() {
+                if (!this.value) {
+                    _startDateClear(id);
+                    return;
+                }
                 _commitInlineDateEdit(inp);
             });
         }
@@ -171,12 +175,17 @@ gantt.config.editor_types.start_date_editor = {
     hide: function() {},
     set_value: function(value, id, column, node) {
         const inp = node.querySelector('input');
-        if (!value) { inp.value = ''; return; }
+        const task = gantt.getTask(id);
+        if (!value || (task && task.has_no_start)) { inp.value = ''; return; }
         inp.value = _toDateStr(new Date(value));
     },
     get_value: function(id, column, node) {
         const val = node.querySelector('input').value;
-        if (!val) return gantt.getTask(id).start_date;
+        if (!val) {
+            const task = gantt.getTask(id);
+            task.has_no_start = true;
+            return task.start_date;
+        }
         const task = gantt.getTask(id);
         task.has_no_start = false;
         const parts = val.split('-').map(Number);
@@ -326,6 +335,20 @@ gantt.config.editor_types.sheet_count = {
         if (inp) inp.focus();
     }
 };
+
+// 開始日クリア：エディタAPIを使わずタスクを直接更新
+function _startDateClear(taskId) {
+    try {
+        if (gantt.ext && gantt.ext.inlineEditors) {
+            gantt.ext.inlineEditors.hide();
+        }
+    } catch(e) {}
+
+    var task = gantt.getTask(taskId);
+    if (!task) return;
+    task.has_no_start = true;
+    gantt.updateTask(taskId);
+}
 
 // 完了予定日クリアボタン：エディタAPIを使わずタスクを直接更新
 function _completionDateClear(taskId) {
