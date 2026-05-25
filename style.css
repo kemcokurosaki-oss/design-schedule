@@ -1047,4 +1047,30 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     border: none; border-radius: 4px; font-size: 13px; cursor: pointer;
     font-family: 'メイリオ', Meiryo, sans-serif;
 }
+
+/* ===== 処理中ローディングオーバーレイ ===== */
+#loading-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(255,255,255,0.55); z-index: 300000;
+    flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+}
+#loading-overlay.visible { display: flex; }
+.loading-spinner { position: relative; width: 64px; height: 64px; }
+.loading-spinner div {
+    position: absolute; top: 0; left: 50%;
+    width: 7px; height: 20px; margin-left: -3.5px;
+    border-radius: 4px; background: #555555;
+    transform-origin: 3.5px 32px;
+    animation: ls-fade 0.8s linear infinite;
+}
+.loading-spinner div:nth-child(1) { transform: rotate(0deg);   animation-delay: -0.700s; }
+.loading-spinner div:nth-child(2) { transform: rotate(45deg);  animation-delay: -0.600s; }
+.loading-spinner div:nth-child(3) { transform: rotate(90deg);  animation-delay: -0.500s; }
+.loading-spinner div:nth-child(4) { transform: rotate(135deg); animation-delay: -0.400s; }
+.loading-spinner div:nth-child(5) { transform: rotate(180deg); animation-delay: -0.300s; }
+.loading-spinner div:nth-child(6) { transform: rotate(225deg); animation-delay: -0.200s; }
+.loading-spinner div:nth-child(7) { transform: rotate(270deg); animation-delay: -0.100s; }
+.loading-spinner div:nth-child(8) { transform: rotate(315deg); animation-delay:  0.000s; }
+@keyframes ls-fade { 0% { opacity: 1; } 100% { opacity: 0.12; } }
+.loading-label { font-size: 15px; color: #555555; letter-spacing: 0.12em; font-family: 'メイリオ', Meiryo, sans-serif; }
 #setpw_btn_submit:hover { background: #27ae60; }
