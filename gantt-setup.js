@@ -1,6 +1,15 @@
 // Gantt 基本構成
 gantt.config.date_format = "%Y-%m-%d";
 
+function showLoading() {
+    const el = document.getElementById('loading-overlay');
+    if (el) el.classList.add('visible');
+}
+function hideLoading() {
+    const el = document.getElementById('loading-overlay');
+    if (el) el.classList.remove('visible');
+}
+
 // date入力で値を選択した時点でインライン編集を確定する
 function _commitInlineDateEdit(inputEl) {
     if (!inputEl) return;
@@ -487,19 +496,24 @@ async function deleteSelectedTasks() {
     if (ids.length === 0) return;
     if (!confirm(`選択した ${ids.length} 件のタスクを削除しますか？`)) return;
 
-    const { error } = await supabaseClient
-        .from('tasks')
-        .delete()
-        .in('id', ids);
+    showLoading();
+    try {
+        const { error } = await supabaseClient
+            .from('tasks')
+            .delete()
+            .in('id', ids);
 
-    if (error) {
-        console.error("Error deleting tasks:", error);
-        alert("削除に失敗しました。\n" + error.message);
-        return;
+        if (error) {
+            console.error("Error deleting tasks:", error);
+            alert("削除に失敗しました。\n" + error.message);
+            return;
+        }
+
+        await loadData();
+        document.getElementById('multi_delete_btn').style.display = 'none';
+    } finally {
+        hideLoading();
     }
-
-    await loadData();
-    document.getElementById('multi_delete_btn').style.display = 'none';
 }
 
 function _resetMultiEditForm() {
@@ -752,6 +766,7 @@ async function applyMultiEdit() {
     const _editorForPatch = (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || '';
     if (_editorForPatch) patch.last_updated_by = _editorForPatch;
 
+    showLoading();
     try {
         const { error } = await supabaseClient
             .from("tasks")
@@ -767,6 +782,8 @@ async function applyMultiEdit() {
     } catch (e) {
         console.error("Exception in applyMultiEdit:", e);
         alert("一括編集中に予期せぬエラーが発生しました。");
+    } finally {
+        hideLoading();
     }
 }
 
@@ -787,6 +804,7 @@ async function _finalizePendingNewTaskToDb(id) {
     }
 
     _finalizePendingInsertInProgress = true;
+    showLoading();
     try {
         const item = gantt.getTask(id);
         const taskTypeResolved = item.task_type || currentTaskTypeFilter || "drawing";
@@ -869,6 +887,7 @@ async function _finalizePendingNewTaskToDb(id) {
         _pendingNewTaskLightboxId = null;
     } finally {
         _finalizePendingInsertInProgress = false;
+        hideLoading();
     }
 }
 
