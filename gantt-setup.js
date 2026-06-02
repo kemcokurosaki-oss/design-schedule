@@ -656,7 +656,20 @@ function _renderMultiEditForm() {
         return `<div class="multi-edit-row">
             ${fields.map(renderField).join("")}
         </div>`;
-    }).join("");
+    }).join("") + `
+    <div class="multi-edit-row multi-edit-shift-row">
+        <div style="width:100%; font-size:11px; font-weight:bold; color:#1565c0; padding-bottom:2px; border-bottom:1px solid #e3f2fd; margin-bottom:2px;">── 日付シフト（+で遅延、−で前倒し）──</div>
+        <label class="multi-edit-shift-label">
+            【設計】開始日・終了日を
+            <input type="number" id="me_design_shift" class="multi-edit-shift-input" placeholder="例: 5">
+            日シフト
+        </label>
+        <label class="multi-edit-shift-label">
+            【工程】出図希望日を
+            <input type="number" id="me_wish_shift" class="multi-edit-shift-input" placeholder="例: -3">
+            日シフト
+        </label>
+    </div>`;
     return defs;
 }
 
@@ -758,7 +771,15 @@ async function applyMultiEdit() {
         });
     }
 
-    if (Object.keys(patch).length === 0) {
+    // 日付シフト値の取得
+    const designShiftEl = document.getElementById("me_design_shift");
+    const wishShiftEl   = document.getElementById("me_wish_shift");
+    const designShiftDays = (designShiftEl && designShiftEl.value.trim() !== "") ? parseInt(designShiftEl.value, 10) : null;
+    const wishShiftDays   = (wishShiftEl   && wishShiftEl.value.trim()   !== "") ? parseInt(wishShiftEl.value, 10)   : null;
+    const hasDesignShift  = designShiftDays !== null && !isNaN(designShiftDays) && designShiftDays !== 0;
+    const hasWishShift    = wishShiftDays   !== null && !isNaN(wishShiftDays)   && wishShiftDays   !== 0;
+
+    if (Object.keys(patch).length === 0 && !hasDesignShift && !hasWishShift) {
         alert("更新する項目を入力してください。");
         return;
     }
@@ -768,15 +789,70 @@ async function applyMultiEdit() {
 
     showLoading();
     try {
-        const { error } = await supabaseClient
-            .from("tasks")
-            .update(patch)
-            .in("id", ids);
-        if (error) {
-            console.error("Error in applyMultiEdit:", error);
-            alert("一括編集に失敗しました。\n" + error.message);
-            return;
+        // 固定値の一括UPDATE
+        if (Object.keys(patch).filter(function(k) { return k !== 'last_updated_by'; }).length > 0) {
+            const { error } = await supabaseClient
+                .from("tasks")
+                .update(patch)
+                .in("id", ids);
+            if (error) {
+                console.error("Error in applyMultiEdit:", error);
+                alert("一括編集に失敗しました。\n" + error.message);
+                return;
+            }
         }
+
+        // 日付シフトの個別UPDATE
+        if (hasDesignShift || hasWishShift) {
+            for (const id of ids) {
+                if (!gantt.isTaskExists(id)) continue;
+                const task = gantt.getTask(id);
+                const shiftPatch = {};
+
+                if (hasDesignShift) {
+                    if (task.start_date) {
+                        const sd = task.start_date instanceof Date ? task.start_date : _parseSupabaseDate(task.start_date);
+                        const newSd = new Date(sd);
+                        newSd.setDate(newSd.getDate() + designShiftDays);
+                        shiftPatch.start_date = _toDateStr(newSd);
+                    }
+                    // gantt内部のend_dateは終了日+1日なので-1日して実際の終了日を取得
+                    if (task.end_date) {
+                        const ed = task.end_date instanceof Date
+                            ? gantt.date.add(new Date(task.end_date), -1, 'day')
+                            : _parseSupabaseDate(task.end_date);
+                        if (ed) {
+                            const newEd = new Date(ed);
+                            newEd.setDate(newEd.getDate() + designShiftDays);
+                            shiftPatch.end_date = _toDateStr(newEd);
+                        }
+                    }
+                }
+
+                if (hasWishShift && task.wish_date) {
+                    const wd = _parseSupabaseDate(task.wish_date);
+                    if (wd) {
+                        const newWd = new Date(wd);
+                        newWd.setDate(newWd.getDate() + wishShiftDays);
+                        shiftPatch.wish_date = _toDateStr(newWd);
+                    }
+                }
+
+                if (_editorForPatch) shiftPatch.last_updated_by = _editorForPatch;
+
+                const shiftFields = Object.keys(shiftPatch).filter(function(k) { return k !== 'last_updated_by'; });
+                if (shiftFields.length > 0) {
+                    const { error: shiftError } = await supabaseClient
+                        .from("tasks")
+                        .update(shiftPatch)
+                        .eq("id", id);
+                    if (shiftError) {
+                        console.error("日付シフトエラー (id=" + id + "):", shiftError);
+                    }
+                }
+            }
+        }
+
         closeMultiEditModal();
         await loadData();
     } catch (e) {
