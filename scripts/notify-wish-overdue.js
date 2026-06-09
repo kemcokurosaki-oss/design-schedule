@@ -26,11 +26,11 @@ async function supabaseFetch(path) {
   return res.json();
 }
 
-async function sendEmail(toEmail, toName, body) {
+async function sendEmail(toEmail, toName, body, testMode = false) {
   await transporter.sendMail({
     from: `"設計工程通知" <${GMAIL_USER}>`,
     to: toEmail,
-    subject: '【設計工程通知】期日を過ぎたタスクのお知らせ',
+    subject: (testMode ? '【テスト】' : '') + '【設計工程通知】期日を過ぎたタスクのお知らせ',
     text: `${toName} 様\n\n完了予定日（手配予定日）が出図希望日（手配期日）を過ぎているタスクをお知らせします。\n\n${body}\n\n確認をお願いします。\n\n※このメールは自動送信です。`,
   });
   console.log(`送信完了: ${toEmail}`);
@@ -137,7 +137,7 @@ async function main() {
 
   for (const pm of targets) {
     try {
-      await sendEmail(pm.email, pm.name, body);
+      await sendEmail(pm.email, pm.name, body, testMode);
     } catch (e) {
       console.error(`送信失敗: ${pm.email} - ${e.message}`);
     }
