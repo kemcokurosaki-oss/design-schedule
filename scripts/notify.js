@@ -29,11 +29,11 @@ async function supabaseFetch(path) {
 // 担当者の表示順（設計工程表のプルダウンと同じ順）
 const OWNER_ORDER = ['藤山','田中','田中(善)','安岡','川邊','檀','堀井','宮﨑','津田','古村','柴田','橋本','松本(英)'];
 
-async function sendEmail(toEmail, toName, tasksList) {
+async function sendEmail(toEmail, toName, tasksList, testMode = false) {
   await transporter.sendMail({
     from: `"設計工程通知" <${GMAIL_USER}>`,
     to: toEmail,
-    subject: '【設計工程通知】完了予定日が近いタスクのお知らせ',
+    subject: (testMode ? '【テスト】' : '') + '【設計工程通知】完了予定日が近いタスクのお知らせ',
     text: `${toName} 様\n\n完了予定日が近いタスクをお知らせします。\n\n${tasksList}\n\n確認をお願いします。\n\n※このメールは自動送信です。`,
   });
   console.log(`送信完了: ${toEmail}`);
@@ -255,7 +255,7 @@ async function main() {
       const lSections = build(info.lines, '長納期品');
       if (dSections.length) sections.push(`== 図面 ==\n${dSections.join('\n\n')}`);
       if (lSections.length) sections.push(`== 長納期品 ==\n${lSections.join('\n\n')}`);
-      await sendEmail(email, info.name, sections.join('\n\n'));
+      await sendEmail(email, info.name, sections.join('\n\n'), testMode);
     } catch (e) {
       console.error(`送信失敗: ${email} - ${e.message}`);
     }

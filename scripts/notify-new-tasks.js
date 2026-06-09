@@ -107,7 +107,7 @@ async function main() {
   if (lSection) sections.push(lSection);
 
   const body = sections.join('\n\n');
-  const subject = '【設計工程通知】本日追加されたタスクのお知らせ';
+  const subject = (testMode ? '【テスト】' : '') + '【設計工程通知】本日追加されたタスクのお知らせ';
 
   const targets = testMode
     ? PROCESS_MANAGERS.filter(pm => pm.email === 'e-kurosaki@kusakabe.com')
