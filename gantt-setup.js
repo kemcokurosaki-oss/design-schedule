@@ -1,4 +1,8 @@
 // Gantt 基本構成
+// プラグインは config/ext より前に宣言する必要がある（edge版含む最新Ganttの要件）
+gantt.plugins({
+    marker: true
+});
 gantt.config.date_format = "%Y-%m-%d";
 
 function showLoading() {
