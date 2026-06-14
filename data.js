@@ -909,10 +909,7 @@ async function initialize() {
     const projectParam = urlParams.get('project_no') || urlParams.get('project');
     console.log("URLパラメータ:", projectParam);
 
-    // 0. プラグインの有効化
-    gantt.plugins({
-        marker: true
-    });
+    // 0. プラグイン有効化は gantt-setup.js 先頭に移動済み
 
     // 1. Gantt初期化（デフォルトは読み取り専用、ログイン後に解除）
     gantt.config.readonly = true;
@@ -1416,14 +1413,18 @@ async function initialize() {
     // 3. セレクトボックスを構築（パラメータがあれば selected になる）
     await initProjectSelect(projectParam);
     
-    // 3. マーカー追加
+    // 3. マーカー追加（edge版でプラグインが未登録でもクラッシュしないよう guard）
     const today = new Date();
-    gantt.addMarker({
-        start_date: today,
-        css: "today-line",
-        text: "今日",
-        title: "今日: " + gantt.templates.date_grid(today)
-    });
+    if (typeof gantt.addMarker === 'function') {
+        gantt.addMarker({
+            start_date: today,
+            css: "today-line",
+            text: "今日",
+            title: "今日: " + gantt.templates.date_grid(today)
+        });
+    } else {
+        console.warn('[Gantt] marker plugin not available (gantt.addMarker is not a function). Today line will not be shown.');
+    }
 
     // 4. データを読み込む
     await loadData();
