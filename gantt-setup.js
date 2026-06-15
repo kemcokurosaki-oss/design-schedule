@@ -664,12 +664,17 @@ function _renderMultiEditForm() {
     <div class="multi-edit-row multi-edit-shift-row">
         <div style="width:100%; font-size:11px; font-weight:bold; color:#1565c0; padding-bottom:2px; border-bottom:1px solid #e3f2fd; margin-bottom:2px;">── 日付シフト（+で遅延、−で前倒し）──</div>
         <label class="multi-edit-shift-label">
-            【設計】開始日・終了日を
-            <input type="number" id="me_design_shift" class="multi-edit-shift-input" placeholder="例: 5">
+            開始日を
+            <input type="number" id="me_start_shift" class="multi-edit-shift-input" placeholder="例: 5">
             日シフト
         </label>
         <label class="multi-edit-shift-label">
-            【工程】出図希望日を
+            終了日を
+            <input type="number" id="me_end_shift" class="multi-edit-shift-input" placeholder="例: 5">
+            日シフト
+        </label>
+        <label class="multi-edit-shift-label">
+            出図希望日を
             <input type="number" id="me_wish_shift" class="multi-edit-shift-input" placeholder="例: -3">
             日シフト
         </label>
@@ -776,14 +781,17 @@ async function applyMultiEdit() {
     }
 
     // 日付シフト値の取得
-    const designShiftEl = document.getElementById("me_design_shift");
-    const wishShiftEl   = document.getElementById("me_wish_shift");
-    const designShiftDays = (designShiftEl && designShiftEl.value.trim() !== "") ? parseInt(designShiftEl.value, 10) : null;
-    const wishShiftDays   = (wishShiftEl   && wishShiftEl.value.trim()   !== "") ? parseInt(wishShiftEl.value, 10)   : null;
-    const hasDesignShift  = designShiftDays !== null && !isNaN(designShiftDays) && designShiftDays !== 0;
-    const hasWishShift    = wishShiftDays   !== null && !isNaN(wishShiftDays)   && wishShiftDays   !== 0;
+    const startShiftEl = document.getElementById("me_start_shift");
+    const endShiftEl   = document.getElementById("me_end_shift");
+    const wishShiftEl  = document.getElementById("me_wish_shift");
+    const startShiftDays = (startShiftEl && startShiftEl.value.trim() !== "") ? parseInt(startShiftEl.value, 10) : null;
+    const endShiftDays   = (endShiftEl   && endShiftEl.value.trim()   !== "") ? parseInt(endShiftEl.value, 10)   : null;
+    const wishShiftDays  = (wishShiftEl  && wishShiftEl.value.trim()  !== "") ? parseInt(wishShiftEl.value, 10)  : null;
+    const hasStartShift = startShiftDays !== null && !isNaN(startShiftDays) && startShiftDays !== 0;
+    const hasEndShift   = endShiftDays   !== null && !isNaN(endShiftDays)   && endShiftDays   !== 0;
+    const hasWishShift  = wishShiftDays  !== null && !isNaN(wishShiftDays)  && wishShiftDays  !== 0;
 
-    if (Object.keys(patch).length === 0 && !hasDesignShift && !hasWishShift) {
+    if (Object.keys(patch).length === 0 && !hasStartShift && !hasEndShift && !hasWishShift) {
         alert("更新する項目を入力してください。");
         return;
     }
@@ -807,19 +815,20 @@ async function applyMultiEdit() {
         }
 
         // 日付シフトの個別UPDATE
-        if (hasDesignShift || hasWishShift) {
+        if (hasStartShift || hasEndShift || hasWishShift) {
             for (const id of ids) {
                 if (!gantt.isTaskExists(id)) continue;
                 const task = gantt.getTask(id);
                 const shiftPatch = {};
 
-                if (hasDesignShift) {
-                    if (task.start_date) {
-                        const sd = task.start_date instanceof Date ? task.start_date : _parseSupabaseDate(task.start_date);
-                        const newSd = new Date(sd);
-                        newSd.setDate(newSd.getDate() + designShiftDays);
-                        shiftPatch.start_date = _toDateStr(newSd);
-                    }
+                if (hasStartShift && task.start_date) {
+                    const sd = task.start_date instanceof Date ? task.start_date : _parseSupabaseDate(task.start_date);
+                    const newSd = new Date(sd);
+                    newSd.setDate(newSd.getDate() + startShiftDays);
+                    shiftPatch.start_date = _toDateStr(newSd);
+                }
+
+                if (hasEndShift) {
                     // gantt内部のend_dateは終了日+1日なので-1日して実際の終了日を取得
                     if (task.end_date) {
                         const ed = task.end_date instanceof Date
@@ -827,7 +836,7 @@ async function applyMultiEdit() {
                             : _parseSupabaseDate(task.end_date);
                         if (ed) {
                             const newEd = new Date(ed);
-                            newEd.setDate(newEd.getDate() + designShiftDays);
+                            newEd.setDate(newEd.getDate() + endShiftDays);
                             shiftPatch.end_date = _toDateStr(newEd);
                         }
                     }
