@@ -808,7 +808,10 @@ function _isTaskDisplayed(task) {
     return true;
 }
 
+let _wishDateDragging = false;
+
 function _renderWishDateMarks() {
+    if (_wishDateDragging) return;
     const dataArea = document.querySelector('#gantt_here .gantt_data_area');
     if (!dataArea) return;
     dataArea.querySelectorAll('.wish-date-mark').forEach(el => el.remove());
@@ -868,16 +871,48 @@ function _renderWishDateMarks() {
             e.preventDefault();
             const startClientX = e.clientX;
             const startLeft    = parseFloat(el.style.left);
+            const startScrollX = gantt.getScrollState().x;
             let   currentLeft  = startLeft;
+            let   lastClientX  = startClientX;
+            let   scrollDir    = 0;
+            let   rafId        = null;
             el.classList.add('dragging');
+            _wishDateDragging = true;
+
+            const timelineContainer = document.querySelector('#gantt_here .gantt_task');
+            const SCROLL_ZONE  = 60;
+            const SCROLL_SPEED = 10;
+
+            function scrollLoop() {
+                if (scrollDir !== 0) {
+                    const prevScroll = gantt.getScrollState().x;
+                    const newScrollX = Math.max(0, prevScroll + scrollDir * SCROLL_SPEED);
+                    gantt.scrollTo(newScrollX, null);
+                    const actualScroll = gantt.getScrollState().x;
+                    currentLeft = startLeft + (lastClientX - startClientX) + (actualScroll - startScrollX);
+                    el.style.left = currentLeft + 'px';
+                }
+                rafId = requestAnimationFrame(scrollLoop);
+            }
+            rafId = requestAnimationFrame(scrollLoop);
 
             function onMove(e) {
-                currentLeft = startLeft + (e.clientX - startClientX);
+                lastClientX = e.clientX;
+                const currentScrollX = gantt.getScrollState().x;
+                currentLeft = startLeft + (e.clientX - startClientX) + (currentScrollX - startScrollX);
                 el.style.left = currentLeft + 'px';
+                if (timelineContainer) {
+                    const rect = timelineContainer.getBoundingClientRect();
+                    scrollDir = e.clientX < rect.left + SCROLL_ZONE ? -1
+                              : e.clientX > rect.right - SCROLL_ZONE ? 1 : 0;
+                }
             }
             function onUp() {
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup',   onUp);
+                if (rafId) cancelAnimationFrame(rafId);
+                scrollDir = 0;
+                _wishDateDragging = false;
                 el.classList.remove('dragging');
                 const newDate = gantt.dateFromPos
                     ? gantt.dateFromPos(currentLeft)
