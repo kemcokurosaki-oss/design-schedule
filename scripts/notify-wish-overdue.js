@@ -10,6 +10,8 @@ const PROCESS_MANAGERS = [
   { email: 'e-kurosaki@kusakabe.com', name: '黒崎' },
 ];
 
+const OWNER_ORDER = ['藤山','田中','田中(善)','安岡','川邊','檀','堀井','宮﨑','津田','古村','柴田','橋本','松本(英)'];
+
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: { user: GMAIL_USER, pass: GMAIL_PASS },
@@ -44,37 +46,53 @@ function isWishOverdue(task) {
   const wishDay = new Date(+parts[0], +parts[1] - 1, +parts[2]);
   if (isNaN(wishDay.getTime())) return false;
 
-  // end_date は YYYY-MM-DD 文字列で格納されている
   const endParts = String(task.end_date).split('T')[0].split('-');
   const endDay = new Date(+endParts[0], +endParts[1] - 1, +endParts[2]);
   if (isNaN(endDay.getTime())) return false;
 
-  // DB の end_date はガントの排他的終了日（+1日分）なので -1日して実際の完了日に
   endDay.setDate(endDay.getDate() - 1);
-
   return endDay > wishDay;
 }
 
-// 工事番号で空行を挟みつつ行を結合
-function buildSection(tasks, mode) {
-  if (tasks.length === 0) return null;
-  const dateLabel    = mode === '長納期品' ? '手配予定日' : '完了予定日';
-  const wishLabel    = mode === '長納期品' ? '手配期日'   : '出図希望日';
+function formatTaskLine(t) {
+  const dateLabel = t.mode === '長納期品' ? '手配予定日' : '完了予定日';
+  const wishLabel = t.mode === '長納期品' ? '手配期日'   : '出図希望日';
+  const machine   = [t.machine, t.unit].filter(Boolean).join(' ');
+  const endDate   = t.end_date  ? String(t.end_date).split('T')[0]  : 'なし';
+  const wishDate  = t.wish_date ? String(t.wish_date).split('T')[0] : 'なし';
+  return `[${t.project_number}] ${machine ? machine + ' / ' : ''}${t.owner} / ${t.text}（${dateLabel}：${endDate} / ${wishLabel}：${wishDate}）`;
+}
 
-  tasks.sort((a, b) => (a.project_number || '').localeCompare(b.project_number || ''));
-
-  const lines = [];
-  let prevProject = null;
-  tasks.forEach(t => {
-    const machine  = [t.machine, t.unit].filter(Boolean).join(' ');
-    const endDate  = t.end_date  ? String(t.end_date).split('T')[0]  : 'なし';
-    const wishDate = t.wish_date ? String(t.wish_date).split('T')[0] : 'なし';
-    if (prevProject !== null && prevProject !== t.project_number) lines.push('');
-    lines.push(`[${t.project_number}] ${machine ? machine + ' / ' : ''}${t.owner} / ${t.text}（${dateLabel}：${endDate} / ${wishLabel}：${wishDate}）`);
-    prevProject = t.project_number;
+// 上長・管理者向け: モード別、担当者別グループ（OWNER_ORDER順）、工事番号順
+function buildManagerSections(tasks, mode) {
+  const filtered = tasks.filter(t => t.mode === mode);
+  if (filtered.length === 0) return [];
+  const byOwner = {};
+  filtered.forEach(t => {
+    if (!byOwner[t.owner]) byOwner[t.owner] = [];
+    byOwner[t.owner].push(t);
   });
-
-  return `== ${mode} ==\n${lines.join('\n')}`;
+  const ownerBlocks = Object.keys(byOwner)
+    .sort((a, b) => {
+      const ia = OWNER_ORDER.indexOf(a);
+      const ib = OWNER_ORDER.indexOf(b);
+      if (ia === -1 && ib === -1) return a.localeCompare(b);
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    })
+    .map(owner => {
+      const sorted = byOwner[owner].sort((a, b) => (a.project_number || '').localeCompare(b.project_number || ''));
+      const lines = [];
+      let prevProject = null;
+      sorted.forEach(t => {
+        if (prevProject !== null && prevProject !== t.project_number) lines.push('');
+        lines.push(formatTaskLine(t));
+        prevProject = t.project_number;
+      });
+      return `▼ ${owner}\n${lines.join('\n')}`;
+    });
+  return [`== ${mode} ==\n${ownerBlocks.join('\n\n')}`];
 }
 
 async function main() {
@@ -121,25 +139,68 @@ async function main() {
     return;
   }
 
-  const sections = [];
-  const dSection = buildSection(overdueDrawing, '図面');
-  const lSection = buildSection(overdueLl,      '長納期品');
-  if (dSection) sections.push(dSection);
-  if (lSection) sections.push(lSection);
-  const body = sections.join('\n\n');
-
   const testMode = process.env.TEST_MODE === 'true';
   if (testMode) console.log('テストモード: e-kurosaki@kusakabe.comのみに送信');
 
-  const targets = testMode
-    ? PROCESS_MANAGERS.filter(pm => pm.email === 'e-kurosaki@kusakabe.com')
-    : PROCESS_MANAGERS;
+  // メンバー情報を取得
+  const members = await supabaseFetch('members?select=*');
+  const nameToMember = {};
+  const emailToName = {};
+  members.forEach(m => {
+    nameToMember[m.name] = m;
+    emailToName[m.email] = m.name;
+  });
+  PROCESS_MANAGERS.forEach(pm => {
+    emailToName[pm.email] = pm.name;
+  });
 
-  for (const pm of targets) {
+  // 受信者ごとに通知内容をまとめる（上長・工程管理者のみ、担当者本人には送らない）
+  const notifications = {};
+  const addTask = (email, name, task) => {
+    if (!email) return;
+    if (!notifications[email]) notifications[email] = { name, tasks: [] };
+    notifications[email].tasks.push(task);
+  };
+
+  const allOverdue = [
+    ...overdueDrawing.map(t => ({ ...t, mode: '図面' })),
+    ...overdueLl.map(t => ({ ...t, mode: '長納期品' })),
+  ];
+
+  allOverdue.forEach(task => {
+    const member = nameToMember[task.owner];
+    if (!testMode) {
+      if (member) {
+        if (member.supervisor_email_1) {
+          addTask(member.supervisor_email_1, emailToName[member.supervisor_email_1] || member.supervisor_email_1, task);
+        }
+        if (member.supervisor_email_2) {
+          addTask(member.supervisor_email_2, emailToName[member.supervisor_email_2] || member.supervisor_email_2, task);
+        }
+      } else {
+        console.warn(`メンバー未登録: ${task.owner}`);
+      }
+    }
+
+    const targets = testMode
+      ? PROCESS_MANAGERS.filter(pm => pm.email === 'e-kurosaki@kusakabe.com')
+      : PROCESS_MANAGERS;
+    targets.forEach(pm => {
+      addTask(pm.email, pm.name, task);  // 工程管理者
+    });
+  });
+
+  // メール送信（全員に担当者別グループ表示）
+  for (const [email, info] of Object.entries(notifications)) {
     try {
-      await sendEmail(pm.email, pm.name, body, testMode);
+      const sections = [];
+      const dSections = buildManagerSections(info.tasks, '図面');
+      const lSections = buildManagerSections(info.tasks, '長納期品');
+      if (dSections.length) sections.push(...dSections);
+      if (lSections.length) sections.push(...lSections);
+      await sendEmail(email, info.name, sections.join('\n\n'), testMode);
     } catch (e) {
-      console.error(`送信失敗: ${pm.email} - ${e.message}`);
+      console.error(`送信失敗: ${email} - ${e.message}`);
     }
   }
 
