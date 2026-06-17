@@ -6,7 +6,7 @@ on:
   workflow_dispatch:      # GitHub画面から手動実行も可能
     inputs:
       test_mode:
-        description: 'テストモード（工程管理者のみ送信）'
+        description: 'テストモード（黒崎のみ送信）'
         required: false
         default: 'false'
         type: choice

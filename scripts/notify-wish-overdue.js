@@ -10,7 +10,7 @@ const PROCESS_MANAGERS = [
   { email: 'e-kurosaki@kusakabe.com', name: '黒崎' },
 ];
 
-const OWNER_ORDER = ['藤山','田中','田中(善)','安岡','川邊','檀','堀井','宮﨑','津田','古村','柴田','橋本','松本(英)'];
+const OWNER_ORDER = ['藤山','田中','安岡','川邊','檀','堀井','宮﨑','津田','古村','柴田','橋本','松本(英)'];
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -171,8 +171,8 @@ async function main() {
     const member = nameToMember[task.owner];
     if (!testMode) {
       if (member) {
-        if (member.supervisor_email_1) {
-          addTask(member.supervisor_email_1, emailToName[member.supervisor_email_1] || member.supervisor_email_1, task);
+        if (member.supervisor_email1) {
+          addTask(member.supervisor_email1, emailToName[member.supervisor_email1] || member.supervisor_email1, task);
         }
         if (member.supervisor_email_2) {
           addTask(member.supervisor_email_2, emailToName[member.supervisor_email_2] || member.supervisor_email_2, task);
