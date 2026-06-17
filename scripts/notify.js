@@ -27,7 +27,7 @@ async function supabaseFetch(path) {
 }
 
 // 担当者の表示順（設計工程表のプルダウンと同じ順）
-const OWNER_ORDER = ['藤山','田中','田中(善)','安岡','川邊','檀','堀井','宮﨑','津田','古村','柴田','橋本','松本(英)'];
+const OWNER_ORDER = ['藤山','田中','安岡','川邊','檀','堀井','宮﨑','津田','古村','柴田','橋本','松本(英)'];
 
 async function sendEmail(toEmail, toName, tasksList, testMode = false) {
   await transporter.sendMail({
@@ -141,7 +141,7 @@ async function main() {
   };
 
   const testMode = process.env.TEST_MODE === 'true';
-  if (testMode) console.log('テストモード: 工程管理者のみに送信');
+  if (testMode) console.log('テストモード: 黒崎（e-kurosaki@kusakabe.com）のみに送信');
 
   allTasks.forEach(task => {
     const endDate = task.end_date ? task.end_date.substring(0, 10) : '';
@@ -155,8 +155,8 @@ async function main() {
     if (!testMode) {
       if (member) {
         addLine(member.email, member.name, entry, true);  // 担当者本人
-        if (member.supervisor_email_1) {
-          addLine(member.supervisor_email_1, emailToName[member.supervisor_email_1] || member.supervisor_email_1, entry, false);
+        if (member.supervisor_email1) {
+          addLine(member.supervisor_email1, emailToName[member.supervisor_email1] || member.supervisor_email1, entry, false);
         }
         if (member.supervisor_email_2) {
           addLine(member.supervisor_email_2, emailToName[member.supervisor_email_2] || member.supervisor_email_2, entry, false);
