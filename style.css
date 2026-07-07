@@ -500,6 +500,16 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     background-color: transparent !important;
 }
 
+/* タイムライン範囲のグレーアウト（完了タスクの行帯） */
+.gantt_task_row.gantt-task-row-completed {
+    background-color: #eeeeee !important;
+}
+/* 完了タスクのバー：担当者カラーを濃いグレーに置き換え、背景のグレーより濃くしてバーの存在を判別可能にする */
+.gantt_task_line.task-bar-completed {
+    background-color: #a8a8a8 !important;
+    border-color: #8f8f8f !important;
+}
+
 /* 進捗列の背景色（グラデーションによる進捗表示） */
 .progress-cell-container {
     position: relative;
