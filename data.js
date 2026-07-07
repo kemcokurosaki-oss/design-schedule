@@ -209,6 +209,7 @@ function _isHoliday(date) {
 let currentOwnerFilter = [];      // 空配列 = 全担当者
 let currentMachineFilter = [];    // 空配列 = 機械で絞り込みなし
 let currentUnitFilter = [];       // 空配列 = ユニットで絞り込みなし
+let currentCompletionFilter = []; // 空配列 = 完了・未完了ともに表示
 
 // フィルターで「全解除（何も表示しない）」を表すセンチネル値
 const FILTER_NONE = ' __none__';
@@ -231,6 +232,10 @@ function _taskPassesCommonFilters(task) {
     if (!_isDetailedTaskRow(task)) return false;
     if (currentProjectFilter.length > 0 && !currentProjectFilter.includes(String(task.project_number))) return false;
     if (currentTaskTypeFilter && String(task.task_type) !== currentTaskTypeFilter) return false;
+    if (currentCompletionFilter.length > 0) {
+        const label = (typeof _isCompletedForDisplay === 'function' && _isCompletedForDisplay(task)) ? '完了' : '未完了';
+        if (!currentCompletionFilter.includes(label)) return false;
+    }
     // 出張タスクが期限切れ（終了日から7日以上経過）の場合は非表示
     if (_isTripTask(task) && _isTripTaskExpired(task)) return false;
     return true;
@@ -549,8 +554,6 @@ function ownerFilterAllChanged(checkbox) {
         currentOwnerFilter = [FILTER_NONE];
     }
     _updateOwnerFilterBtn();
-    _rebuildMachineFilterOptionsFromGantt();
-    _rebuildUnitFilterOptionsFromGantt();
     updateDisplay();
 }
 
@@ -571,8 +574,6 @@ function ownerFilterItemChanged() {
         allChk.indeterminate = checked.length > 0 && checked.length < total;
     }
     _updateOwnerFilterBtn();
-    _rebuildMachineFilterOptionsFromGantt();
-    _rebuildUnitFilterOptionsFromGantt();
     updateDisplay();
 }
 
@@ -606,8 +607,6 @@ function machineFilterAllChanged(checkbox) {
     }
     gantt.render();
     _updateMachineFilterBtn();
-    _rebuildUnitFilterOptionsFromGantt();
-    _rebuildOwnerFilterOptionsFromGantt();
     updateDisplay();
 }
 
@@ -629,8 +628,6 @@ function machineFilterItemChanged() {
     }
     gantt.render();
     _updateMachineFilterBtn();
-    _rebuildUnitFilterOptionsFromGantt();
-    _rebuildOwnerFilterOptionsFromGantt();
     updateDisplay();
 }
 
@@ -664,8 +661,6 @@ function unitFilterAllChanged(checkbox) {
     }
     gantt.render();
     _updateUnitFilterBtn();
-    _rebuildMachineFilterOptionsFromGantt();
-    _rebuildOwnerFilterOptionsFromGantt();
     updateDisplay();
 }
 
@@ -687,8 +682,6 @@ function unitFilterItemChanged() {
     }
     gantt.render();
     _updateUnitFilterBtn();
-    _rebuildMachineFilterOptionsFromGantt();
-    _rebuildOwnerFilterOptionsFromGantt();
     updateDisplay();
 }
 
@@ -703,6 +696,60 @@ function _updateUnitFilterBtn() {
         btn.textContent = currentUnitFilter[0];
     } else {
         btn.textContent = currentUnitFilter[0] + ' 他' + (currentUnitFilter.length - 1) + '件';
+    }
+}
+
+function toggleCompletionFilterDropdown() {
+    const dd = document.getElementById('completion_filter_dropdown');
+    if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+}
+
+function completionFilterAllChanged(checkbox) {
+    checkbox.indeterminate = false;
+    if (checkbox.checked) {
+        document.querySelectorAll('.completion-chk-item').forEach(chk => { chk.checked = true; });
+        currentCompletionFilter = [];
+    } else {
+        document.querySelectorAll('.completion-chk-item').forEach(chk => { chk.checked = false; });
+        currentCompletionFilter = [FILTER_NONE];
+    }
+    gantt.render();
+    _updateCompletionFilterBtn();
+    updateDisplay();
+}
+
+function completionFilterItemChanged() {
+    const allItems = document.querySelectorAll('.completion-chk-item');
+    const checked = [...allItems].filter(c => c.checked).map(c => c.value);
+    const total = allItems.length;
+    if (checked.length === total) {
+        currentCompletionFilter = [];
+    } else if (checked.length === 0) {
+        currentCompletionFilter = [FILTER_NONE];
+    } else {
+        currentCompletionFilter = checked;
+    }
+    const allChk = document.getElementById('completion_chk_all');
+    if (allChk) {
+        allChk.checked = checked.length === total;
+        allChk.indeterminate = checked.length > 0 && checked.length < total;
+    }
+    gantt.render();
+    _updateCompletionFilterBtn();
+    updateDisplay();
+}
+
+function _updateCompletionFilterBtn() {
+    const btn = document.getElementById('completion_filter_btn');
+    if (!btn) return;
+    if (currentCompletionFilter.length === 0) {
+        btn.textContent = '完了: すべて';
+    } else if (currentCompletionFilter[0] === FILTER_NONE) {
+        btn.textContent = '完了: ---';
+    } else if (currentCompletionFilter.length === 1) {
+        btn.textContent = '完了: ' + currentCompletionFilter[0];
+    } else {
+        btn.textContent = '完了: ' + currentCompletionFilter.join('・');
     }
 }
 
@@ -726,6 +773,11 @@ document.addEventListener('click', function(e) {
     const projectWrap = document.getElementById('project_filter_wrap');
     if (projectWrap && !projectWrap.contains(e.target)) {
         const dd = document.getElementById('project_filter_dropdown');
+        if (dd) dd.style.display = 'none';
+    }
+    const completionWrap = document.getElementById('completion_filter_wrap');
+    if (completionWrap && !completionWrap.contains(e.target)) {
+        const dd = document.getElementById('completion_filter_dropdown');
         if (dd) dd.style.display = 'none';
     }
     const archiveBtnWrap = document.getElementById('archive_btn_wrap');
@@ -758,6 +810,8 @@ function updateFilterButtons() {
     if (machineWrap) machineWrap.style.display = isResourceFullscreen ? 'none' : '';
     const unitWrap = document.getElementById('unit_filter_wrap');
     if (unitWrap) unitWrap.style.display = isResourceFullscreen ? 'none' : '';
+    const completionWrap = document.getElementById('completion_filter_wrap');
+    if (completionWrap) completionWrap.style.display = isResourceFullscreen ? 'none' : '';
     const addBtn = document.getElementById('create_task_btn');
     if (addBtn) addBtn.style.display = (isResourceFullscreen || !_isEditor) ? 'none' : '';
 }
