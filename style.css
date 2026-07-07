@@ -484,7 +484,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 }
 .gantt_row.gantt-row-completed,
 .gantt_row.odd.gantt-row-completed {
-    background-color: #eeeeee !important;
+    background-color: #d6d6d6 !important;
 }
 .gantt_row.gantt-row-completed .gantt_cell {
     color: #666 !important;
@@ -494,20 +494,24 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     background-color: #cbd5e1 !important; /* 少し濃いくすんだ青 */
 }
 .gantt_row.gantt-row-completed:hover {
-    background-color: #e0e0e0 !important;
+    background-color: #c0c0c0 !important;
 }
 .gantt_row.gantt-row-completed:hover .progress-fill {
     background-color: transparent !important;
 }
 
-/* タイムライン範囲のグレーアウト（完了タスクの行帯） */
+/* タイムライン範囲のグレーアウト（完了タスクの行帯）：休日セル(#f0f0f0)より濃くして区別できるようにする */
 .gantt_task_row.gantt-task-row-completed {
-    background-color: #eeeeee !important;
+    background-color: #d6d6d6 !important;
 }
 /* 完了タスクのバー：担当者カラーを濃いグレーに置き換え、背景のグレーより濃くしてバーの存在を判別可能にする */
 .gantt_task_line.task-bar-completed {
     background-color: #a8a8a8 !important;
     border-color: #8f8f8f !important;
+}
+/* 完了タスクの行は縦罫線（日付境界線）を非表示にしてノイズを減らす */
+.gantt_task_row.gantt-task-row-completed .gantt_task_cell {
+    border-right: none !important;
 }
 
 /* 進捗列の背景色（グラデーションによる進捗表示） */
@@ -533,7 +537,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     background-color: #e53935 !important; /* 鮮やかさと落ち着きのバランスが良い赤 */
 }
 .progress-complete {
-    background-color: #eeeeee !important;
+    background-color: #d6d6d6 !important;
 }
 .progress-text-complete {
     color: #666;
