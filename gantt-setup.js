@@ -1786,6 +1786,9 @@ function switchColumns(filterType) {
 
 // スタイルとテンプレート
 gantt.templates.task_text = function(start, end, task) {
+    if (_isCompletedForDisplay(task)) {
+        return `<span style="color:#333;">${task.text}</span>`;
+    }
     const colorClass = getOwnerColorClass(task.owner);
     const textColor = (["owner-tsuda", "owner-shibata", "owner-matsumoto"].includes(colorClass)) ? "#222" : "#fff";
     return `<span style="color:${textColor};">${task.text}</span>`;
@@ -1794,6 +1797,7 @@ gantt.templates.task_text = function(start, end, task) {
 gantt.templates.task_class = function(start, end, task) {
     let css = task.has_no_date ? "hidden_bar " : "";
     css += getOwnerColorClass(task.owner);
+    if (_isCompletedForDisplay(task)) css += " task-bar-completed";
     return css;
 };
 gantt.templates.timeline_cell_class = function(task, date) {
@@ -1804,6 +1808,9 @@ gantt.templates.timeline_cell_class = function(task, date) {
 
 gantt.templates.grid_row_class = function(start, end, task) {
     return _isCompletedForDisplay(task) ? "gantt-row-completed" : "";
+};
+gantt.templates.task_row_class = function(start, end, task) {
+    return _isCompletedForDisplay(task) ? "gantt-task-row-completed" : "";
 };
 // スケールヘッダーの土日・社内休日セルにクラスを付与（描画時に適用されるためスクロールで崩れない）
 gantt.templates.scale_cell_class = function(date) {
