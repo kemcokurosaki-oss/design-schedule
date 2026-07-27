@@ -1789,9 +1789,9 @@ function _getLongtermColumns() {
         { name: "machine",    label: "機械",           width: 32,  align: "center", editor: { type: "text",   map_to: "machine" } },
         { name: "unit",       label: "ユニ",           width: 40,  align: "center", editor: { type: "text",   map_to: "unit" } },
         { name: "text",       label: "品名",           width: 173, tree: true,      editor: { type: "text",   map_to: "text" } },
-        { name: "part_number", label: "型式・図番",     width: 115, align: "left", editor: { type: "text",   map_to: "part_number" } },
-        { name: "quantity",   label: "個数",           width: 28,  align: "center", editor: { type: "number", map_to: "quantity", min: 0, max: 99 } },
-        { name: "manufacturer",      label: "メーカー",       width: 70,  align: "center", editor: { type: "text",   map_to: "manufacturer" } },
+        { name: "part_number", label: "型式・図番",     width: 115, align: "left", editor: { type: "text",   map_to: "part_number" }, noFilterBtn: true },
+        { name: "quantity",   label: "個数",           width: 28,  align: "center", editor: { type: "number", map_to: "quantity", min: 0, max: 99 }, noFilterBtn: true },
+        { name: "manufacturer",      label: "メーカー",       width: 70,  align: "center", editor: { type: "text",   map_to: "manufacturer" }, noFilterBtn: true },
         { name: "owner",      label: "担当",           width: 40,  align: "center", editor: { type: "owner_select", map_to: "owner" } },
         { name: "start_date", label: "開始日",         width: 60,  align: "center",
           template: function(task) {
