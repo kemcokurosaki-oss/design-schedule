@@ -527,6 +527,32 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     max-height: 220px;
 }
 
+/* 日付列フィルター：Excelのような年→月→日のツリー表示 */
+#col_filter_chk_list .col-filter-tree-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+#col_filter_chk_list .col-filter-tree-toggle {
+    display: inline-block;
+    flex: 0 0 12px;
+    width: 12px;
+    text-align: center;
+    color: #777;
+    cursor: pointer;
+    user-select: none;
+    font-size: 10px;
+}
+#col_filter_chk_list .col-filter-tree-month {
+    padding-left: 20px;
+}
+#col_filter_chk_list .col-filter-tree-day {
+    padding-left: 36px;
+}
+
 /* 階層構造を使用しないためインデントとアイコンのスペースをゼロに */
 .gantt_tree_indent {
     width: 0 !important;
