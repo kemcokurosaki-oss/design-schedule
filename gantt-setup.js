@@ -1740,7 +1740,7 @@ const _COLUMN_FILTER_EXCLUDE = new Set(["add_btn", "progress"]);
 
 // 列定義のlabelに▼フィルターボタンのHTMLを追加する（列幅・既存レイアウトは変更しない）
 function _withColumnFilterBtn(col) {
-    if (_COLUMN_FILTER_EXCLUDE.has(col.name)) return col;
+    if (_COLUMN_FILTER_EXCLUDE.has(col.name) || col.noFilterBtn) return col;
     const btn = `<button type="button" class="col-filter-btn" data-col="${col.name}" onclick="event.stopPropagation(); onColumnFilterBtnClick(event, '${col.name}')"></button>`;
     return Object.assign({}, col, { label: (col.label || "") + btn });
 }
@@ -1755,15 +1755,15 @@ function _getDrawingColumns() {
         { name: "project_number",   label: "工事<br>番号",   width: 35, align: "center", editor: { type: "text",   map_to: "project_number" } },
         { name: "machine",          label: "機械",           width: 35, align: "center", editor: { type: "text",   map_to: "machine" } },
         { name: "unit",             label: "ユニ",           width: 45, align: "center", editor: { type: "text",   map_to: "unit" } },
-        { name: "text",             label: "組立図面名",     width: 235, tree: true,      editor: { type: "text",   map_to: "text" } },
-        { name: "model_type",       label: "機種",           width: 30, align: "center", editor: { type: "text",   map_to: "model_type" } },
-        { name: "unit2",            label: "ユニ<br>2",      width: 30, align: "center", editor: { type: "text",   map_to: "unit2" } },
-        { name: "dash",             label: "-",              width: 25, align: "center", template: (task) => task.hyphen ?? "-", editor: { type: "text", map_to: "hyphen" } },
-        { name: "characteristic",   label: "特性",           width: 30, align: "center", editor: { type: "text",   map_to: "characteristic" } },
-        { name: "derivation",       label: "派生",           width: 30, align: "center", editor: { type: "text",   map_to: "derivation" } },
+        { name: "text",             label: "組立図面名",     width: 235, tree: true,      editor: { type: "text",   map_to: "text" }, noFilterBtn: true },
+        { name: "model_type",       label: "機種",           width: 30, align: "center", editor: { type: "text",   map_to: "model_type" }, noFilterBtn: true },
+        { name: "unit2",            label: "ユニ<br>2",      width: 30, align: "center", editor: { type: "text",   map_to: "unit2" }, noFilterBtn: true },
+        { name: "dash",             label: "-",              width: 25, align: "center", template: (task) => task.hyphen ?? "-", editor: { type: "text", map_to: "hyphen" }, noFilterBtn: true },
+        { name: "characteristic",   label: "特性",           width: 30, align: "center", editor: { type: "text",   map_to: "characteristic" }, noFilterBtn: true },
+        { name: "derivation",       label: "派生",           width: 30, align: "center", editor: { type: "text",   map_to: "derivation" }, noFilterBtn: true },
         { name: "owner",            label: "担当",           width: 45, align: "center", editor: { type: "owner_select", map_to: "owner" } },
-        { name: "total_sheets",     label: "総<br>枚数",     width: 50, align: "center", template: _templateTotalSheetsCell, editor: { type: "sheet_count", map_to: "total_sheets",     min: 0 } },
-        { name: "completed_sheets", label: "完了<br>枚数",   width: 50, align: "center", template: _templateCompletedSheetsCell, editor: { type: "sheet_count", map_to: "completed_sheets", min: 0 } },
+        { name: "total_sheets",     label: "総<br>枚数",     width: 50, align: "center", template: _templateTotalSheetsCell, editor: { type: "sheet_count", map_to: "total_sheets",     min: 0 }, noFilterBtn: true },
+        { name: "completed_sheets", label: "完了<br>枚数",   width: 50, align: "center", template: _templateCompletedSheetsCell, editor: { type: "sheet_count", map_to: "completed_sheets", min: 0 }, noFilterBtn: true },
         { name: "progress",         label: "進捗",           width: 40, align: "center", template: _progressTemplate },
         { name: "wish_date",        label: "出図<br>希望日", width: 65, align: "center", template: _templateWishDateCell, editor: { type: "wish_date_editor", map_to: "wish_date" } },
         { name: "start_date",       label: "開始日",         width: 65, align: "center",
