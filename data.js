@@ -949,7 +949,7 @@ function _buildDateFilterTreeHtml(values, checkedSet) {
         months.forEach(m => monthMap.get(m).forEach(d => yearValues.push(d.value)));
         html += `<div class="col-filter-tree-node">
             <label class="col-filter-tree-row col-filter-tree-year">
-                <span class="col-filter-tree-toggle" onclick="event.preventDefault(); _toggleDateTreeNode(this)">▾</span>
+                <span class="col-filter-tree-toggle" onclick="event.preventDefault(); _toggleDateTreeNode(this)">-</span>
                 <input type="checkbox" class="col-filter-chk-year" data-values='${esc(JSON.stringify(yearValues))}' onchange="_dateFilterGroupChanged(this)"> ${year}年
             </label>
             <div class="col-filter-tree-children">`;
@@ -958,7 +958,7 @@ function _buildDateFilterTreeHtml(values, checkedSet) {
             const monthValues = days.map(d => d.value);
             html += `<div class="col-filter-tree-node">
                 <label class="col-filter-tree-row col-filter-tree-month">
-                    <span class="col-filter-tree-toggle" onclick="event.preventDefault(); _toggleDateTreeNode(this)">▸</span>
+                    <span class="col-filter-tree-toggle" onclick="event.preventDefault(); _toggleDateTreeNode(this)">+</span>
                     <input type="checkbox" class="col-filter-chk-month" data-values='${esc(JSON.stringify(monthValues))}' onchange="_dateFilterGroupChanged(this)"> ${m}月
                 </label>
                 <div class="col-filter-tree-children" style="display:none;">`;
@@ -981,7 +981,7 @@ function _toggleDateTreeNode(toggleEl) {
     if (!children) return;
     const collapsed = children.style.display === 'none';
     children.style.display = collapsed ? '' : 'none';
-    toggleEl.textContent = collapsed ? '▾' : '▸';
+    toggleEl.textContent = collapsed ? '-' : '+';
 }
 
 /** 年・月チェックボックスの checked/indeterminate を、配下の日チェックボックスの状態から再計算 */
