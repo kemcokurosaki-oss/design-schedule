@@ -537,14 +537,29 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     white-space: nowrap;
 }
 #col_filter_chk_list .col-filter-tree-toggle {
-    display: inline-block;
-    flex: 0 0 12px;
-    width: 12px;
-    text-align: center;
-    color: #777;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 13px;
+    width: 13px;
+    height: 13px;
+    box-sizing: border-box;
+    border: 1px solid #999;
+    border-radius: 2px;
+    background: #fff;
+    color: #555;
     cursor: pointer;
     user-select: none;
-    font-size: 10px;
+    font-size: 11px;
+    line-height: 1;
+}
+#col_filter_chk_list .col-filter-tree-toggle:empty {
+    border: none;
+    background: transparent;
+}
+#col_filter_chk_list .col-filter-tree-toggle:hover {
+    border-color: #607d8b;
+    background: #eceff1;
 }
 #col_filter_chk_list .col-filter-tree-month {
     padding-left: 20px;
