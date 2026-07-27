@@ -211,6 +211,12 @@ let currentMachineFilter = [];    // 空配列 = 機械で絞り込みなし
 let currentUnitFilter = [];       // 空配列 = ユニットで絞り込みなし
 let currentCompletionFilter = []; // 空配列 = 完了・未完了ともに表示
 
+// グリッド列ヘッダーの▼フィルター（工事番号・機械・ユニット・担当者以外の列）
+// colName -> 選択値の配列。空配列 = 全表示
+let columnFilters = {};
+// 現在、共有ドロップダウンで開いている列名（閉じているときはnull）
+let _openColFilterName = null;
+
 // フィルターで「全解除（何も表示しない）」を表すセンチネル値
 const FILTER_NONE = ' __none__';
 let _clearingEndDateId = null;   // 完了予定日クリア中のタスクID
@@ -296,7 +302,76 @@ function _taskVisibleOnGantt(task) {
     if (!_taskVisibleIgnoringOwnerFilter(task)) return false;
     if (!_taskVisibleIgnoringMachineFilter(task)) return false;
     if (!_taskVisibleIgnoringUnitFilter(task)) return false;
+    if (!_taskPassesGenericColumnFilters(task)) return false;
     return true;
+}
+
+// ------------------------------------------------------------
+// グリッド列ヘッダーの▼フィルター（工事番号・機械・ユニット・担当者以外の列）
+// ------------------------------------------------------------
+
+// 列名からタスクのフィールド名へのマッピング（一致しないものだけ列挙）
+const _COLUMN_FIELD_MAP = { dash: 'hyphen' };
+
+/** 現在の列セット（gantt.config.columns）から列定義を取得 */
+function _findColumnDef(colName) {
+    return (gantt.config.columns || []).find(c => c.name === colName);
+}
+
+/** 列定義とタスクから、その列に表示されている値（フィルター比較用の文字列）を取得 */
+function _colFilterValueForTask(col, task) {
+    let v;
+    if (typeof col.template === 'function') {
+        v = col.template(task);
+    } else {
+        const field = _COLUMN_FIELD_MAP[col.name] || col.name;
+        v = task[field];
+    }
+    if (v == null) return '';
+    return String(v).replace(/<[^>]*>/g, '').trim();
+}
+
+/** 指定列の絞り込みだけを無視して（他の全フィルターは適用して）表示対象か判定（候補値の再計算用） */
+function _taskVisibleIgnoringColumnFilter(task, colName) {
+    if (!_taskVisibleIgnoringOwnerFilter(task)) return false;
+    if (!_taskVisibleIgnoringMachineFilter(task)) return false;
+    if (!_taskVisibleIgnoringUnitFilter(task)) return false;
+    for (const name in columnFilters) {
+        if (name === colName) continue;
+        const vals = columnFilters[name];
+        if (!vals || vals.length === 0) continue;
+        const col = _findColumnDef(name);
+        if (!col) continue;
+        if (vals[0] === FILTER_NONE) return false;
+        if (!vals.includes(_colFilterValueForTask(col, task))) return false;
+    }
+    return true;
+}
+
+/** 列ヘッダーフィルター（工事番号・機械・ユニット・担当者以外）をすべて適用した判定 */
+function _taskPassesGenericColumnFilters(task) {
+    for (const name in columnFilters) {
+        const vals = columnFilters[name];
+        if (!vals || vals.length === 0) continue;
+        const col = _findColumnDef(name);
+        if (!col) continue;
+        if (vals[0] === FILTER_NONE) return false;
+        if (!vals.includes(_colFilterValueForTask(col, task))) return false;
+    }
+    return true;
+}
+
+/** 指定列の候補値一覧を、現在の他フィルターを反映して収集 */
+function _collectColumnFilterValues(colName) {
+    const col = _findColumnDef(colName);
+    if (!col) return [];
+    const set = new Set();
+    gantt.eachTask(function(task) {
+        if (!_taskVisibleIgnoringColumnFilter(task, colName)) return;
+        const v = _colFilterValueForTask(col, task);
+        if (v !== '') set.add(v);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja', { numeric: true }));
 }
 
 function _collectMachineValues(rows) {
@@ -447,9 +522,45 @@ function _rebuildMachineFilterFromRows(rows) {
     _updateMachineFilterBtn();
 }
 
-function toggleProjectFilterDropdown() {
-    const dd = document.getElementById('project_filter_dropdown');
-    if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+// フィルタードロップダウン共通ヘルパー（既存4種＋列ヘッダー共有パネル）
+const _ALL_FILTER_DROPDOWN_IDS = [
+    'project_filter_dropdown', 'machine_filter_dropdown', 'unit_filter_dropdown',
+    'owner_filter_dropdown', 'completion_filter_dropdown', 'col_filter_dropdown'
+];
+
+function _closeAllFilterDropdowns() {
+    _ALL_FILTER_DROPDOWN_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+    _openColFilterName = null;
+}
+
+/** クリックされたボタン（または列ヘッダーセル）の直下にドロップダウンを固定位置で表示 */
+function _positionDropdownNear(dd, triggerEl) {
+    if (!triggerEl) return;
+    const anchor = triggerEl.closest('.gantt_grid_head_cell') || triggerEl;
+    const r = anchor.getBoundingClientRect();
+    dd.style.position = 'fixed';
+    dd.style.top = (r.bottom + 2) + 'px';
+    dd.style.left = r.left + 'px';
+}
+
+/** 開閉トグル共通処理。ダブルクリック等での取り違えを避けるため他は必ず閉じてから開く */
+function _toggleFilterDropdown(ddId, e) {
+    if (e) e.stopPropagation();
+    const dd = document.getElementById(ddId);
+    if (!dd) return;
+    const wasOpen = dd.style.display !== 'none' && dd.style.display !== '';
+    _closeAllFilterDropdowns();
+    if (!wasOpen) {
+        _positionDropdownNear(dd, e ? (e.currentTarget || e.target) : null);
+        dd.style.display = 'block';
+    }
+}
+
+function toggleProjectFilterDropdown(e) {
+    _toggleFilterDropdown('project_filter_dropdown', e);
 }
 
 function projectFilterAllChanged(checkbox) {
@@ -539,9 +650,8 @@ function _updateProjectFilterBtn() {
     }
 }
 
-function toggleOwnerFilterDropdown() {
-    const dd = document.getElementById('owner_filter_dropdown');
-    if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+function toggleOwnerFilterDropdown(e) {
+    _toggleFilterDropdown('owner_filter_dropdown', e);
 }
 
 function ownerFilterAllChanged(checkbox) {
@@ -591,9 +701,8 @@ function _updateOwnerFilterBtn() {
     }
 }
 
-function toggleMachineFilterDropdown() {
-    const dd = document.getElementById('machine_filter_dropdown');
-    if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+function toggleMachineFilterDropdown(e) {
+    _toggleFilterDropdown('machine_filter_dropdown', e);
 }
 
 function machineFilterAllChanged(checkbox) {
@@ -645,9 +754,8 @@ function _updateMachineFilterBtn() {
     }
 }
 
-function toggleUnitFilterDropdown() {
-    const dd = document.getElementById('unit_filter_dropdown');
-    if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+function toggleUnitFilterDropdown(e) {
+    _toggleFilterDropdown('unit_filter_dropdown', e);
 }
 
 function unitFilterAllChanged(checkbox) {
@@ -699,9 +807,8 @@ function _updateUnitFilterBtn() {
     }
 }
 
-function toggleCompletionFilterDropdown() {
-    const dd = document.getElementById('completion_filter_dropdown');
-    if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+function toggleCompletionFilterDropdown(e) {
+    _toggleFilterDropdown('completion_filter_dropdown', e);
 }
 
 function completionFilterAllChanged(checkbox) {
@@ -785,7 +892,129 @@ document.addEventListener('click', function(e) {
         const menu = document.getElementById('archive_dropdown_menu');
         if (menu) menu.classList.remove('open');
     }
+    // 列ヘッダーの▼共有ドロップダウン（トリガーは列ヘッダーボタン側でstopPropagation済み）
+    const colDd = document.getElementById('col_filter_dropdown');
+    if (colDd && !colDd.contains(e.target)) {
+        colDd.style.display = 'none';
+        _openColFilterName = null;
+    }
 });
+
+// ------------------------------------------------------------
+// 列ヘッダー▼ボタンのクリック処理（工事番号・機械・ユニット・担当者は既存パネルを流用、
+// それ以外の列は共有パネル col_filter_dropdown を使い回す）
+// ------------------------------------------------------------
+const _LEGACY_HEADER_FILTER_TOGGLERS = {
+    project_number: toggleProjectFilterDropdown,
+    machine: toggleMachineFilterDropdown,
+    unit: toggleUnitFilterDropdown,
+    owner: toggleOwnerFilterDropdown
+};
+
+function onColumnFilterBtnClick(e, colName) {
+    const legacyToggle = _LEGACY_HEADER_FILTER_TOGGLERS[colName];
+    if (legacyToggle) {
+        legacyToggle(e);
+        return;
+    }
+    _openGenericColumnFilter(colName, e);
+}
+
+function _openGenericColumnFilter(colName, e) {
+    const dd = document.getElementById('col_filter_dropdown');
+    if (!dd) return;
+    const wasOpenSame = dd.style.display === 'block' && _openColFilterName === colName;
+    _closeAllFilterDropdowns();
+    if (wasOpenSame) return;
+    _openColFilterName = colName;
+    _renderGenericColumnFilterList(colName);
+    _positionDropdownNear(dd, e ? (e.currentTarget || e.target) : null);
+    dd.style.display = 'block';
+}
+
+function _renderGenericColumnFilterList(colName) {
+    const listEl = document.getElementById('col_filter_chk_list');
+    const allChk = document.getElementById('col_filter_chk_all');
+    if (!listEl) return;
+    const values = _collectColumnFilterValues(colName);
+    let current = columnFilters[colName] || [];
+    if (current.length > 0 && current[0] !== FILTER_NONE) {
+        current = current.filter(v => values.includes(v));
+    }
+    columnFilters[colName] = current;
+    const allSelected = current.length === 0;
+    const esc = _escapeHtmlAttr;
+    listEl.innerHTML = values.map(v => {
+        const checked = (allSelected || current.includes(v)) ? ' checked' : '';
+        const ev = esc(v);
+        return `<label><input type="checkbox" class="col-filter-chk-item" value="${ev}" onchange="colFilterItemChanged()"${checked}> ${ev}</label>`;
+    }).join('');
+    if (allChk) {
+        allChk.onchange = function() { colFilterAllChanged(this); };
+        if (allSelected) {
+            allChk.checked = true;
+            allChk.indeterminate = false;
+        } else {
+            const visibleCount = current.filter(v => v !== FILTER_NONE).length;
+            allChk.checked = values.length > 0 && visibleCount >= values.length;
+            allChk.indeterminate = visibleCount > 0 && visibleCount < values.length;
+        }
+    }
+}
+
+function colFilterAllChanged(checkbox) {
+    const colName = _openColFilterName;
+    if (!colName) return;
+    checkbox.indeterminate = false;
+    const items = document.querySelectorAll('#col_filter_chk_list .col-filter-chk-item');
+    if (checkbox.checked) {
+        items.forEach(c => { c.checked = true; });
+        columnFilters[colName] = [];
+    } else {
+        items.forEach(c => { c.checked = false; });
+        columnFilters[colName] = [FILTER_NONE];
+    }
+    updateDisplay();
+}
+
+function colFilterItemChanged() {
+    const colName = _openColFilterName;
+    if (!colName) return;
+    const allItems = document.querySelectorAll('#col_filter_chk_list .col-filter-chk-item');
+    const checked = [...allItems].filter(c => c.checked).map(c => c.value);
+    const total = allItems.length;
+    if (checked.length === total) {
+        columnFilters[colName] = [];
+    } else if (checked.length === 0) {
+        columnFilters[colName] = [FILTER_NONE];
+    } else {
+        columnFilters[colName] = checked;
+    }
+    const allChk = document.getElementById('col_filter_chk_all');
+    if (allChk) {
+        allChk.checked = checked.length === total;
+        allChk.indeterminate = checked.length > 0 && checked.length < total;
+    }
+    updateDisplay();
+}
+
+/** 列名がフィルターで絞り込み中かどうか（▼ボタンのハイライト表示用） */
+function _isColumnFilterActive(colName) {
+    if (colName === 'project_number') return currentProjectFilter.length > 0;
+    if (colName === 'machine') return currentMachineFilter.length > 0;
+    if (colName === 'unit') return currentUnitFilter.length > 0;
+    if (colName === 'owner') return currentOwnerFilter.length > 0;
+    return (columnFilters[colName] || []).length > 0;
+}
+
+/** グリッド再描画のたびに、列ヘッダー▼ボタンのハイライト状態を反映し直す */
+function _refreshColumnFilterBtnStyles() {
+    document.querySelectorAll('.col-filter-btn').forEach(btn => {
+        const colName = btn.getAttribute('data-col');
+        btn.classList.toggle('col-filter-active', _isColumnFilterActive(colName));
+    });
+}
+gantt.attachEvent('onGanttRender', _refreshColumnFilterBtnStyles);
 
 function updateFilterButtons() {
     document.getElementById('resource_home_btn').classList.toggle('active', isResourceFullscreen);

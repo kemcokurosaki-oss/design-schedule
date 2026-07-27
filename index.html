@@ -45,7 +45,7 @@
             </div>
             <div class="header-row" id="dropdowns_row">
                 <div id="project_filter_wrap" style="position:relative;">
-                    <button type="button" id="project_filter_btn" onclick="toggleProjectFilterDropdown()" class="header-select" style="white-space:nowrap; text-align:left;">工事番号: 全表示</button>
+                    <button type="button" id="project_filter_btn" onclick="toggleProjectFilterDropdown(event)" class="header-select" style="white-space:nowrap; text-align:left;">工事番号: 全表示</button>
                     <div id="project_filter_dropdown" style="display:none; position:absolute; top:calc(100% + 2px); left:0; background:#fff; border:1px solid #ccc; border-radius:3px; z-index:9999; padding:4px 0; min-width:160px; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
                         <label style="display:block; padding:4px 10px; cursor:pointer; white-space:nowrap; font-size:13px; font-family:'メイリオ',Meiryo,sans-serif;">
                             <input type="checkbox" id="project_chk_all" onchange="projectFilterAllChanged(this)" checked> 全選択
@@ -60,7 +60,7 @@
                     </div>
                 </div>
                 <div id="machine_filter_wrap" style="position:relative; display:none;">
-                    <button type="button" id="machine_filter_btn" onclick="toggleMachineFilterDropdown()" class="header-select" style="white-space:nowrap; text-align:left;">機械: すべて</button>
+                    <button type="button" id="machine_filter_btn" onclick="toggleMachineFilterDropdown(event)" class="header-select" style="white-space:nowrap; text-align:left;">機械: すべて</button>
                     <div id="machine_filter_dropdown" style="display:none; position:absolute; top:calc(100% + 2px); left:0; background:#fff; border:1px solid #ccc; border-radius:3px; z-index:9999; padding:4px 0; min-width:130px; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
                         <label style="display:block; padding:4px 10px; cursor:pointer; white-space:nowrap; font-size:13px; font-family:'メイリオ',Meiryo,sans-serif;">
                             <input type="checkbox" id="machine_chk_all" onchange="machineFilterAllChanged(this)" checked> 全選択
@@ -70,7 +70,7 @@
                     </div>
                 </div>
                 <div id="unit_filter_wrap" style="position:relative; display:none;">
-                    <button type="button" id="unit_filter_btn" onclick="toggleUnitFilterDropdown()" class="header-select" style="white-space:nowrap; text-align:left;">ユニット: すべて</button>
+                    <button type="button" id="unit_filter_btn" onclick="toggleUnitFilterDropdown(event)" class="header-select" style="white-space:nowrap; text-align:left;">ユニット: すべて</button>
                     <div id="unit_filter_dropdown" style="display:none; position:absolute; top:calc(100% + 2px); left:0; background:#fff; border:1px solid #ccc; border-radius:3px; z-index:9999; padding:4px 0; min-width:130px; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
                         <label style="display:block; padding:4px 10px; cursor:pointer; white-space:nowrap; font-size:13px; font-family:'メイリオ',Meiryo,sans-serif;">
                             <input type="checkbox" id="unit_chk_all" onchange="unitFilterAllChanged(this)" checked> 全選択
@@ -80,7 +80,7 @@
                     </div>
                 </div>
                 <div id="owner_filter_wrap" style="position:relative; display:none;">
-                    <button type="button" id="owner_filter_btn" onclick="toggleOwnerFilterDropdown()" class="header-select" style="white-space:nowrap; text-align:left;">担当者: 全員</button>
+                    <button type="button" id="owner_filter_btn" onclick="toggleOwnerFilterDropdown(event)" class="header-select" style="white-space:nowrap; text-align:left;">担当者: 全員</button>
                     <div id="owner_filter_dropdown" style="display:none; position:absolute; top:calc(100% + 2px); left:0; background:#fff; border:1px solid #ccc; border-radius:3px; z-index:9999; padding:4px 0; min-width:130px; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
                         <label style="display:block; padding:4px 10px; cursor:pointer; white-space:nowrap; font-size:13px; font-family:'メイリオ',Meiryo,sans-serif;">
                             <input type="checkbox" id="owner_chk_all" onchange="ownerFilterAllChanged(this)" checked> 全選択
@@ -90,7 +90,7 @@
                     </div>
                 </div>
                 <div id="completion_filter_wrap" style="position:relative; display:none;">
-                    <button type="button" id="completion_filter_btn" onclick="toggleCompletionFilterDropdown()" class="header-select" style="white-space:nowrap; text-align:left;">完了: すべて</button>
+                    <button type="button" id="completion_filter_btn" onclick="toggleCompletionFilterDropdown(event)" class="header-select" style="white-space:nowrap; text-align:left;">完了: すべて</button>
                     <div id="completion_filter_dropdown" style="display:none; position:absolute; top:calc(100% + 2px); left:0; background:#fff; border:1px solid #ccc; border-radius:3px; z-index:9999; padding:4px 0; min-width:110px; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
                         <label style="display:block; padding:4px 10px; cursor:pointer; white-space:nowrap; font-size:13px; font-family:'メイリオ',Meiryo,sans-serif;">
                             <input type="checkbox" id="completion_chk_all" onchange="completionFilterAllChanged(this)" checked> 全選択
@@ -122,6 +122,15 @@
         </div>
         <div class="gantt-host" id="gantt_host">
             <div id="gantt_here" style="width:100%;"></div>
+        </div>
+
+        <!-- グリッド列ヘッダー用の共有フィルタードロップダウン（開いた列に応じて内容を差し替え） -->
+        <div id="col_filter_dropdown" class="col-filter-dropdown" style="display:none;">
+            <label>
+                <input type="checkbox" id="col_filter_chk_all" checked> 全選択
+            </label>
+            <div class="col-filter-dropdown-sep"></div>
+            <div id="col_filter_chk_list" class="col-filter-dropdown-list"></div>
         </div>
 
         <!-- 独立したリソースパネル -->
