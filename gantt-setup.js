@@ -1804,6 +1804,7 @@ function _getLongtermColumns() {
           },
           editor: { type: "start_date_editor", map_to: "start_date" } },
         { name: "end_date",   label: "手配<br>予定日", width: 60,  align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
+        { name: "wish_date",  label: "手配<br>期日",   width: 60,  align: "center", template: _templateWishDateCell, editor: { type: "wish_date_editor", map_to: "wish_date" } },
         { name: "status",     label: "状態",           width: 32,  align: "center",
           template: function(task) {
               const v = task.status || '';
