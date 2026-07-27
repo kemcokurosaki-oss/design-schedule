@@ -918,6 +918,101 @@ function _openGenericColumnFilter(colName, e) {
     dd.style.display = 'block';
 }
 
+// 年月日ツリー表示の対象とする列（開始日・完了予定日・出図希望日などの日付列）
+const _DATE_COLUMNS = new Set(['wish_date', 'start_date', 'end_date']);
+
+/** "YY/MM/DD" 形式の表示値を年月日に分解（一致しなければnull） */
+function _parseDateFilterValue(v) {
+    const m = /^(\d{2})\/(\d{2})\/(\d{2})$/.exec(v);
+    if (!m) return null;
+    return { year: 2000 + Number(m[1]), month: Number(m[2]), day: Number(m[3]) };
+}
+
+/** 日付列フィルター：Excelのオートフィルターのような年→月→日のツリーHTMLを構築 */
+function _buildDateFilterTreeHtml(values, checkedSet) {
+    const esc = _escapeHtmlAttr;
+    const tree = new Map(); // year -> Map(month -> [{day, value}])
+    values.forEach(v => {
+        const d = _parseDateFilterValue(v);
+        if (!d) return;
+        if (!tree.has(d.year)) tree.set(d.year, new Map());
+        const monthMap = tree.get(d.year);
+        if (!monthMap.has(d.month)) monthMap.set(d.month, []);
+        monthMap.get(d.month).push({ day: d.day, value: v });
+    });
+    const years = Array.from(tree.keys()).sort((a, b) => a - b);
+    let html = '';
+    years.forEach(year => {
+        const monthMap = tree.get(year);
+        const months = Array.from(monthMap.keys()).sort((a, b) => a - b);
+        const yearValues = [];
+        months.forEach(m => monthMap.get(m).forEach(d => yearValues.push(d.value)));
+        html += `<div class="col-filter-tree-node">
+            <label class="col-filter-tree-row col-filter-tree-year">
+                <span class="col-filter-tree-toggle" onclick="event.preventDefault(); _toggleDateTreeNode(this)">▾</span>
+                <input type="checkbox" class="col-filter-chk-year" data-values='${esc(JSON.stringify(yearValues))}' onchange="_dateFilterGroupChanged(this)"> ${year}年
+            </label>
+            <div class="col-filter-tree-children">`;
+        months.forEach(m => {
+            const days = monthMap.get(m).slice().sort((a, b) => a.day - b.day);
+            const monthValues = days.map(d => d.value);
+            html += `<div class="col-filter-tree-node">
+                <label class="col-filter-tree-row col-filter-tree-month">
+                    <span class="col-filter-tree-toggle" onclick="event.preventDefault(); _toggleDateTreeNode(this)">▸</span>
+                    <input type="checkbox" class="col-filter-chk-month" data-values='${esc(JSON.stringify(monthValues))}' onchange="_dateFilterGroupChanged(this)"> ${m}月
+                </label>
+                <div class="col-filter-tree-children" style="display:none;">`;
+            days.forEach(d => {
+                const checked = checkedSet.has(d.value) ? ' checked' : '';
+                html += `<label class="col-filter-tree-row col-filter-tree-day"><span class="col-filter-tree-toggle"></span><input type="checkbox" class="col-filter-chk-item" value="${esc(d.value)}" onchange="colFilterItemChanged(); _syncDateFilterTreeState();"${checked}> ${d.day}日</label>`;
+            });
+            html += `</div></div>`;
+        });
+        html += `</div></div>`;
+    });
+    return html;
+}
+
+/** ツリーの展開／折りたたみ切り替え */
+function _toggleDateTreeNode(toggleEl) {
+    const node = toggleEl.closest('.col-filter-tree-node');
+    if (!node) return;
+    const children = node.querySelector(':scope > .col-filter-tree-children');
+    if (!children) return;
+    const collapsed = children.style.display === 'none';
+    children.style.display = collapsed ? '' : 'none';
+    toggleEl.textContent = collapsed ? '▾' : '▸';
+}
+
+/** 年・月チェックボックスの checked/indeterminate を、配下の日チェックボックスの状態から再計算 */
+function _syncDateFilterTreeState() {
+    const itemChecked = new Map();
+    document.querySelectorAll('#col_filter_chk_list .col-filter-chk-item').forEach(it => {
+        itemChecked.set(it.value, it.checked);
+    });
+    document.querySelectorAll('#col_filter_chk_list .col-filter-chk-year, #col_filter_chk_list .col-filter-chk-month').forEach(cb => {
+        let vals = [];
+        try { vals = JSON.parse(cb.dataset.values || '[]'); } catch (_) { vals = []; }
+        if (!vals.length) { cb.checked = false; cb.indeterminate = false; return; }
+        const checkedCount = vals.filter(v => itemChecked.get(String(v))).length;
+        cb.checked = checkedCount === vals.length;
+        cb.indeterminate = checkedCount > 0 && checkedCount < vals.length;
+    });
+}
+
+/** 年・月チェックボックスの変更 → 配下の日チェックボックスをまとめて切り替え */
+function _dateFilterGroupChanged(checkbox) {
+    checkbox.indeterminate = false;
+    let vals = [];
+    try { vals = JSON.parse(checkbox.dataset.values || '[]'); } catch (_) { vals = []; }
+    const valueSet = new Set(vals.map(String));
+    document.querySelectorAll('#col_filter_chk_list .col-filter-chk-item').forEach(item => {
+        if (valueSet.has(item.value)) item.checked = checkbox.checked;
+    });
+    colFilterItemChanged();
+    _syncDateFilterTreeState();
+}
+
 function _renderGenericColumnFilterList(colName) {
     const listEl = document.getElementById('col_filter_chk_list');
     const allChk = document.getElementById('col_filter_chk_all');
@@ -929,12 +1024,21 @@ function _renderGenericColumnFilterList(colName) {
     }
     columnFilters[colName] = current;
     const allSelected = current.length === 0;
+    const checkedSet = new Set(allSelected ? values : current);
     const esc = _escapeHtmlAttr;
-    listEl.innerHTML = values.map(v => {
-        const checked = (allSelected || current.includes(v)) ? ' checked' : '';
-        const ev = esc(v);
-        return `<label><input type="checkbox" class="col-filter-chk-item" value="${ev}" onchange="colFilterItemChanged()"${checked}> ${ev}</label>`;
-    }).join('');
+
+    const isDateTree = _DATE_COLUMNS.has(colName) && values.length > 0 && values.every(v => _parseDateFilterValue(v));
+    if (isDateTree) {
+        listEl.innerHTML = _buildDateFilterTreeHtml(values, checkedSet);
+        _syncDateFilterTreeState();
+    } else {
+        listEl.innerHTML = values.map(v => {
+            const checked = checkedSet.has(v) ? ' checked' : '';
+            const ev = esc(v);
+            return `<label><input type="checkbox" class="col-filter-chk-item" value="${ev}" onchange="colFilterItemChanged()"${checked}> ${ev}</label>`;
+        }).join('');
+    }
+
     if (allChk) {
         allChk.onchange = function() { colFilterAllChanged(this); };
         if (allSelected) {
@@ -960,6 +1064,7 @@ function colFilterAllChanged(checkbox) {
         items.forEach(c => { c.checked = false; });
         columnFilters[colName] = [FILTER_NONE];
     }
+    _syncDateFilterTreeState();
     updateDisplay();
 }
 
