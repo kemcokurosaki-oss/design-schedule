@@ -1765,7 +1765,6 @@ function _getDrawingColumns() {
         { name: "total_sheets",     label: "総<br>枚数",     width: 50, align: "center", template: _templateTotalSheetsCell, editor: { type: "sheet_count", map_to: "total_sheets",     min: 0 }, noFilterBtn: true },
         { name: "completed_sheets", label: "完了<br>枚数",   width: 50, align: "center", template: _templateCompletedSheetsCell, editor: { type: "sheet_count", map_to: "completed_sheets", min: 0 }, noFilterBtn: true },
         { name: "progress",         label: "進捗",           width: 40, align: "center", template: _progressTemplate },
-        { name: "wish_date",        label: "出図<br>希望日", width: 65, align: "center", template: _templateWishDateCell, editor: { type: "wish_date_editor", map_to: "wish_date" } },
         { name: "start_date",       label: "開始日",         width: 65, align: "center",
           template: function(task) {
             if (task.has_no_start || !task.start_date) return "";
@@ -1777,10 +1776,11 @@ function _getDrawingColumns() {
           },
           editor: { type: "start_date_editor", map_to: "start_date" } },
         { name: "end_date",         label: "完了<br>予定日", width: 65, align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
+        { name: "wish_date",        label: "出図<br>希望日", width: 65, align: "center", template: _templateWishDateCell, editor: { type: "wish_date_editor", map_to: "wish_date" } },
         { name: "add_btn",          label: "",               width: 30, align: "center", template: (task) => _isEditor ? `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` : '' }
     ];
 }
-// 図面列合計: 35+35+45+235+30+30+25+30+30+45+50+50+40+65+65+65+30 = 905px
+// 図面列合計: 35+35+45+235+30+30+25+30+30+45+50+50+40+65+65+65+30 = 905px（出図希望日を末尾に移動、幅合計は変わらず）
 
 // 長納期品列定義
 function _getLongtermColumns() {

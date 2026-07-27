@@ -522,6 +522,31 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     border-top: 1px solid #eee;
     margin: 2px 0;
 }
+.col-filter-sort-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 13px;
+    font-family: 'メイリオ', Meiryo, sans-serif;
+}
+.col-filter-sort-row:hover {
+    background: #eef3f6;
+}
+.col-filter-sort-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    border: 1px solid #90a4ae;
+    border-radius: 2px;
+    background: #eceff1;
+    font-size: 10px;
+    color: #555;
+}
 .col-filter-dropdown-list {
     overflow-y: auto;
     max-height: 220px;

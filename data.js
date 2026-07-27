@@ -897,6 +897,35 @@ const _LEGACY_HEADER_FILTER_TOGGLERS = {
     owner: toggleOwnerFilterDropdown
 };
 
+/** フィルタードロップダウンの昇順・降順ボタン。colName省略時は現在開いている列（共有パネル）を対象にする */
+function applyColumnSort(direction, colName) {
+    const name = colName || _openColFilterName;
+    if (!name) return;
+    const field = _COLUMN_FIELD_MAP[name] || name;
+    const desc = direction === 'desc';
+    gantt.sort(function(a, b) {
+        let av = a[field];
+        let bv = b[field];
+        if (av instanceof Date) av = av.getTime();
+        if (bv instanceof Date) bv = bv.getTime();
+        const aEmpty = (av == null || av === '');
+        const bEmpty = (bv == null || bv === '');
+        if (aEmpty || bEmpty) {
+            if (aEmpty && bEmpty) return 0;
+            return aEmpty ? 1 : -1; // 空欄は昇順・降順どちらでも常に末尾へ
+        }
+        let cmp;
+        if (typeof av === 'string' || typeof bv === 'string') {
+            cmp = String(av).localeCompare(String(bv), 'ja', { numeric: true });
+        } else {
+            cmp = av < bv ? -1 : (av > bv ? 1 : 0);
+        }
+        return desc ? -cmp : cmp;
+    });
+    gantt.render();
+    _closeAllFilterDropdowns();
+}
+
 function onColumnFilterBtnClick(e, colName) {
     const legacyToggle = _LEGACY_HEADER_FILTER_TOGGLERS[colName];
     if (legacyToggle) {
