@@ -861,44 +861,30 @@ function _updateCompletionFilterBtn() {
 }
 
 // ドロップダウン外クリックで閉じる
+// キャプチャフェーズで登録：dhtmlxガント側のグリッド行・タイムラインのクリック処理が
+// バブリング途中でstopPropagationしても、documentへの到達前（キャプチャ段階）で確実に検知する
 document.addEventListener('click', function(e) {
-    const ownerWrap = document.getElementById('owner_filter_wrap');
-    if (ownerWrap && !ownerWrap.contains(e.target)) {
-        const dd = document.getElementById('owner_filter_dropdown');
-        if (dd) dd.style.display = 'none';
+    const t = e.target;
+
+    // フィルタートリガー自身のクリックは、各ボタンのonclick（開閉・排他制御）に処理を任せる
+    if (t.closest && t.closest('.col-filter-btn, #project_filter_btn, #machine_filter_btn, #unit_filter_btn, #owner_filter_btn, #completion_filter_btn')) {
+        return;
     }
-    const machineWrap = document.getElementById('machine_filter_wrap');
-    if (machineWrap && !machineWrap.contains(e.target)) {
-        const dd = document.getElementById('machine_filter_dropdown');
-        if (dd) dd.style.display = 'none';
-    }
-    const unitWrap = document.getElementById('unit_filter_wrap');
-    if (unitWrap && !unitWrap.contains(e.target)) {
-        const dd = document.getElementById('unit_filter_dropdown');
-        if (dd) dd.style.display = 'none';
-    }
-    const projectWrap = document.getElementById('project_filter_wrap');
-    if (projectWrap && !projectWrap.contains(e.target)) {
-        const dd = document.getElementById('project_filter_dropdown');
-        if (dd) dd.style.display = 'none';
-    }
-    const completionWrap = document.getElementById('completion_filter_wrap');
-    if (completionWrap && !completionWrap.contains(e.target)) {
-        const dd = document.getElementById('completion_filter_dropdown');
-        if (dd) dd.style.display = 'none';
-    }
+
     const archiveBtnWrap = document.getElementById('archive_btn_wrap');
-    if (archiveBtnWrap && !archiveBtnWrap.contains(e.target)) {
+    if (archiveBtnWrap && !archiveBtnWrap.contains(t)) {
         const menu = document.getElementById('archive_dropdown_menu');
         if (menu) menu.classList.remove('open');
     }
-    // 列ヘッダーの▼共有ドロップダウン（トリガーは列ヘッダーボタン側でstopPropagation済み）
-    const colDd = document.getElementById('col_filter_dropdown');
-    if (colDd && !colDd.contains(e.target)) {
-        colDd.style.display = 'none';
-        _openColFilterName = null;
-    }
-});
+
+    _ALL_FILTER_DROPDOWN_IDS.forEach(id => {
+        const dd = document.getElementById(id);
+        if (dd && dd.style.display !== 'none' && !dd.contains(t)) {
+            dd.style.display = 'none';
+            if (id === 'col_filter_dropdown') _openColFilterName = null;
+        }
+    });
+}, true);
 
 // ------------------------------------------------------------
 // 列ヘッダー▼ボタンのクリック処理（工事番号・機械・ユニット・担当者は既存パネルを流用、
