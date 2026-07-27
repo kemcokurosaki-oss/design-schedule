@@ -272,6 +272,38 @@ gantt.config.editor_types.completion_date = {
     }
 };
 
+// 出図希望日インラインエディタ（wish_date、文字列 YYYY-MM-DD をそのまま保持）
+gantt.config.editor_types.wish_date_editor = {
+    show: function(id, column, config, placeholder) {
+        placeholder.innerHTML = `<input type="date" ${_gridInputAttrs('name="grid_inline_wish_date"')} style="width:100%;height:100%;border:1px solid #7986cb;font-family:メイリオ,sans-serif;font-size:12px;box-sizing:border-box;">`;
+        var inp = placeholder.querySelector('input');
+        if (inp) {
+            inp.addEventListener('change', function() {
+                _commitInlineDateEdit(inp);
+            });
+        }
+    },
+    hide: function() {},
+    set_value: function(value, id, column, node) {
+        const inp = node.querySelector('input');
+        inp.value = value || '';
+    },
+    get_value: function(id, column, node) {
+        const val = node.querySelector('input').value;
+        return val || null;
+    },
+    is_changed: function(value, id, column, node) {
+        const nv = this.get_value(id, column, node);
+        return (value || null) !== nv;
+    },
+    is_valid: function() { return true; },
+    save: function() {},
+    focus: function(node) {
+        const inp = node.querySelector('input');
+        if (inp) { inp.focus(); if (inp.showPicker) try { inp.showPicker(); } catch(e) {} }
+    }
+};
+
 // Supabase 保存用：総枚数（未入力・0・不正値は null）
 function _totalSheetsToDb(v) {
     if (v == null || v === "") return null;
@@ -386,6 +418,28 @@ gantt.config.drag_progress = false; // バー上の進捗ドラッグハンド�
 gantt.config.start_date = new Date(2025, 0, 1);  // 2025年1月1日
 gantt.config.end_date = new Date(2028, 0, 1);    // 2027年12月31日まで含める
 gantt.config.fit_tasks = false; // 自動調整を無効化
+
+// 行クリック時のタイムライン自動スクロールを「開始日基準」から「完了予定日（終了日）基準」に変更
+gantt.config.scroll_on_click = false; // 既定の開始日基準の自動スクロールを無効化
+function _scrollTimelineToTaskEnd(id) {
+    const task = gantt.getTask(id);
+    if (!task) return;
+    let target = null;
+    if (!task.has_no_date && task.end_date) {
+        // end_date は排他的終了（完了日の翌日0時）なので1日戻して完了日を基準にする
+        target = gantt.date.add(task.end_date, -1, 'day');
+    } else if (!task.has_no_start && task.start_date) {
+        target = task.start_date;
+    }
+    if (target) gantt.showDate(target);
+}
+// onTaskSelected はタスク選択（グリッド行クリック・バークリックいずれも）完了後に必ず発火するため、
+// dhtmlxGantt内部の選択時処理が先に走った後でも、setTimeoutで一拍置いて最後にこちらのスクロールを確定させる
+gantt.attachEvent("onTaskSelected", function(id) {
+    setTimeout(function() {
+        requestAnimationFrame(function() { _scrollTimelineToTaskEnd(id); });
+    }, 0);
+});
 
 // グリッド幅をレイアウトで固定する関数（dhtmlxGanttの自動スケーリングを防ぐ）
 function _setLayout(gridWidth) {
@@ -554,7 +608,7 @@ function _buildMultiEditFieldDefs() {
 
         let inputType = "text";
         let options = null;
-        if (mapTo === "start_date" || mapTo === "end_date") {
+        if (mapTo === "start_date" || mapTo === "end_date" || mapTo === "wish_date") {
             inputType = "date";
         } else if (col.editor.type === "number") {
             inputType = "number";
@@ -1672,6 +1726,15 @@ function _templateCompletedSheetsCell(task) {
     return String(Math.floor(n));
 }
 
+// 出図希望日セル表示（wish_date、文字列 YYYY-MM-DD）
+function _templateWishDateCell(task) {
+    const v = task.wish_date;
+    if (!v) return "";
+    const parts = String(v).split('-');
+    if (parts.length !== 3) return "";
+    return parts[0].slice(-2) + '/' + parts[1] + '/' + parts[2];
+}
+
 // 図面列定義（デフォルト）
 function _getDrawingColumns() {
     return [
@@ -1688,6 +1751,7 @@ function _getDrawingColumns() {
         { name: "total_sheets",     label: "総<br>枚数",     width: 50, align: "center", template: _templateTotalSheetsCell, editor: { type: "sheet_count", map_to: "total_sheets",     min: 0 } },
         { name: "completed_sheets", label: "完了<br>枚数",   width: 50, align: "center", template: _templateCompletedSheetsCell, editor: { type: "sheet_count", map_to: "completed_sheets", min: 0 } },
         { name: "progress",         label: "進捗",           width: 40, align: "center", template: _progressTemplate },
+        { name: "wish_date",        label: "出図<br>希望日", width: 65, align: "center", template: _templateWishDateCell, editor: { type: "wish_date_editor", map_to: "wish_date" } },
         { name: "start_date",       label: "開始日",         width: 65, align: "center",
           template: function(task) {
             if (task.has_no_start || !task.start_date) return "";
@@ -1702,7 +1766,7 @@ function _getDrawingColumns() {
         { name: "add_btn",          label: "",               width: 30, align: "center", template: (task) => _isEditor ? `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` : '' }
     ];
 }
-// 図面列合計: 18+18+120+16+16+14+16+16+16+16+16+20+20+20 = 342px
+// 図面列合計: 35+35+45+235+30+30+25+30+30+45+50+50+40+65+65+65+30 = 905px
 
 // 長納期品列定義
 function _getLongtermColumns() {
