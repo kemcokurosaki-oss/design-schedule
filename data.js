@@ -1065,12 +1065,12 @@ async function initialize() {
                 _gridSelection.add(taskId);
             }
         } else {
-            // 通常クリック：単一選択＋バースクロール
+            // 通常クリック：単一選択＋バースクロール（完了予定日／終了日基準）
             _gridSelection.clear();
             _gridSelection.add(taskId);
             _lastGridClickId = taskId;
             const scrollY = gantt.getScrollState().y;
-            gantt.showTask(taskId);
+            _scrollTimelineToTaskEnd(taskId);
             gantt.scrollTo(null, scrollY);
         }
         _applyGridSelection();
