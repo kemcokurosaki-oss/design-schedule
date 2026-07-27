@@ -1735,6 +1735,20 @@ function _templateWishDateCell(task) {
     return parts[0].slice(-2) + '/' + parts[1] + '/' + parts[2];
 }
 
+// 列ヘッダーに▼フィルターボタンを付与しない列（データ列でない／集計専用の列）
+const _COLUMN_FILTER_EXCLUDE = new Set(["add_btn", "progress"]);
+
+// 列定義のlabelに▼フィルターボタンのHTMLを追加する（列幅・既存レイアウトは変更しない）
+function _withColumnFilterBtn(col) {
+    if (_COLUMN_FILTER_EXCLUDE.has(col.name)) return col;
+    const btn = `<button type="button" class="col-filter-btn" data-col="${col.name}" onclick="event.stopPropagation(); onColumnFilterBtnClick(event, '${col.name}')"></button>`;
+    return Object.assign({}, col, { label: (col.label || "") + btn });
+}
+
+function _applyColumnFilterButtons(cols) {
+    return cols.map(_withColumnFilterBtn);
+}
+
 // 図面列定義（デフォルト）
 function _getDrawingColumns() {
     return [
@@ -1803,7 +1817,7 @@ function _getLongtermColumns() {
 // 長納期品列合計: 32+42+190+85+28+70+32+60+20 = 559px
 
 // 列設定の初期化（固定初期幅）
-gantt.config.columns = _getDrawingColumns();
+gantt.config.columns = _applyColumnFilterButtons(_getDrawingColumns());
 gantt.config._columnFilterType = 'drawing';
 
 // 出張列定義
@@ -1842,7 +1856,7 @@ function switchColumns(filterType) {
     if (filterType === 'long_lead_item') baseCols = _getLongtermColumns();
     else if (filterType === 'business_trip' || filterType === 'planning') baseCols = _getTripColumns();
     else baseCols = _getDrawingColumns();
-    gantt.config.columns = baseCols;
+    gantt.config.columns = _applyColumnFilterButtons(baseCols);
     gantt.config._columnFilterType = filterType;
     _setLayout(_getColsSum(baseCols));
     gantt.render();
