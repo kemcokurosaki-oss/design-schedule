@@ -6,10 +6,11 @@
     <title>設計工程表</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='75' font-size='80' text-anchor='middle'>📐</text></svg>">
     <!-- DHTMLX Gantt -->
-    <link rel="stylesheet" href="https://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.css">
-    <script src="https://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dhtmlx-gantt@9.1.4/codebase/dhtmlxgantt.css">
+    <script src="https://cdn.jsdelivr.net/npm/dhtmlx-gantt@9.1.4/codebase/dhtmlxgantt.js"></script>
     <!-- Pro版（リソース機能）が必要な場合は、ライセンス版のJSを読み込む必要があります -->
-    <!-- 現在はCDNのedge版（通常はStandard版）を読み込んでいるため、一部のPro機能が制限されている可能性があります -->
+    <!-- 以前は cdn.dhtmlx.com/gantt/edge/ を参照していたが、ベンダー側の自動更新でv10.0.0に切り替わり、
+         marker/dnd等の拡張構成が変わって編集操作が動作しなくなったため、jsDelivr経由でv9.1.4に固定 -->
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="style.css">

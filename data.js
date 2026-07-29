@@ -1314,8 +1314,11 @@ async function initialize() {
 
     // 0. プラグイン有効化は gantt-setup.js 先頭に移動済み
 
-    // 1. Gantt初期化（デフォルトは読み取り専用、ログイン後に解除）
-    gantt.config.readonly = true;
+    // 1. Gantt初期化
+    // onAuthStateChange は非同期のため initialize() より先に発火して _isEditor が
+    // 確定していることがある。ここで無条件に true を上書きするとその判定を消してしまうため、
+    // 現在の _isEditor（未確定なら false）を反映する。
+    gantt.config.readonly = !_isEditor;
     gantt.config.columns = _applyColumnFilterButtons(_getDrawingColumns());
     gantt.config._columnFilterType = 'drawing';
     _setLayout(_getColsSum(gantt.config.columns));
