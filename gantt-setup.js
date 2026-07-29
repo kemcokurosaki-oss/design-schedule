@@ -32,6 +32,39 @@ function _commitInlineDateEdit(inputEl) {
     }, 0);
 }
 
+// インライン編集セル以外をクリックしたら必ず編集を確定して閉じる
+// （グリッド外・タイムライン上などのクリックでは dhtmlxGantt 標準の自動クローズが効かず、
+//   編集中セルが開いたまま固まって見えることがあるための保険）
+document.addEventListener('mousedown', function(e) {
+    if (!gantt.ext || !gantt.ext.inlineEditors) return;
+    const editingInput = document.querySelector('.gantt_grid_data .gantt_cell input, .gantt_grid_data .gantt_cell select, .gantt_grid_data .gantt_cell textarea');
+    if (!editingInput) return;
+    const editingCell = editingInput.closest('.gantt_cell');
+    if (editingCell && editingCell.contains(e.target)) return;
+    try { gantt.ext.inlineEditors.save(); } catch (err) {}
+    try { gantt.ext.inlineEditors.hide(); } catch (err) {}
+    // hide() を呼んでもセル側のDOMに入力欄が残ったまま固まることがあるための保険。
+    // 一拍置いても同じ入力欄が残っている（＝別セルで新しい編集が始まっていない）場合のみ、
+    // 該当行を再描画して確実に編集状態を解除する。
+    // gantt.render() はdhtmlxGantt側が「変更なし」と判断した行を再描画しないことがあるため、
+    // 手動で挿入した入力欄DOMが消えずに残るケースがある。そのためタスク単位の再描画APIを使う。
+    setTimeout(function() {
+        const stillOpen = document.querySelector('.gantt_grid_data .gantt_cell input, .gantt_grid_data .gantt_cell select, .gantt_grid_data .gantt_cell textarea');
+        if (stillOpen !== editingInput) return;
+        const row = editingCell && editingCell.closest('.gantt_row[task_id]');
+        const taskId = row ? row.getAttribute('task_id') : null;
+        try {
+            if (taskId && gantt.isTaskExists(taskId)) {
+                gantt.refreshTask(taskId);
+            } else {
+                gantt.render();
+            }
+        } catch (err) {
+            try { gantt.render(); } catch (err2) {}
+        }
+    }, 0);
+}, true);
+
 // パスワードマネージャの誤検知を避ける共通属性
 function _gridInputAttrs(extraAttrs) {
     const base = 'autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-form-type="other"';
