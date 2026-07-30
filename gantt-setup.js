@@ -1699,17 +1699,22 @@ function _fmtDate(obj) {
     return `${y}/${m}/${d}`;
 }
 
-// 進捗テンプレート
-function _progressTemplate(obj) {
+// 総枚数・完了枚数から進捗率(%)を算出。総枚数が未入力/0以下ならnull（空欄扱い）
+function _computeProgressPercent(obj) {
     const totalNum = Number(obj.total_sheets);
-    const totalPositive = Number.isFinite(totalNum) && totalNum > 0;
-    if (!totalPositive) {
-        return `<div class="progress-cell-container"></div>`;
-    }
+    if (!Number.isFinite(totalNum) || totalNum <= 0) return null;
     const completed = Math.max(0, Math.floor(parseFloat(obj.completed_sheets) || 0));
     const total = Math.floor(totalNum);
+    return Math.min(100, Math.round((completed / total) * 100));
+}
+
+// 進捗テンプレート
+function _progressTemplate(obj) {
+    const progress = _computeProgressPercent(obj);
+    if (progress === null) {
+        return `<div class="progress-cell-container"></div>`;
+    }
     const taskType = String(obj.task_type || "");
-    const progress = Math.min(100, Math.round((completed / total) * 100));
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const isDrawingComplete = (taskType === "drawing" && progress >= 100);
@@ -1769,7 +1774,7 @@ function _templateWishDateCell(task) {
 }
 
 // 列ヘッダーに▼フィルターボタンを付与しない列（データ列でない／集計専用の列）
-const _COLUMN_FILTER_EXCLUDE = new Set(["add_btn", "progress"]);
+const _COLUMN_FILTER_EXCLUDE = new Set(["add_btn"]);
 
 // 列定義のlabelに▼フィルターボタンのHTMLを追加する（列幅・既存レイアウトは変更しない）
 function _withColumnFilterBtn(col) {
