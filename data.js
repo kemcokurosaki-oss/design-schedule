@@ -209,7 +209,6 @@ function _isHoliday(date) {
 let currentOwnerFilter = [];      // 空配列 = 全担当者
 let currentMachineFilter = [];    // 空配列 = 機械で絞り込みなし
 let currentUnitFilter = [];       // 空配列 = ユニットで絞り込みなし
-let currentCompletionFilter = []; // 空配列 = 完了・未完了ともに表示
 
 // グリッド列ヘッダーの▼フィルター（工事番号・機械・ユニット・担当者以外の列）
 // colName -> 選択値の配列。空配列 = 全表示
@@ -238,10 +237,6 @@ function _taskPassesCommonFilters(task) {
     if (!_isDetailedTaskRow(task)) return false;
     if (currentProjectFilter.length > 0 && !currentProjectFilter.includes(String(task.project_number))) return false;
     if (currentTaskTypeFilter && String(task.task_type) !== currentTaskTypeFilter) return false;
-    if (currentCompletionFilter.length > 0) {
-        const label = (typeof _isCompletedForDisplay === 'function' && _isCompletedForDisplay(task)) ? '完了' : '未完了';
-        if (!currentCompletionFilter.includes(label)) return false;
-    }
     // 出張タスクが期限切れ（終了日から7日以上経過）の場合は非表示
     if (_isTripTask(task) && _isTripTaskExpired(task)) return false;
     return true;
@@ -313,6 +308,9 @@ function _taskVisibleOnGantt(task) {
 // 列名からタスクのフィールド名へのマッピング（一致しないものだけ列挙）
 const _COLUMN_FIELD_MAP = { dash: 'hyphen' };
 
+// 実データ列を持たない計算列のソート用アクセサ（タスクから比較値を算出）
+const _COLUMN_SORT_VALUE_ACCESSORS = { progress: _computeProgressPercent };
+
 /** 現在の列セット（gantt.config.columns）から列定義を取得 */
 function _findColumnDef(colName) {
     return (gantt.config.columns || []).find(c => c.name === colName);
@@ -361,17 +359,20 @@ function _taskPassesGenericColumnFilters(task) {
     return true;
 }
 
-/** 指定列の候補値一覧を、現在の他フィルターを反映して収集 */
+/** 指定列の候補値一覧を、現在の他フィルターを反映して収集（空欄セルがあれば先頭に''として含める） */
 function _collectColumnFilterValues(colName) {
     const col = _findColumnDef(colName);
     if (!col) return [];
     const set = new Set();
+    let hasEmpty = false;
     gantt.eachTask(function(task) {
         if (!_taskVisibleIgnoringColumnFilter(task, colName)) return;
         const v = _colFilterValueForTask(col, task);
-        if (v !== '') set.add(v);
+        if (v !== '') set.add(v); else hasEmpty = true;
     });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja', { numeric: true }));
+    const sorted = Array.from(set).sort((a, b) => a.localeCompare(b, 'ja', { numeric: true }));
+    if (hasEmpty) sorted.unshift('');
+    return sorted;
 }
 
 function _collectMachineValues(rows) {
@@ -525,7 +526,7 @@ function _rebuildMachineFilterFromRows(rows) {
 // フィルタードロップダウン共通ヘルパー（既存4種＋列ヘッダー共有パネル）
 const _ALL_FILTER_DROPDOWN_IDS = [
     'project_filter_dropdown', 'machine_filter_dropdown', 'unit_filter_dropdown',
-    'owner_filter_dropdown', 'completion_filter_dropdown', 'col_filter_dropdown'
+    'owner_filter_dropdown', 'col_filter_dropdown'
 ];
 
 function _closeAllFilterDropdowns() {
@@ -807,59 +808,6 @@ function _updateUnitFilterBtn() {
     }
 }
 
-function toggleCompletionFilterDropdown(e) {
-    _toggleFilterDropdown('completion_filter_dropdown', e);
-}
-
-function completionFilterAllChanged(checkbox) {
-    checkbox.indeterminate = false;
-    if (checkbox.checked) {
-        document.querySelectorAll('.completion-chk-item').forEach(chk => { chk.checked = true; });
-        currentCompletionFilter = [];
-    } else {
-        document.querySelectorAll('.completion-chk-item').forEach(chk => { chk.checked = false; });
-        currentCompletionFilter = [FILTER_NONE];
-    }
-    gantt.render();
-    _updateCompletionFilterBtn();
-    updateDisplay();
-}
-
-function completionFilterItemChanged() {
-    const allItems = document.querySelectorAll('.completion-chk-item');
-    const checked = [...allItems].filter(c => c.checked).map(c => c.value);
-    const total = allItems.length;
-    if (checked.length === total) {
-        currentCompletionFilter = [];
-    } else if (checked.length === 0) {
-        currentCompletionFilter = [FILTER_NONE];
-    } else {
-        currentCompletionFilter = checked;
-    }
-    const allChk = document.getElementById('completion_chk_all');
-    if (allChk) {
-        allChk.checked = checked.length === total;
-        allChk.indeterminate = checked.length > 0 && checked.length < total;
-    }
-    gantt.render();
-    _updateCompletionFilterBtn();
-    updateDisplay();
-}
-
-function _updateCompletionFilterBtn() {
-    const btn = document.getElementById('completion_filter_btn');
-    if (!btn) return;
-    if (currentCompletionFilter.length === 0) {
-        btn.textContent = '完了: すべて';
-    } else if (currentCompletionFilter[0] === FILTER_NONE) {
-        btn.textContent = '完了: ---';
-    } else if (currentCompletionFilter.length === 1) {
-        btn.textContent = '完了: ' + currentCompletionFilter[0];
-    } else {
-        btn.textContent = '完了: ' + currentCompletionFilter.join('・');
-    }
-}
-
 // ドロップダウン外クリックで閉じる
 // キャプチャフェーズで登録：dhtmlxガント側のグリッド行・タイムラインのクリック処理が
 // バブリング途中でstopPropagationしても、documentへの到達前（キャプチャ段階）で確実に検知する
@@ -867,7 +815,7 @@ document.addEventListener('click', function(e) {
     const t = e.target;
 
     // フィルタートリガー自身のクリックは、各ボタンのonclick（開閉・排他制御）に処理を任せる
-    if (t.closest && t.closest('.col-filter-btn, #project_filter_btn, #machine_filter_btn, #unit_filter_btn, #owner_filter_btn, #completion_filter_btn')) {
+    if (t.closest && t.closest('.col-filter-btn')) {
         return;
     }
 
@@ -902,10 +850,11 @@ function applyColumnSort(direction, colName) {
     const name = colName || _openColFilterName;
     if (!name) return;
     const field = _COLUMN_FIELD_MAP[name] || name;
+    const accessor = _COLUMN_SORT_VALUE_ACCESSORS[name];
     const desc = direction === 'desc';
     gantt.sort(function(a, b) {
-        let av = a[field];
-        let bv = b[field];
+        let av = accessor ? accessor(a) : a[field];
+        let bv = accessor ? accessor(b) : b[field];
         if (av instanceof Date) av = av.getTime();
         if (bv instanceof Date) bv = bv.getTime();
         const aEmpty = (av == null || av === '');
@@ -1064,7 +1013,8 @@ function _renderGenericColumnFilterList(colName) {
         listEl.innerHTML = values.map(v => {
             const checked = checkedSet.has(v) ? ' checked' : '';
             const ev = esc(v);
-            return `<label><input type="checkbox" class="col-filter-chk-item" value="${ev}" onchange="colFilterItemChanged()"${checked}> ${ev}</label>`;
+            const labelText = v === '' ? '(空欄)' : ev;
+            return `<label><input type="checkbox" class="col-filter-chk-item" value="${ev}" onchange="colFilterItemChanged()"${checked}> ${labelText}</label>`;
         }).join('');
     }
 
@@ -1159,8 +1109,6 @@ function updateFilterButtons() {
     if (machineWrap) machineWrap.style.display = isResourceFullscreen ? 'none' : '';
     const unitWrap = document.getElementById('unit_filter_wrap');
     if (unitWrap) unitWrap.style.display = isResourceFullscreen ? 'none' : '';
-    const completionWrap = document.getElementById('completion_filter_wrap');
-    if (completionWrap) completionWrap.style.display = isResourceFullscreen ? 'none' : '';
     const addBtn = document.getElementById('create_task_btn');
     if (addBtn) addBtn.style.display = (isResourceFullscreen || !_isEditor) ? 'none' : '';
 }

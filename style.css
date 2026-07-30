@@ -13,6 +13,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 #filter_btn_row { gap: 0; border-bottom: 1px solid #ddd; padding-bottom: 0; height: 31px; box-sizing: border-box; }
 .project-info { font-size: 16px; font-weight: bold; color: #333; }
 .zoom-controls { display: flex; gap: 5px; }
+.header-divider { width: 1px; align-self: stretch; background: #ccc; }
 .header-select {
     padding: 5px 24px 5px 8px;
     font-size: 13px;
@@ -25,23 +26,6 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     -webkit-appearance: none;
     cursor: pointer;
     min-width: 120px;
-}
-#dropdowns_row .header-select {
-    width: 130px;
-}
-#project_filter_btn {
-    width: 132px !important;
-    padding: 4px 20px 4px 6px;
-}
-#machine_filter_btn,
-#owner_filter_btn {
-    width: 100px !important;
-    min-width: 100px !important;
-    padding: 5px 20px 5px 4px;
-    background-position: right 6px center;
-}
-#unit_filter_btn {
-    width: 130px !important;
 }
 .action-controls { margin-left: auto; display: flex; gap: 5px; }
 .btn { padding: 2px 10px; cursor: pointer; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; font-family: "メイリオ", Meiryo, sans-serif; }
