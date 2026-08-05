@@ -23,11 +23,11 @@ function _parseSupabaseDate(str) {
     return new Date(s);
 }
 
-// 図面モード：総枚数（未設定・0は null として扱い、画面上は空欄）
+// 図面モード：総枚数（未設定は null として扱い画面上は空欄。0 は有効値として残す）
 function _normalizeTotalSheetsLoad(v) {
     if (v == null || v === "") return null;
     const n = Number(v);
-    if (!Number.isFinite(n) || n <= 0) return null;
+    if (!Number.isFinite(n) || n < 0) return null;
     return Math.floor(n);
 }
 
