@@ -337,11 +337,11 @@ gantt.config.editor_types.wish_date_editor = {
     }
 };
 
-// Supabase 保存用：総枚数（未入力・0・不正値は null）
+// Supabase 保存用：総枚数（未入力・不正値は null。0 は有効）
 function _totalSheetsToDb(v) {
     if (v == null || v === "") return null;
     const n = Number(v);
-    if (!Number.isFinite(n) || n <= 0) return null;
+    if (!Number.isFinite(n) || n < 0) return null;
     return Math.floor(n);
 }
 
@@ -380,7 +380,7 @@ gantt.config.editor_types.sheet_count = {
             return;
         }
         const f = Math.floor(n);
-        if (mapTo === "total_sheets" && f <= 0) {
+        if (mapTo === "total_sheets" && f < 0) {
             inp.value = "";
             return;
         }
@@ -389,12 +389,10 @@ gantt.config.editor_types.sheet_count = {
     get_value: function(id, column, node) {
         const inp = node.querySelector("input");
         const raw = inp ? inp.value : "";
-        const mapTo = column && column.editor && column.editor.map_to;
         if (raw === "") return null;
         const num = Number(raw);
         if (!Number.isFinite(num)) return null;
         const f = Math.max(0, Math.floor(num));
-        if (mapTo === "total_sheets" && f === 0) return null;
         return f;
     },
     is_changed: function(value, id, column, node) {
@@ -1525,7 +1523,7 @@ gantt.form_blocks["sheets_pair"] = {
             if (ts == null || ts === "") tsEl.value = "";
             else {
                 const tn = Number(ts);
-                tsEl.value = (!Number.isFinite(tn) || Math.floor(tn) <= 0) ? "" : String(Math.floor(tn));
+                tsEl.value = (!Number.isFinite(tn) || Math.floor(tn) < 0) ? "" : String(Math.floor(tn));
             }
         }
         if (csEl) {
@@ -1539,7 +1537,7 @@ gantt.form_blocks["sheets_pair"] = {
         if (tsRaw === "") task.total_sheets = null;
         else {
             const tn = Number(tsRaw);
-            task.total_sheets = (!Number.isFinite(tn) || Math.floor(tn) <= 0) ? null : Math.floor(tn);
+            task.total_sheets = (!Number.isFinite(tn) || Math.floor(tn) < 0) ? null : Math.floor(tn);
         }
         if (csRaw === "") task.completed_sheets = null;
         else {
@@ -1699,10 +1697,12 @@ function _fmtDate(obj) {
     return `${y}/${m}/${d}`;
 }
 
-// 総枚数・完了枚数から進捗率(%)を算出。総枚数が未入力/0以下ならnull（空欄扱い）
+// 総枚数・完了枚数から進捗率(%)を算出。総枚数が未入力/不正値/負数ならnull（空欄扱い）。総枚数0は100%（0/0扱い）
 function _computeProgressPercent(obj) {
+    if (obj.total_sheets == null || obj.total_sheets === "") return null;
     const totalNum = Number(obj.total_sheets);
-    if (!Number.isFinite(totalNum) || totalNum <= 0) return null;
+    if (!Number.isFinite(totalNum) || totalNum < 0) return null;
+    if (totalNum === 0) return 100;
     const completed = Math.max(0, Math.floor(parseFloat(obj.completed_sheets) || 0));
     const total = Math.floor(totalNum);
     return Math.min(100, Math.round((completed / total) * 100));
@@ -1734,8 +1734,10 @@ function _isCompletedForDisplay(task) {
     const taskType = String(task.task_type || "");
 
     if (taskType === "drawing") {
+        if (task.total_sheets == null || task.total_sheets === "") return false;
         const total = Number(task.total_sheets);
-        if (!Number.isFinite(total) || total <= 0) return false;
+        if (!Number.isFinite(total) || total < 0) return false;
+        if (total === 0) return true;
         const completed = Math.max(0, Math.floor(parseFloat(task.completed_sheets) || 0));
         const progress = Math.min(100, Math.round((completed / total) * 100));
         return progress >= 100;
@@ -1752,7 +1754,7 @@ function _templateTotalSheetsCell(task) {
     const v = task.total_sheets;
     if (v == null || v === "") return "";
     const n = Number(v);
-    if (!Number.isFinite(n) || n <= 0) return "";
+    if (!Number.isFinite(n) || n < 0) return "";
     return String(Math.floor(n));
 }
 
