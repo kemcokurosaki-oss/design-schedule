@@ -1005,9 +1005,16 @@ function _renderGenericColumnFilterList(colName) {
     const checkedSet = new Set(allSelected ? values : current);
     const esc = _escapeHtmlAttr;
 
-    const isDateTree = _DATE_COLUMNS.has(colName) && values.length > 0 && values.every(v => _parseDateFilterValue(v));
+    const nonEmptyValues = values.filter(v => v !== '');
+    const isDateTree = _DATE_COLUMNS.has(colName) && nonEmptyValues.length > 0 && nonEmptyValues.every(v => _parseDateFilterValue(v));
     if (isDateTree) {
-        listEl.innerHTML = _buildDateFilterTreeHtml(values, checkedSet);
+        let html = '';
+        if (values.includes('')) {
+            const checked = checkedSet.has('') ? ' checked' : '';
+            html += `<label class="col-filter-tree-row"><span class="col-filter-tree-toggle"></span><input type="checkbox" class="col-filter-chk-item" value=""${checked} onchange="colFilterItemChanged(); _syncDateFilterTreeState();"> (空欄)</label>`;
+        }
+        html += _buildDateFilterTreeHtml(nonEmptyValues, checkedSet);
+        listEl.innerHTML = html;
         _syncDateFilterTreeState();
     } else {
         listEl.innerHTML = values.map(v => {
