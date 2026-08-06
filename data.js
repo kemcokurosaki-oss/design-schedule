@@ -1170,6 +1170,8 @@ function setTaskTypeFilter(type) {
             gantt.setSizes();
             const currentLevel = document.querySelector('.zoom-btn.active')?.textContent === '週単位' ? 'week' : 'day';
             gantt.ext.zoom.setLevel(currentLevel);
+            // モード切替時の初期表示は今日の日付位置にする
+            gantt.showDate(new Date());
         }, 0);
     }
 }
