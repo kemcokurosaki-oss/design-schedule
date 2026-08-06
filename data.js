@@ -159,6 +159,10 @@ async function loadData() {
         return _isTripTask(t) && !_isTripTaskExpired(t);
     });
 
+    // 表示範囲の開始位置をアクティブタスクの最小開始月に自動調整（全体工程表と同じ方式、モード別）
+    _lastActiveTasksForRange = activeTasks;
+    _applyGanttStartDateForCurrentMode();
+
     // データ更新時は選択をリセット
     _gridSelection.clear();
     _lastGridClickId = null;
@@ -185,6 +189,9 @@ async function loadData() {
 let projectMap = new Map();
 let currentTaskTypeFilter = null; // null = 全表示
 let currentProjectFilter = [];    // 空配列 = 全工事番号
+
+// 表示範囲（タイムライン開始位置）の算出に使うアクティブタスク一覧（loadData() で更新）
+let _lastActiveTasksForRange = [];
 
 // 休日セット（"YYYY-MM-DD" 形式で保持）
 let HOLIDAYS = new Set();
@@ -231,6 +238,34 @@ function _escapeHtmlAttr(s) {
 /** onBeforeTaskDisplay と同じ：詳細行（ガントに出る行）のみ true */
 function _isDetailedTaskRow(row) {
     return row.is_detailed === true || String(row.is_detailed).toUpperCase() === 'TRUE';
+}
+
+/** 表示範囲（タイムライン開始位置）の算出対象か：詳細行・開始日あり・指定モードに一致 */
+function _isRangeCandidateTask(t, taskTypeFilter) {
+    if (!_isDetailedTaskRow(t)) return false;
+    if (t.has_no_start) return false;
+    if (taskTypeFilter && String(t.task_type) !== taskTypeFilter) return false;
+    return true;
+}
+
+/** タスク配列から、指定モード（task_typeフィルター。null なら全モード共通）における最小開始月を求める */
+function _computeGanttStartDateForMode(tasks, taskTypeFilter) {
+    let minStart = null;
+    tasks.forEach(t => {
+        if (!_isRangeCandidateTask(t, taskTypeFilter)) return;
+        const d = t.start_date;
+        if (d instanceof Date && !isNaN(d.getTime()) && (minStart === null || d < minStart)) minStart = d;
+    });
+    return minStart;
+}
+
+/** 現在のモード（currentTaskTypeFilter）に合わせて表示範囲の開始位置を再計算し gantt.config に反映 */
+function _applyGanttStartDateForCurrentMode() {
+    const minStart = _computeGanttStartDateForMode(_lastActiveTasksForRange, currentTaskTypeFilter);
+    if (minStart) {
+        GANTT_START_DATE = new Date(minStart.getFullYear(), minStart.getMonth(), 1);
+        gantt.config.start_date = new Date(GANTT_START_DATE.getTime());
+    }
 }
 
 function _taskPassesCommonFilters(task) {
@@ -1153,6 +1188,10 @@ function setTaskTypeFilter(type) {
     currentTaskTypeFilter = (currentTaskTypeFilter === type) ? null : type;
     updateFilterButtons();
 
+    // モード切替に合わせて表示範囲の開始位置を再計算
+    _applyGanttStartDateForCurrentMode();
+    gantt.render();
+
     if (currentTaskTypeFilter === null) {
         // フィルター全オフ → リソース全画面に戻す
         _enterResourceFullscreen();
@@ -1812,6 +1851,9 @@ async function initialize() {
             // 全体工程表からの遷移：指定モードのガントビューで起動
             currentTaskTypeFilter = taskTypeParam;
             updateFilterButtons();
+            // モードに合わせて表示範囲の開始位置を再計算
+            _applyGanttStartDateForCurrentMode();
+            gantt.render();
             switchColumns(taskTypeParam);
             _rebuildMachineFilterOptionsFromGantt();
             _rebuildUnitFilterOptionsFromGantt();
