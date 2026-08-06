@@ -446,8 +446,14 @@ function _completionDateClear(taskId) {
 gantt.config.auto_scheduling = true; // 自動スケジューリングを有効化
 gantt.config.drag_links = false; // バー周辺のリンク作成用ハンドル（▲）を非表示
 gantt.config.drag_progress = false; // バー上の進捗ドラッグハンドルを非表示
-gantt.config.start_date = new Date(2025, 0, 1);  // 2025年1月1日
-gantt.config.end_date = new Date(2028, 0, 1);    // 2027年12月31日まで含める
+// 表示範囲（全体工程表と同じ方式）
+// 開始位置: フォールバック値（loadData() でアクティブタスクの最小開始月に自動更新される）
+let GANTT_START_DATE = new Date(2025, 0, 1);
+// 終了位置: 起動時点から今月含めて2年先の月末
+const _ganttEndBase = new Date();
+let GANTT_END_DATE = new Date(_ganttEndBase.getFullYear() + 2, _ganttEndBase.getMonth() + 1, 0);
+gantt.config.start_date = new Date(GANTT_START_DATE.getTime());
+gantt.config.end_date = new Date(GANTT_END_DATE.getTime());
 gantt.config.fit_tasks = false; // 自動調整を無効化
 
 // 行クリック時のタイムライン自動スクロールを「開始日基準」から「完了予定日（終了日）基準」に変更
