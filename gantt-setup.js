@@ -444,6 +444,8 @@ function _completionDateClear(taskId) {
     gantt.updateTask(taskId);
 }
 gantt.config.auto_scheduling = true; // 自動スケジューリングを有効化
+// インライン編集時、開始日と完了予定日を連動させない（片方を変更しても他方は固定。durationのみ再計算）
+gantt.config.inline_editors_date_processing = "keepDates";
 gantt.config.drag_links = false; // バー周辺のリンク作成用ハンドル（▲）を非表示
 gantt.config.drag_progress = false; // バー上の進捗ドラッグハンドルを非表示
 // 表示範囲（全体工程表と同じ方式）
