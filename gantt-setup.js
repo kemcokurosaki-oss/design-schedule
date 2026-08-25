@@ -280,10 +280,19 @@ gantt.config.editor_types.completion_date = {
             return gantt.date.add(base, 1, 'day');
         }
         _clearingEndDateId = null;
-        gantt.getTask(id).has_no_date = false; // 日付再入力時にフラグリセット
+        var task = gantt.getTask(id);
+        var wasNoStart = !!task.has_no_start;
+        task.has_no_date = false; // 日付再入力時にフラグリセット
         var parts = val.split('-').map(Number);
         var completion = new Date(parts[0], parts[1] - 1, parts[2]);
-        return gantt.date.add(completion, 1, 'day');
+        var newEndDate = gantt.date.add(completion, 1, 'day');
+        if (wasNoStart) {
+            // 開始日未入力のまま完了予定日のみ入力 → 開始日を完了予定日-13日（2週間）に自動設定
+            task.start_date = gantt.date.add(newEndDate, -13, 'day');
+            task.has_no_start = false;
+            task.duration = 13;
+        }
+        return newEndDate;
     },
     is_changed: function(value, id, column, node) {
         var val = node.querySelector('input').value;
