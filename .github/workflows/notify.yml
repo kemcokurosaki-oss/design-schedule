@@ -1,9 +1,7 @@
 name: タスク期日通知
 
 on:
-  schedule:
-    - cron: '0 0 * * *'  # 毎朝9時JST（UTC 0:00）
-  workflow_dispatch:      # GitHub画面から手動実行も可能
+  workflow_dispatch:      # cron-job.orgから毎朝9時JSTに起動、または手動実行
     inputs:
       test_mode:
         description: 'テストモード（黒崎のみ送信）'
