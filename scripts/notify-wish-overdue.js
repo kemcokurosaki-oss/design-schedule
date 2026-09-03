@@ -124,9 +124,12 @@ async function main() {
   // 完了済み除外 & wish_date超過フィルタ
   const isCompleted = t => {
     if (t.task_type === 'long_lead_item') return t.status === '完了';
-    const total = Number(t.total_sheets) || 0;
-    const done  = Number(t.completed_sheets) || 0;
-    return total > 0 && done >= total;
+    if (t.total_sheets == null || t.total_sheets === '') return false;
+    const total = Number(t.total_sheets);
+    if (!Number.isFinite(total) || total < 0) return false;
+    if (total === 0) return true;
+    const done = Number(t.completed_sheets) || 0;
+    return done >= total;
   };
 
   const overdueDrawing = drawingTasks.filter(t => !isCompleted(t) && isWishOverdue(t));
