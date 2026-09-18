@@ -1812,7 +1812,7 @@ function _getDrawingColumns() {
         { name: "project_number",   label: "工事<br>番号",   width: 35, align: "center", editor: { type: "text",   map_to: "project_number" } },
         { name: "machine",          label: "機械",           width: 35, align: "center", editor: { type: "text",   map_to: "machine" } },
         { name: "unit",             label: "ユニ",           width: 45, align: "center", editor: { type: "text",   map_to: "unit" } },
-        { name: "text",             label: "組立図面名",     width: 235, tree: true,      editor: { type: "text",   map_to: "text" }, noFilterBtn: true },
+        { name: "text",             label: "組立図面名",     width: 235, tree: true,      editor: { type: "text",   map_to: "text" } },
         { name: "model_type",       label: "機種",           width: 30, align: "center", editor: { type: "text",   map_to: "model_type" }, noFilterBtn: true },
         { name: "unit2",            label: "ユニ<br>2",      width: 30, align: "center", editor: { type: "text",   map_to: "unit2" }, noFilterBtn: true },
         { name: "dash",             label: "-",              width: 25, align: "center", template: (task) => task.hyphen ?? "-", editor: { type: "text", map_to: "hyphen" }, noFilterBtn: true },
