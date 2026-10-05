@@ -43,6 +43,7 @@ const EDITORS = [
     'y-nomura@kusakabe.com',    // 野村
     's-yokoyama@kusakabe.com',  // 横山
     'i-tanabe@kusakabe.com',    // 田邊
+    'r-tateno@kusakabe.com',    // 立野
 ];
 const EDITOR_NAMES = {
     'm2-kusakabe@kusakabe.com': '常務',
@@ -59,6 +60,7 @@ const EDITOR_NAMES = {
     'y-nomura@kusakabe.com':    '野村',
     's-yokoyama@kusakabe.com':  '横山',
     'i-tanabe@kusakabe.com':    '田邊',
+    'r-tateno@kusakabe.com':    '立野',
 };
 let _isEditor = false;
 let _currentEditorEmail = '';
