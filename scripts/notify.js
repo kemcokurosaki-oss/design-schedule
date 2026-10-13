@@ -1,19 +1,12 @@
-const nodemailer = require('nodemailer');
+const { MAIL_PROVIDER, SENDER_ADDRESS, requireMailEnv, formatFrom, sendMail } = require('./mailer');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY;
-const GMAIL_USER = process.env.GMAIL_USER;
-const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD;
 
 const PROCESS_MANAGERS = [
   { email: 's-morimura@kusakabe.com', name: '森村' },
   { email: 'e-kurosaki@kusakabe.com', name: '黒崎' },
 ];
-
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: { user: GMAIL_USER, pass: GMAIL_PASS },
-});
 
 async function supabaseFetch(path) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -30,8 +23,8 @@ async function supabaseFetch(path) {
 const OWNER_ORDER = ['藤山','田中','安岡','川邊','檀','堀井','宮﨑','津田','古村','柴田','橋本','松本(英)'];
 
 async function sendEmail(toEmail, toName, tasksList, testMode = false) {
-  await transporter.sendMail({
-    from: `"設計工程通知" <${GMAIL_USER}>`,
+  await sendMail({
+    from: formatFrom('設計工程通知'),
     to: toEmail,
     subject: (testMode ? '【テスト】' : '') + '【設計工程通知】完了予定日が近いタスクのお知らせ',
     text: `${toName} 様\n\n完了予定日が近いタスクをお知らせします。\n\n${tasksList}\n\n確認をお願いします。\n\n※このメールは自動送信です。`,
@@ -40,6 +33,8 @@ async function sendEmail(toEmail, toName, tasksList, testMode = false) {
 }
 
 async function main() {
+  requireMailEnv();
+  console.log(`送信元: ${SENDER_ADDRESS}（${MAIL_PROVIDER}）`);
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
 

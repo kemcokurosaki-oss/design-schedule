@@ -1,19 +1,12 @@
-const nodemailer = require('nodemailer');
+const { MAIL_PROVIDER, SENDER_ADDRESS, requireMailEnv, formatFrom, sendMail } = require('./mailer');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY;
-const GMAIL_USER = process.env.GMAIL_USER;
-const GMAIL_PASS = process.env.GMAIL_APP_PASSWORD;
 
 const PROCESS_MANAGERS = [
   { email: 's-morimura@kusakabe.com', name: '森村' },
   { email: 'e-kurosaki@kusakabe.com', name: '黒崎' },
 ];
-
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: { user: GMAIL_USER, pass: GMAIL_PASS },
-});
 
 async function supabaseFetch(path) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -27,8 +20,8 @@ async function supabaseFetch(path) {
 }
 
 async function sendEmail(toEmail, toName, subject, body) {
-  await transporter.sendMail({
-    from: `"設計工程通知" <${GMAIL_USER}>`,
+  await sendMail({
+    from: formatFrom('設計工程通知'),
     to: toEmail,
     subject,
     text: `${toName} 様\n\n本日追加されたタスクをお知らせします。\n\n${body}\n\n※このメールは自動送信です。`,
@@ -57,6 +50,8 @@ function buildSection(tasks, mode) {
 }
 
 async function main() {
+  requireMailEnv();
+  console.log(`送信元: ${SENDER_ADDRESS}（${MAIL_PROVIDER}）`);
   const testMode = process.env.TEST_MODE === 'true';
   if (testMode) console.log('テストモード: e-kurosaki@kusakabe.comのみに送信');
 
