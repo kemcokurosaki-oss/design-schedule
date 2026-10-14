@@ -354,7 +354,8 @@ function _findColumnDef(colName) {
 /** 列定義とタスクから、その列に表示されている値（フィルター比較用の文字列）を取得 */
 function _colFilterValueForTask(col, task) {
     let v;
-    if (typeof col.template === 'function') {
+    // 無害化のために自動で付けた template（$autoEscape）は、元の値で比較するため使わない
+    if (typeof col.template === 'function' && !col.template.$autoEscape) {
         v = col.template(task);
     } else {
         const field = _COLUMN_FIELD_MAP[col.name] || col.name;

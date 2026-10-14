@@ -5,6 +5,36 @@ gantt.plugins({
 });
 gantt.config.date_format = "%Y-%m-%d";
 
+// DB の値を HTML に埋め込むときは必ずこれを通す（書き込まれた文字列がタグやスクリプトとして動かないようにする）
+function _escapeGridText(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// 表示方法（template）のない列は、ガントのライブラリが DB の値をそのまま HTML として描画する。
+// 列を設定した時点で、無害化して表示する template を補う（$autoEscape の付いたものはフィルター比較では使わない）
+(function () {
+    const RAW_COLUMNS = ['start_date', 'end_date', 'duration', 'add'];
+    const fill = (cols) => {
+        (cols || []).forEach(col => {
+            if (!col || col.template || RAW_COLUMNS.includes(col.name)) return;
+            col.template = (task) => _escapeGridText(task[col.name]);
+            col.template.$autoEscape = true;
+        });
+        return cols;
+    };
+    let current = fill(gantt.config.columns);
+    try {
+        Object.defineProperty(gantt.config, 'columns', {
+            configurable: true,
+            enumerable: true,
+            get: () => current,
+            set: (v) => { current = fill(v); },
+        });
+    } catch (e) {
+        console.warn('列の無害化設定に失敗しました', e);
+    }
+})();
+
 function showLoading() {
     const el = document.getElementById('loading-overlay');
     if (el) el.classList.add('visible');
@@ -1815,7 +1845,7 @@ function _getDrawingColumns() {
         { name: "text",             label: "組立図面名",     width: 235, tree: true,      editor: { type: "text",   map_to: "text" } },
         { name: "model_type",       label: "機種",           width: 30, align: "center", editor: { type: "text",   map_to: "model_type" }, noFilterBtn: true },
         { name: "unit2",            label: "ユニ<br>2",      width: 30, align: "center", editor: { type: "text",   map_to: "unit2" }, noFilterBtn: true },
-        { name: "dash",             label: "-",              width: 25, align: "center", template: (task) => task.hyphen ?? "-", editor: { type: "text", map_to: "hyphen" }, noFilterBtn: true },
+        { name: "dash",             label: "-",              width: 25, align: "center", template: (task) => _escapeGridText(task.hyphen ?? "-"), editor: { type: "text", map_to: "hyphen" }, noFilterBtn: true },
         { name: "characteristic",   label: "特性",           width: 30, align: "center", editor: { type: "text",   map_to: "characteristic" }, noFilterBtn: true },
         { name: "derivation",       label: "派生",           width: 30, align: "center", editor: { type: "text",   map_to: "derivation" }, noFilterBtn: true },
         { name: "owner",            label: "担当",           width: 45, align: "center", editor: { type: "owner_select", map_to: "owner" } },
@@ -1923,11 +1953,11 @@ function switchColumns(filterType) {
 // スタイルとテンプレート
 gantt.templates.task_text = function(start, end, task) {
     if (_isCompletedForDisplay(task)) {
-        return `<span style="color:#333;">${task.text}</span>`;
+        return `<span style="color:#333;">${_escapeGridText(task.text)}</span>`;
     }
     const colorClass = getOwnerColorClass(task.owner);
     const textColor = (["owner-tsuda", "owner-shibata", "owner-matsumoto"].includes(colorClass)) ? "#222" : "#fff";
-    return `<span style="color:${textColor};">${task.text}</span>`;
+    return `<span style="color:${textColor};">${_escapeGridText(task.text)}</span>`;
 };
 
 gantt.templates.task_class = function(start, end, task) {
