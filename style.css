@@ -1105,6 +1105,15 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     color: #999; font-size: 12px; cursor: pointer; margin-top: 8px;
     font-family: 'メイリオ', Meiryo, sans-serif;
 }
+#login_dialog .login-ms-btn {
+    width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 9px; background: #fff; color: #1f1f1f; border: 1px solid #c8cfda; border-radius: 4px;
+    font-size: 13px; font-weight: bold; cursor: pointer; font-family: 'メイリオ', Meiryo, sans-serif;
+}
+#login_dialog .login-ms-btn:hover { background: #f3f6fa; }
+#login_dialog .login-divider { display: flex; align-items: center; gap: 8px; margin: 14px 0 12px; color: #999; font-size: 11px; }
+#login_dialog .login-divider::before, #login_dialog .login-divider::after { content: ''; flex: 1; border-top: 1px solid #e0e0e0; }
+#login_error { margin-top: 10px; }
 .btn-auth { font-size: 12px; padding: 2px 10px; }
 .btn-auth.logged-in { background: #e8f5e9; color: #2e7d32; border-color: #a5d6a7; }
 
