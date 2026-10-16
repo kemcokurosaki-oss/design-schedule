@@ -16,6 +16,16 @@ if (_isFileProtocol) {
         'http://localhost で開いてください。'
     );
 }
+// Microsoft でのログイン後、新規作成のときは Supabase が別のアプリ（Site URL）に戻してしまうことがある。
+// ログインを始めたページを m365_return_to に覚えておき、違うページに戻ってきたらトークンごと元のページへ送る
+(function () {
+    const ret = localStorage.getItem('m365_return_to');
+    if (!ret) return;
+    const fromLogin = /access_token=|error=/.test(location.hash) || /[?&](code|error)=/.test(location.search);
+    if (!fromLogin) return;
+    localStorage.removeItem('m365_return_to');
+    if (ret !== location.origin + location.pathname) location.replace(ret + location.search + location.hash);
+})();
 const supabaseClient = supabase.createClient(S_URL, S_KEY, {
     auth: {
         persistSession: true,
@@ -37,9 +47,10 @@ let _isLoggedIn    = false;
 let _loginRequired = false; // ログインしないと閲覧できない状態でログイン画面を出しているか
 
 async function doMicrosoftLogin() {
+    localStorage.setItem('m365_return_to', window.location.origin + window.location.pathname);
     const { error } = await supabaseClient.auth.signInWithOAuth({
         provider: 'azure',
-        options: { scopes: 'email', redirectTo: window.location.origin + window.location.pathname }
+        options: { scopes: 'openid profile email', redirectTo: window.location.origin + window.location.pathname }
     });
     if (error) _showLoginError('Microsoftでのログインを開始できませんでした');
 }
