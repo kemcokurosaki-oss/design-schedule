@@ -210,6 +210,8 @@
             const showError = (msg) => { el('m365_error').textContent = msg; };
             el('m365_pw_area').style.display = SHOW_PASSWORD && M365_ONLY ? '' : 'none';
             el('m365_ms_btn').addEventListener('click', async () => {
+                // PCのファイルを直接開いた状態（file://）では、ログイン後に戻ってくる先が無いため使えない
+                if (location.protocol === 'file:') { showError('このページはPCのファイルを直接開いているため、Microsoftでログインできません。GitHubのURL（https://kemcokurosaki-oss.github.io/…）から開いてください。'); return; }
                 localStorage.setItem('m365_return_to', window.location.origin + window.location.pathname);
                 const { error } = await client.auth.signInWithOAuth({
                     provider: 'azure',
