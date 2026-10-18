@@ -25,7 +25,7 @@
     if (ret !== location.origin + location.pathname) location.replace(ret + location.search + location.hash);
 })();
 (function () {
-    const M365_ONLY = false;
+    const M365_ONLY = true;
 
     const qs = new URLSearchParams(window.location.search);
     const GATE          = M365_ONLY || qs.has('ms');
