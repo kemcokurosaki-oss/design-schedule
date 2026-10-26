@@ -1230,3 +1230,15 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 @keyframes ls-fade { 0% { opacity: 1; } 100% { opacity: 0.12; } }
 .loading-label { font-size: 15px; color: #555555; letter-spacing: 0.12em; font-family: 'メイリオ', Meiryo, sans-serif; }
 #setpw_btn_submit:hover { background: #27ae60; }
+
+/* 追加（コピー・貼り付け・新規）した行を数秒だけ光らせる。_flashTaskRows で付与 → 2.5秒後に fade で消す */
+#gantt_here .gantt_row.row-just-added,
+#gantt_here .gantt_row.odd.row-just-added,
+#gantt_here .gantt_task_row.row-just-added {
+    background-color: #fff176 !important;
+    transition: background-color 0.8s ease;
+}
+#gantt_here .gantt_row.row-just-added.row-just-added-fade,
+#gantt_here .gantt_task_row.row-just-added.row-just-added-fade {
+    background-color: transparent !important;
+}

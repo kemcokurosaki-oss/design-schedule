@@ -1029,14 +1029,25 @@ async function _finalizePendingNewTaskToDb(id) {
     try {
         const item = gantt.getTask(id);
         const taskTypeResolved = item.task_type || currentTaskTypeFilter || "drawing";
-        const baseSortOrder = _computeSortOrderForInsert(
-            item.project_number,
-            item.machine,
-            item.unit,
-            taskTypeResolved,
-            id
-        );
         const addRowCount = Math.max(1, Math.min(100, Number(item.add_row_count) || 1));
+        // ＋ボタンで追加した場合は押した行の直下。編集画面で工事番号・機械・ユニットを変えたときは従来どおりそのまとまりの末尾
+        let anchorId = null;
+        const after = (item._insert_after_id != null && gantt.isTaskExists(item._insert_after_id))
+            ? gantt.getTask(item._insert_after_id) : null;
+        if (after
+            && String(after.project_number || '').trim() === String(item.project_number || '').trim()
+            && String(after.task_type || 'drawing') === String(taskTypeResolved)
+            && _normKey(after.machine) === _normKey(item.machine)
+            && _normKey(after.unit) === _normKey(item.unit)) {
+            anchorId = after.id;
+        } else {
+            anchorId = _findInsertAnchorId(item.project_number, item.machine, item.unit, taskTypeResolved, id);
+        }
+        const sortOrders = await _reserveSortOrders(item.project_number, taskTypeResolved, {
+            afterId: anchorId,
+            count: addRowCount,
+            excludeIds: [id]
+        });
 
         const endDateStr = item.has_no_date
             ? null
@@ -1073,7 +1084,7 @@ async function _finalizePendingNewTaskToDb(id) {
         const insertRows = Array.from({ length: addRowCount }, function(_, idx) {
             return {
                 ...insertBaseRow,
-                sort_order: baseSortOrder + (idx * 1000)
+                sort_order: sortOrders[idx]
             };
         });
 
@@ -1101,6 +1112,7 @@ async function _finalizePendingNewTaskToDb(id) {
 
         if (data && data[0]) {
             gantt.showTask(data[0].id);
+            _flashTaskRows(data.map(r => r.id));
         }
     } catch (e) {
         console.error("Exception in _finalizePendingNewTaskToDb:", e);
@@ -1120,48 +1132,110 @@ function _normKey(s) {
     return String(s || '').trim();
 }
 
-/**
- * 保存時の工事番号・機械・ユニットに基づき sort_order を決める。
- * 同じ3つを持つ行があれば、その並びの末尾の直後に入る。なければその工事番号＋タスク種の末尾。
- * excludeTaskId: 仮追加行を候補から外す
- */
-function _computeSortOrderForInsert(projectNumber, machine, unit, taskType, excludeTaskId) {
-    const tt = String(taskType || currentTaskTypeFilter || 'drawing');
+/** 同じ工事番号＋タスク種の詳細行を表示順（sort_order → id）で返す。excludeIds の行は除く */
+function _getSortGroup(projectNumber, taskType, excludeIds) {
     const pn = String(projectNumber || '').trim();
-    const m = _normKey(machine);
-    const u = _normKey(unit);
-
-    const candidates = [];
+    const tt = String(taskType || 'drawing');
+    const ex = new Set((excludeIds || []).map(String));
+    const group = [];
     gantt.eachTask(function(task) {
-        if (excludeTaskId != null && String(task.id) === String(excludeTaskId)) return;
+        if (ex.has(String(task.id))) return;
         const isDetailed = (task.is_detailed === true || String(task.is_detailed).toUpperCase() === 'TRUE');
         if (!isDetailed) return;
         if (String(task.project_number || '').trim() !== pn) return;
         if (String(task.task_type || 'drawing') !== tt) return;
-        candidates.push(task);
+        group.push(task);
     });
-    candidates.sort((a, b) => _sortOrderValue(a) - _sortOrderValue(b));
+    group.sort((a, b) => (_sortOrderValue(a) - _sortOrderValue(b)) || (Number(a.id) - Number(b.id)));
+    return group;
+}
 
-    let lastMatchIdx = -1;
-    for (let i = 0; i < candidates.length; i++) {
-        if (_normKey(candidates[i].machine) === m && _normKey(candidates[i].unit) === u) {
-            lastMatchIdx = i;
+/**
+ * 新規追加の挿入位置（この行の直後に入れる）を決める。
+ * 同じ工事番号・機械・ユニットの行があればその並びの末尾、なければ null（工事番号＋タスク種の末尾）。
+ */
+function _findInsertAnchorId(projectNumber, machine, unit, taskType, excludeTaskId) {
+    const m = _normKey(machine);
+    const u = _normKey(unit);
+    const group = _getSortGroup(projectNumber, taskType, excludeTaskId != null ? [excludeTaskId] : []);
+    let anchor = null;
+    group.forEach(function(t) {
+        if (_normKey(t.machine) === m && _normKey(t.unit) === u) anchor = t.id;
+    });
+    return anchor;
+}
+
+/** sort_order だけを DB に保存する。0 件更新（ログイン切れ等）もエラーとして扱う */
+async function _persistSortOrders(changes) {
+    for (let i = 0; i < changes.length; i += 10) {
+        const chunk = changes.slice(i, i + 10);
+        const results = await Promise.all(chunk.map(c =>
+            supabaseClient.from('tasks').update({ sort_order: c.sort_order }).eq('id', c.id).select('id')
+        ));
+        for (const r of results) {
+            if (r.error) throw r.error;
+            if (!r.data || r.data.length === 0) throw new Error('並び順を保存できませんでした（再ログインしてください）');
         }
     }
+}
 
-    if (lastMatchIdx >= 0) {
-        const afterTask = candidates[lastMatchIdx];
-        if (lastMatchIdx + 1 < candidates.length) {
-            const nextTask = candidates[lastMatchIdx + 1];
-            return Math.round((_sortOrderValue(afterTask) + _sortOrderValue(nextTask)) / 2);
-        }
-        return _sortOrderValue(afterTask) + 1000;
+/**
+ * 工事番号＋タスク種の並びの中で、afterId の直後（無ければ beforeId の直前、どちらも無ければ末尾）に
+ * count 行ぶんの sort_order を確保して返す。間が足りないときはグループ全体を 1000 刻みに振り直して DB に保存する。
+ * excludeIds: 移動中の行など、並びから外して考える行
+ */
+async function _reserveSortOrders(projectNumber, taskType, opts) {
+    const o = opts || {};
+    const count = Math.max(1, Number(o.count) || 1);
+    const group = _getSortGroup(projectNumber, taskType, o.excludeIds);
+
+    let idx = group.length;
+    const afterIdx = (o.afterId != null) ? group.findIndex(t => String(t.id) === String(o.afterId)) : -1;
+    const beforeIdx = (o.beforeId != null) ? group.findIndex(t => String(t.id) === String(o.beforeId)) : -1;
+    if (afterIdx >= 0) idx = afterIdx + 1;
+    else if (beforeIdx >= 0) idx = beforeIdx;
+
+    const hi = idx < group.length ? _sortOrderValue(group[idx]) : null;
+    let lo = idx > 0 ? _sortOrderValue(group[idx - 1]) : null;
+    if (hi == null) {
+        const base = (lo == null) ? 1000 : lo + 1000;
+        return Array.from({ length: count }, (_, k) => base + k * 1000);
+    }
+    if (lo == null) lo = hi - (count + 1) * 1000;
+
+    const step = Math.floor((hi - lo) / (count + 1));
+    if (step >= 1) {
+        return Array.from({ length: count }, (_, k) => lo + step * (k + 1));
     }
 
-    if (candidates.length > 0) {
-        return _sortOrderValue(candidates[candidates.length - 1]) + 1000;
-    }
-    return 1000;
+    // 間が足りない（同じ番号・1違いなど）→ 並びを変えずに 1000 刻みへ振り直し、確保分の空きを作る
+    const changes = [];
+    group.forEach(function(t, i) {
+        const so = (i < idx ? i + 1 : i + 1 + count) * 1000;
+        if (t.sort_order !== so) changes.push({ id: t.id, sort_order: so, task: t });
+    });
+    await _persistSortOrders(changes);
+    changes.forEach(c => { c.task.sort_order = c.sort_order; });
+    return Array.from({ length: count }, (_, k) => (idx + 1 + k) * 1000);
+}
+
+// 追加した行を数秒だけ光らせる（grid_row_class / task_row_class で付与）
+const _flashRowIds = new Set();
+function _flashTaskRows(ids) {
+    const list = (ids || []).map(String);
+    if (list.length === 0) return;
+    list.forEach(id => _flashRowIds.add(id));
+    gantt.render();
+    setTimeout(function() {
+        list.forEach(id => {
+            document.querySelectorAll('#gantt_here [task_id="' + id + '"].row-just-added')
+                .forEach(el => el.classList.add('row-just-added-fade'));
+        });
+    }, 2500);
+    setTimeout(function() {
+        list.forEach(id => _flashRowIds.delete(id));
+        gantt.render();
+    }, 3300);
 }
 
 function _getSingleFilterValue(filterValues) {
@@ -1212,13 +1286,11 @@ function createTask(afterTaskId) {
 
     const today = new Date();
     const taskType = currentTaskTypeFilter || "drawing";
-    const initialSortOrder = _computeSortOrderForInsert(
-        projectNumber,
-        inheritMachine,
-        inheritUnit,
-        taskType,
-        null
-    );
+    // 仮行の表示用。確定時の sort_order は _finalizePendingNewTaskToDb で確保する
+    const anchorId = (afterTaskId != null && gantt.isTaskExists(afterTaskId))
+        ? afterTaskId
+        : _findInsertAnchorId(projectNumber, inheritMachine, inheritUnit, taskType, null);
+    const initialSortOrder = anchorId != null ? _sortOrderValue(gantt.getTask(anchorId)) + 1 : null;
 
     const newId = gantt.uid();
     _pendingNewTaskLightboxId = newId;
@@ -1251,6 +1323,7 @@ function createTask(afterTaskId) {
         wish_date: wishDefault,
         is_detailed: true,
         sort_order: initialSortOrder,
+        _insert_after_id: (afterTaskId != null) ? afterTaskId : null,
         has_no_start: true,
         has_no_date: true,
         add_row_count: 1
@@ -1973,11 +2046,80 @@ gantt.templates.timeline_cell_class = function(task, date) {
 };
 
 gantt.templates.grid_row_class = function(start, end, task) {
-    return _isCompletedForDisplay(task) ? "gantt-row-completed" : "";
+    let css = _isCompletedForDisplay(task) ? "gantt-row-completed" : "";
+    if (_flashRowIds.has(String(task.id))) css += " row-just-added";
+    return css;
 };
 gantt.templates.task_row_class = function(start, end, task) {
-    return _isCompletedForDisplay(task) ? "gantt-task-row-completed" : "";
+    let css = _isCompletedForDisplay(task) ? "gantt-task-row-completed" : "";
+    if (_flashRowIds.has(String(task.id))) css += " row-just-added";
+    return css;
 };
+
+// ── 行のドラッグで並べ替え（同じ工事番号＋タスク種の中で sort_order を書き換える。機械・ユニットは変えない）──
+gantt.config.order_branch = true;
+// 列見出しの昇順・降順で一時的に並べ替えている間は true（data.js の applyColumnSort / loadData で切り替え）
+let _columnSortActive = false;
+let _rowReorderSaving = false;
+
+/** 画面に表示されている並びで、指定行の直前・直後の行を返す */
+function _visibleRowNeighbors(id) {
+    const vis = [];
+    gantt.eachTask(function(task) {
+        if (typeof _taskVisibleOnGantt === 'function' ? _taskVisibleOnGantt(task) : true) vis.push(task);
+    });
+    const i = vis.findIndex(t => String(t.id) === String(id));
+    return { prev: i > 0 ? vis[i - 1] : null, next: (i >= 0 && i + 1 < vis.length) ? vis[i + 1] : null };
+}
+
+function _isSameSortGroup(a, b) {
+    return !!a && !!b
+        && String(a.project_number || '').trim() === String(b.project_number || '').trim()
+        && String(a.task_type || 'drawing') === String(b.task_type || 'drawing');
+}
+
+gantt.attachEvent("onBeforeRowDragStart", function(id) {
+    if (!_isEditor || _columnSortActive || _rowReorderSaving) return false;
+    if (_pendingNewTaskLightboxId != null) return false;
+    return true;
+});
+
+// 別の工事番号の中へ落とした場合は元の位置に戻す
+gantt.attachEvent("onBeforeRowDragEnd", function(id) {
+    const task = gantt.getTask(id);
+    const nb = _visibleRowNeighbors(id);
+    return _isSameSortGroup(task, nb.prev) || _isSameSortGroup(task, nb.next);
+});
+
+gantt.attachEvent("onRowDragEnd", async function(id) {
+    if (!gantt.isTaskExists(id)) return;
+    const task = gantt.getTask(id);
+    const nb = _visibleRowNeighbors(id);
+    const afterId = _isSameSortGroup(task, nb.prev) ? nb.prev.id : null;
+    const beforeId = _isSameSortGroup(task, nb.next) ? nb.next.id : null;
+
+    _rowReorderSaving = true;
+    showLoading();
+    try {
+        const [so] = await _reserveSortOrders(task.project_number, task.task_type || 'drawing', {
+            afterId: afterId,
+            beforeId: beforeId,
+            count: 1,
+            excludeIds: [id]
+        });
+        if (task.sort_order !== so) {
+            await _persistSortOrders([{ id: id, sort_order: so }]);
+            task.sort_order = so;
+        }
+    } catch (e) {
+        console.error("並び替えの保存エラー:", e);
+        alert("並び替えを保存できませんでした。\n" + (e && e.message ? e.message : e));
+        await loadData();
+    } finally {
+        _rowReorderSaving = false;
+        hideLoading();
+    }
+});
 // スケールヘッダーの土日・社内休日セルにクラスを付与（描画時に適用されるためスクロールで崩れない）
 gantt.templates.scale_cell_class = function(date) {
     const dow = date.getDay();

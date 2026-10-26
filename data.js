@@ -171,6 +171,7 @@ async function loadData() {
     gantt.parse({
         data: activeTasks
     });
+    _columnSortActive = false;
 
     _rebuildMachineFilterFromRows(data);
     _rebuildUnitFilterFromRows(data);
@@ -907,6 +908,7 @@ function applyColumnSort(direction, colName) {
         }
         return desc ? -cmp : cmp;
     });
+    _columnSortActive = true; // 一時的な並べ替え中は行ドラッグを無効にする（loadData で解除）
     gantt.render();
     _closeAllFilterDropdowns();
 }
@@ -1581,28 +1583,6 @@ async function initialize() {
         _copySourceId = null;
     });
 
-    // コピー元の直下に挿入する sort_order を計算するヘルパー
-    function _calcInsertAfterSortOrder(sourceId) {
-        const src = gantt.getTask(sourceId);
-        const projectNumber = src.project_number;
-        const taskType = src.task_type;
-        const _getSO = t => (t.sort_order != null) ? t.sort_order : t.id * 1000;
-        const allTasks = gantt.getTaskByTime().filter(t => {
-            const isDetailed = (t.is_detailed === true || String(t.is_detailed).toUpperCase() === 'TRUE');
-            if (!isDetailed) return false;
-            if (String(t.project_number) !== String(projectNumber)) return false;
-            if (taskType && String(t.task_type) !== String(taskType)) return false;
-            return true;
-        }).sort((a, b) => _getSO(a) - _getSO(b));
-        const idx = allTasks.findIndex(t => String(t.id) === String(sourceId));
-        if (idx < 0) return _getSO(src) + 1000;
-        const afterSO = _getSO(allTasks[idx]);
-        if (idx + 1 < allTasks.length) {
-            return Math.round((afterSO + _getSO(allTasks[idx + 1])) / 2);
-        }
-        return afterSO + 1000;
-    }
-
     // 単一コピー実行
     document.getElementById("copy_opts_exec").addEventListener("click", async function() {
         _saveCopyOpts();
@@ -1610,7 +1590,6 @@ async function initialize() {
         if (!_copySourceId || !gantt.isTaskExists(_copySourceId)) return;
 
         const src = gantt.getTask(_copySourceId);
-        const insertSortOrder = _calcInsertAfterSortOrder(_copySourceId);
         _copySourceId = null;
 
         // チェック状態を収集
@@ -1633,6 +1612,9 @@ async function initialize() {
 
         showLoading();
         try {
+            // コピー元の直下に入る sort_order（間が足りなければ工事番号内を振り直す）
+            const copyTaskType = currentTaskTypeFilter || src.task_type || "drawing";
+            const [insertSortOrder] = await _reserveSortOrders(src.project_number, copyTaskType, { afterId: src.id, count: 1 });
             const _lb = (typeof window._getCurrentEditorName === 'function' ? window._getCurrentEditorName() : '') || '';
             const { data, error } = await supabaseClient
                 .from('tasks')
@@ -1657,7 +1639,7 @@ async function initialize() {
                     total_sheets:     checked['total_sheets'] ? _totalSheetsToDb(src.total_sheets) : null,
                     completed_sheets: checked['completed_sheets'] ? _completedSheetsToDb(src.completed_sheets) : null,
                     wish_date:        src.wish_date || null,
-                    task_type:        currentTaskTypeFilter || src.task_type || "drawing",
+                    task_type:        copyTaskType,
                     is_detailed:      true,
                     sort_order:       insertSortOrder
                 }, _lb ? { last_updated_by: _lb } : {})])
@@ -1670,7 +1652,14 @@ async function initialize() {
             }
 
             await loadData();
-            if (data && data[0]) gantt.showTask(data[0].id);
+            if (data && data[0]) {
+                gantt.showTask(data[0].id);
+                _flashTaskRows([data[0].id]);
+            }
+        } catch (e) {
+            console.error("Exception in copy:", e);
+            alert("タスクのコピー中にエラーが発生しました。\n" + (e && e.message ? e.message : e));
+            await loadData();
         } finally {
             hideLoading();
         }
@@ -1767,7 +1756,7 @@ async function initialize() {
 
         showLoading();
         try {
-            const { error } = await supabaseClient.from('tasks').insert(insertRows);
+            const { data: pasted, error } = await supabaseClient.from('tasks').insert(insertRows).select('id');
             if (error) {
                 console.error("Error pasting tasks:", error);
                 // ② エラー時もloadDataを呼んでDB状態をブラウザに反映（③重複sort_order防止）
@@ -1778,6 +1767,10 @@ async function initialize() {
 
             await loadData();
             _ctxTaskId = null;
+            if (pasted && pasted.length > 0) {
+                gantt.showTask(pasted[0].id);
+                _flashTaskRows(pasted.map(r => r.id));
+            }
         } finally {
             hideLoading();
         }
