@@ -1231,14 +1231,34 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .loading-label { font-size: 15px; color: #555555; letter-spacing: 0.12em; font-family: 'メイリオ', Meiryo, sans-serif; }
 #setpw_btn_submit:hover { background: #27ae60; }
 
-/* 追加（コピー・貼り付け・新規）した行を数秒だけ光らせる。_flashTaskRows で付与 → 2.5秒後に fade で消す */
+/* 追加した行の強調（1a）：淡黄3秒 → 縞に戻す。左端バー・「追加」ラベル・バー枠は10秒残す。_flashTaskRows で付与 */
 #gantt_here .gantt_row.row-just-added,
-#gantt_here .gantt_row.odd.row-just-added,
 #gantt_here .gantt_task_row.row-just-added {
-    background-color: #fff176 !important;
-    transition: background-color 0.8s ease;
+    transition: background-color 1.2s ease, box-shadow 0.6s ease;
 }
-#gantt_here .gantt_row.row-just-added.row-just-added-fade,
-#gantt_here .gantt_task_row.row-just-added.row-just-added-fade {
-    background-color: transparent !important;
+#gantt_here .gantt_row.row-just-added:not(.row-just-added-settle),
+#gantt_here .gantt_row.odd.row-just-added:not(.row-just-added-settle) {
+    background-color: #fff3c4 !important;
 }
+#gantt_here .gantt_task_row.row-just-added:not(.row-just-added-settle) {
+    background-color: #fff8dc !important;
+}
+#gantt_here .gantt_row.row-just-added { box-shadow: inset 4px 0 0 #e67e22; }
+#gantt_here .gantt_row.row-just-added-fade { box-shadow: inset 4px 0 0 rgba(230,126,34,0); }
+#gantt_here .gantt_row.row-just-added .gantt_cell[data-column-name="text"] .gantt_tree_content::after {
+    content: "追加";
+    display: inline-block;
+    margin-left: 6px;
+    padding: 3px 5px;
+    border-radius: 3px;
+    background: #e67e22;
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    line-height: 1;
+    vertical-align: middle;
+    transition: opacity 0.6s ease;
+}
+#gantt_here .gantt_row.row-just-added-fade .gantt_cell[data-column-name="text"] .gantt_tree_content::after { opacity: 0; }
+#gantt_here .gantt_task_line.row-just-added { box-shadow: 0 0 0 2px #e67e22; transition: box-shadow 0.6s ease; }
+#gantt_here .gantt_task_line.row-just-added-fade { box-shadow: 0 0 0 2px rgba(230,126,34,0); }

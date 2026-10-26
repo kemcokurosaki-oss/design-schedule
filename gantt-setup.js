@@ -1219,23 +1219,40 @@ async function _reserveSortOrders(projectNumber, taskType, opts) {
     return Array.from({ length: count }, (_, k) => (idx + 1 + k) * 1000);
 }
 
-// 追加した行を数秒だけ光らせる（grid_row_class / task_row_class で付与）
-const _flashRowIds = new Set();
+// 追加した行の強調（1a）。phase 1:淡黄 / 2:背景を戻す / 3:バー・ラベルを消す
+// grid_row_class / task_row_class / task_class で付与するので、途中で再描画されても状態が保たれる
+const _flashRowIds = new Map(); // id -> phase
+const _flashGen = new Map();    // id -> 世代（同じ行を続けて追加したとき古いタイマーを無視する）
+let _flashGenSeq = 0;
+function _flashRowClass(task) {
+    const p = _flashRowIds.get(String(task.id));
+    if (!p) return "";
+    return " row-just-added" + (p >= 2 ? " row-just-added-settle" : "") + (p >= 3 ? " row-just-added-fade" : "");
+}
 function _flashTaskRows(ids) {
     const list = (ids || []).map(String);
     if (list.length === 0) return;
-    list.forEach(id => _flashRowIds.add(id));
+    const gen = ++_flashGenSeq;
+    list.forEach(id => { _flashRowIds.set(id, 1); _flashGen.set(id, gen); });
     gantt.render();
-    setTimeout(function() {
+    const step = (phase, cls) => list.forEach(id => {
+        if (_flashGen.get(id) !== gen) return;
+        _flashRowIds.set(id, phase);
+        document.querySelectorAll('#gantt_here [task_id="' + id + '"].row-just-added')
+            .forEach(el => el.classList.add(cls));
+    });
+    setTimeout(() => step(2, 'row-just-added-settle'), 3000);
+    setTimeout(() => step(3, 'row-just-added-fade'), 10000);
+    setTimeout(() => {
+        let changed = false;
         list.forEach(id => {
-            document.querySelectorAll('#gantt_here [task_id="' + id + '"].row-just-added')
-                .forEach(el => el.classList.add('row-just-added-fade'));
+            if (_flashGen.get(id) !== gen) return;
+            _flashRowIds.delete(id);
+            _flashGen.delete(id);
+            changed = true;
         });
-    }, 2500);
-    setTimeout(function() {
-        list.forEach(id => _flashRowIds.delete(id));
-        gantt.render();
-    }, 3300);
+        if (changed) gantt.render();
+    }, 10700);
 }
 
 function _getSingleFilterValue(filterValues) {
@@ -2037,6 +2054,7 @@ gantt.templates.task_class = function(start, end, task) {
     let css = task.has_no_date ? "hidden_bar " : "";
     css += getOwnerColorClass(task.owner);
     if (_isCompletedForDisplay(task)) css += " task-bar-completed";
+    css += _flashRowClass(task);
     return css;
 };
 gantt.templates.timeline_cell_class = function(task, date) {
@@ -2047,12 +2065,12 @@ gantt.templates.timeline_cell_class = function(task, date) {
 
 gantt.templates.grid_row_class = function(start, end, task) {
     let css = _isCompletedForDisplay(task) ? "gantt-row-completed" : "";
-    if (_flashRowIds.has(String(task.id))) css += " row-just-added";
+    css += _flashRowClass(task);
     return css;
 };
 gantt.templates.task_row_class = function(start, end, task) {
     let css = _isCompletedForDisplay(task) ? "gantt-task-row-completed" : "";
-    if (_flashRowIds.has(String(task.id))) css += " row-just-added";
+    css += _flashRowClass(task);
     return css;
 };
 
