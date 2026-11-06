@@ -62,6 +62,73 @@ function _commitInlineDateEdit(inputEl) {
     }, 0);
 }
 
+// 日付の前後関係エラーを画面中央のモーダルで表示する
+function _showDateErrorModal(message) {
+    var old = document.getElementById('date_error_modal');
+    if (old) old.remove();
+    var overlay = document.createElement('div');
+    overlay.id = 'date_error_modal';
+    overlay.className = 'date-error-overlay';
+    overlay.innerHTML =
+        '<div class="date-error-box" role="alertdialog" aria-modal="true" aria-labelledby="date_error_title">' +
+            '<div class="date-error-title" id="date_error_title">⚠ 日付の入力エラー</div>' +
+            '<div class="date-error-msg"></div>' +
+            '<div class="date-error-actions"><button type="button" class="date-error-ok">OK</button></div>' +
+        '</div>';
+    overlay.querySelector('.date-error-msg').textContent = message;
+    function close() {
+        overlay.remove();
+        document.removeEventListener('keydown', onKey, true);
+    }
+    function onKey(e) {
+        if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); close(); }
+    }
+    overlay.querySelector('.date-error-ok').addEventListener('click', close);
+    overlay.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(overlay);
+    overlay.querySelector('.date-error-ok').focus();
+}
+
+// グリッド列の見出し（<br> 除去）を取得。モードにより「完了予定日」「手配予定日」「終了日」などに変わるため
+function _gridColumnLabel(name, fallback) {
+    try {
+        var col = gantt.getGridColumn(name);
+        if (col && col.label) return String(col.label).replace(/<br\s*\/?>/gi, '');
+    } catch (e) {}
+    return fallback;
+}
+
+// 開始日・完了予定日（いずれも YYYY-MM-DD の実日付）の前後関係をチェック。
+// 開始日が完了予定日より後ならエラーメッセージを返す（同じ日は可）
+function _dateOrderError(startStr, endStr, startLabel, endLabel) {
+    if (!startStr || !endStr) return null;
+    if (startStr <= endStr) return null;
+    var fmt = function(s) { return s.replace(/-/g, '/'); };
+    return startLabel + '（' + fmt(startStr) + '）が' + endLabel + '（' + fmt(endStr) + '）より後になっています。\n' +
+        startLabel + 'は' + endLabel + '以前の日付を入力してください。';
+}
+
+// インライン編集で入力された日付が前後関係に反していればモーダルを出し、入力を元に戻して編集を閉じる
+// 戻り値: true = エラーで中断した
+function _rejectInlineDateIfInvalid(id, inp, kind) {
+    var task = gantt.getTask(id);
+    if (!task || !inp.value) return false;
+    var curStart = (!task.has_no_start && task.start_date) ? _toDateStr(task.start_date) : '';
+    var curEnd   = (!task.has_no_date && task.end_date) ? _toDateStr(gantt.date.add(new Date(task.end_date), -1, 'day')) : '';
+    var startLabel = _gridColumnLabel('start_date', '開始日');
+    var endLabel   = _gridColumnLabel('end_date', '完了予定日');
+    var msg = (kind === 'start')
+        ? _dateOrderError(inp.value, curEnd, startLabel, endLabel)
+        : _dateOrderError(curStart, inp.value, startLabel, endLabel);
+    if (!msg) return false;
+    inp.value = (kind === 'start') ? curStart : curEnd; // 元の値に戻す（保存させない）
+    try { inp.blur(); } catch (e) {}
+    try { if (gantt.ext && gantt.ext.inlineEditors) gantt.ext.inlineEditors.hide(); } catch (e) {}
+    _showDateErrorModal(msg);
+    return true;
+}
+
 // インライン編集セル以外をクリックしたら必ず編集を確定して閉じる
 // （グリッド外・タイムライン上などのクリックでは dhtmlxGantt 標準の自動クローズが効かず、
 //   編集中セルが開いたまま固まって見えることがあるための保険）
@@ -244,6 +311,7 @@ gantt.config.editor_types.start_date_editor = {
                     _startDateClear(id);
                     return;
                 }
+                if (_rejectInlineDateIfInvalid(id, inp, 'start')) return;
                 _commitInlineDateEdit(inp);
             });
         }
@@ -291,6 +359,7 @@ gantt.config.editor_types.completion_date = {
                 _completionDateClear(id);
                 return;
             }
+            if (_rejectInlineDateIfInvalid(id, inp, 'end')) return;
             _commitInlineDateEdit(inp);
         });
     },
@@ -1744,6 +1813,13 @@ gantt.attachEvent("onLightboxSave", function(id, task, is_new){
     const endEl   = document.getElementById("cal_end_date");
     const startStr = startEl ? startEl.value : "";
     const endStr   = endEl   ? endEl.value   : "";
+
+    const _endLbl = document.getElementById("cal_end_date_label");
+    const orderErr = _dateOrderError(startStr, endStr, "開始日", (_endLbl && _endLbl.textContent) || "完了予定日");
+    if (orderErr) {
+        _showDateErrorModal(orderErr);
+        return false; // 保存せず編集画面を開いたままにする
+    }
 
     if (startStr && endStr) {
         // 両方入力 → そのまま使用

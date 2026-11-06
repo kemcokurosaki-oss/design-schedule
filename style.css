@@ -1262,3 +1262,50 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 #gantt_here .gantt_row.row-just-added-fade .gantt_cell[data-column-name="text"] .gantt_tree_content::after { opacity: 0; }
 #gantt_here .gantt_task_line.row-just-added { box-shadow: 0 0 0 2px #e67e22; transition: box-shadow 0.6s ease; }
 #gantt_here .gantt_task_line.row-just-added-fade { box-shadow: 0 0 0 2px rgba(230,126,34,0); }
+
+/* 日付の前後関係エラー用モーダル（画面中央） */
+.date-error-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100000;
+}
+.date-error-box {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+    width: min(420px, 90vw);
+    padding: 20px 24px 16px;
+    font-family: メイリオ, sans-serif;
+    border-top: 5px solid #d32f2f;
+}
+.date-error-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #d32f2f;
+    margin-bottom: 12px;
+}
+.date-error-msg {
+    font-size: 13px;
+    color: #333;
+    line-height: 1.7;
+    white-space: pre-line;
+}
+.date-error-actions {
+    text-align: right;
+    margin-top: 18px;
+}
+.date-error-ok {
+    min-width: 88px;
+    padding: 6px 16px;
+    font-size: 13px;
+    border: none;
+    border-radius: 4px;
+    background: #d32f2f;
+    color: #fff;
+    cursor: pointer;
+}
+.date-error-ok:hover { background: #b71c1c; }
