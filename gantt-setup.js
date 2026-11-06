@@ -94,7 +94,14 @@ function _showDateErrorModal(message) {
 function _gridColumnLabel(name, fallback) {
     try {
         var col = gantt.getGridColumn(name);
-        if (col && col.label) return String(col.label).replace(/<br\s*\/?>/gi, '');
+        if (col && col.label) {
+            // 見出しには絞り込みボタン等のHTMLが付くため、ボタンごと除去してから残りのタグも除去
+            var text = String(col.label)
+                .replace(/<button[\s\S]*?<\/button>/gi, '')
+                .replace(/<[^>]*>/g, '')
+                .trim();
+            if (text) return text;
+        }
     } catch (e) {}
     return fallback;
 }
