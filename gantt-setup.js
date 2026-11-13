@@ -2255,7 +2255,9 @@ gantt.templates.task_text = function(start, end, task) {
 };
 
 gantt.templates.task_class = function(start, end, task) {
-    let css = task.has_no_date ? "hidden_bar " : "";
+    // 日付なし、または開始日なしで完了予定日が過ぎている（終わりが始まりより前で幅0の）バーは表示しない
+    const noBar = task.has_no_date || (task.start_date && task.end_date && task.end_date <= task.start_date);
+    let css = noBar ? "hidden_bar " : "";
     css += getOwnerColorClass(task.owner);
     if (_isCompletedForDisplay(task)) css += " task-bar-completed";
     css += _flashRowClass(task);
