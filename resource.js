@@ -356,6 +356,10 @@ function renderResourceTimeline(owners) {
             if (typeof _isTodayDate === 'function' && _isTodayDate(date)) {
                 weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; background: #f1edfd; z-index: 0;"></div>`;
             }
+            // 週の境目（月曜の左端）に線（ほかのモードと同じ色）
+            if (date.getDay() === 1) {
+                weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: 1px; background: #cbd2d9; z-index: 0;"></div>`;
+            }
         });
     }
     
@@ -487,6 +491,10 @@ function renderOwnerDetailTimeline(ownerName) {
             // 今日の列は薄い紫（ほかのモードと同じ）
             if (typeof _isTodayDate === 'function' && _isTodayDate(date)) {
                 weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; background: #f1edfd; z-index: 0;"></div>`;
+            }
+            // 週の境目（月曜の左端）に線（ほかのモードと同じ色）
+            if (date.getDay() === 1) {
+                weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: 1px; background: #cbd2d9; z-index: 0;"></div>`;
             }
         });
     }
@@ -644,7 +652,7 @@ function renderResourceCalendarHeader() {
         const isSat = dow === 6;
         const isHol = _isHoliday(date);
         const isToday = typeof _isTodayDate === 'function' && _isTodayDate(date);
-        const wkCls = isToday ? ' resource-cal-today' : '';
+        const wkCls = (isToday ? ' resource-cal-today' : '') + (unit === 'day' && dow === 1 ? ' week-start' : '');
         const dowColor = isSun || isHol ? 'color:#c62828;' : isSat ? 'color:#1565C0;' : '';
         const d = date.getDate();
 

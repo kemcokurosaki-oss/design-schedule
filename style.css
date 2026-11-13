@@ -1386,6 +1386,8 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 #grp_sticky_task { pointer-events: none; z-index: 5; }
 .grp-sticky-inner { display: flex; align-items: center; gap: 8px; height: 100%; padding-left: 4px; color: #1f2933; }
 
+/* 担当別モードのカレンダー見出し：週の境目（月曜の左端）の線 */
+.resource-cal-cell.week-start { box-shadow: inset 1px 0 0 #cbd2d9; }
 /* 担当別モードのカレンダー見出し：今日の日付・曜日を紫の角丸に白文字（ほかのモードと同じ） */
 .resource-cal-cell.resource-cal-today { position: relative; isolation: isolate; background: #f1edfd; color: #fff !important; overflow: visible; }
 .resource-cal-cell.resource-cal-today::before { content: ""; position: absolute; left: 4px; right: 4px; background: #7048e8; z-index: -1; }
