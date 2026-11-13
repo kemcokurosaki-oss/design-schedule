@@ -352,11 +352,16 @@ function renderResourceTimeline(owners) {
             if (date.getDay() === 0 || date.getDay() === 6 || _isHoliday(date)) {
                 weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; background: #eaecef; z-index: 0;"></div>`;
             }
+            // 今日の列は薄い紫（ほかのモードと同じ）
+            if (typeof _isTodayDate === 'function' && _isTodayDate(date)) {
+                weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; background: #f1edfd; z-index: 0;"></div>`;
+            }
         });
     }
     
     const backgroundStyle = `background-image: ${gridBackground}; background-position: ${-firstPos}px 0; background-size: ${columnWidth}px 30px; height: 100%;`;
-    const todayPos = gantt.posFromDate(new Date());
+    const _today0 = new Date(); _today0.setHours(0, 0, 0, 0);
+    const todayPos = gantt.posFromDate(_today0); // 今日のセルの左端
     const todayLineLeft = actualGridWidth + todayPos;
 
     let html = `<div style="width: ${totalWidth}px; position: relative;">`; // 全体の幅を指定するコンテナを追加
@@ -479,11 +484,16 @@ function renderOwnerDetailTimeline(ownerName) {
             if (date.getDay() === 0 || date.getDay() === 6 || _isHoliday(date)) {
                 weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; background: #eaecef; z-index: 0;"></div>`;
             }
+            // 今日の列は薄い紫（ほかのモードと同じ）
+            if (typeof _isTodayDate === 'function' && _isTodayDate(date)) {
+                weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; background: #f1edfd; z-index: 0;"></div>`;
+            }
         });
     }
 
     const backgroundStyle = `background-image: ${gridBackground}; background-position: ${-firstPos}px 0; background-size: ${columnWidth}px 30px;`;
-    const todayPos = gantt.posFromDate(new Date());
+    const _today0 = new Date(); _today0.setHours(0, 0, 0, 0);
+    const todayPos = gantt.posFromDate(_today0); // 今日のセルの左端
     const todayLineLeft = actualGridWidth + todayPos;
 
     // 担当者のタスクを収集
@@ -606,12 +616,24 @@ function renderResourceCalendarHeader() {
     });
     if (dates.length > 0) months.push({ month: curMonth, year: curYear, count: dates.length - monthStart });
 
-    // 月行HTML
+    // 月行HTML（日単位のときは、ほかのモードと同じ「11/9 の週」の週ごと）
     let monthHtml = '';
-    months.forEach(m => {
-        const w = m.count * columnWidth;
-        monthHtml += `<div class="resource-cal-cell resource-cal-month" style="width:${w}px;min-width:${w}px;height:22px;">${m.year}年${m.month + 1}月</div>`;
-    });
+    if (unit === 'day' && typeof _weekScaleLabel === 'function') {
+        let start = 0;
+        for (let i = 1; i <= dates.length; i++) {
+            if (i < dates.length && dates[i].getDay() !== 1) continue;
+            const monday = new Date(dates[start]);
+            monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+            const w = (i - start) * columnWidth;
+            monthHtml += `<div class="resource-cal-cell resource-cal-month" style="width:${w}px;min-width:${w}px;height:22px;">${_weekScaleLabel(monday)}</div>`;
+            start = i;
+        }
+    } else {
+        months.forEach(m => {
+            const w = m.count * columnWidth;
+            monthHtml += `<div class="resource-cal-cell resource-cal-month" style="width:${w}px;min-width:${w}px;height:22px;">${m.year}/${m.month + 1}</div>`;
+        });
+    }
 
     // 日/週行HTML・曜日行HTML（日単位のみ曜日行あり）
     let dayHtml = '';
@@ -621,13 +643,14 @@ function renderResourceCalendarHeader() {
         const isSun = dow === 0;
         const isSat = dow === 6;
         const isHol = _isHoliday(date);
-        const wkCls = (isSun || isSat || isHol) ? ' resource-cal-weekend' : '';
+        const isToday = typeof _isTodayDate === 'function' && _isTodayDate(date);
+        const wkCls = isToday ? ' resource-cal-today' : '';
         const dowColor = isSun || isHol ? 'color:#c62828;' : isSat ? 'color:#1565C0;' : '';
         const d = date.getDate();
 
         if (unit === 'day') {
-            dayHtml += `<div class="resource-cal-cell${wkCls}" style="width:${columnWidth}px;min-width:${columnWidth}px;height:18px;${dowColor}">${d}</div>`;
-            dowHtml += `<div class="resource-cal-cell${wkCls}" style="width:${columnWidth}px;min-width:${columnWidth}px;height:18px;${dowColor}">${_DOW_NAMES[dow]}</div>`;
+            dayHtml += `<div class="resource-cal-cell${wkCls}${isToday ? ' resource-cal-today-num' : ''}" style="width:${columnWidth}px;min-width:${columnWidth}px;height:18px;${isToday ? '' : dowColor}">${d}</div>`;
+            dowHtml += `<div class="resource-cal-cell${wkCls}${isToday ? ' resource-cal-today-dow' : ''}" style="width:${columnWidth}px;min-width:${columnWidth}px;height:18px;${isToday ? '' : dowColor}">${_DOW_NAMES[dow]}</div>`;
         } else {
             // 週単位：日付のみ表示（曜日行なし）
             dayHtml += `<div class="resource-cal-cell" style="width:${columnWidth}px;min-width:${columnWidth}px;height:18px;">${d}</div>`;

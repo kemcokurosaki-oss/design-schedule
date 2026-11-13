@@ -134,7 +134,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 #resource_calendar_header {
     flex-shrink: 0;
     overflow: hidden;
-    background: #fff;
+    background: #e7e9ec; /* ほかのモードのカレンダー見出しと同じグレー */
     border-bottom: 1px solid #cbd2d9;
     font-family: inherit;
 }
@@ -144,7 +144,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 #resource_calendar_header .cal-spacer {
     flex-shrink: 0;
     border-right: 1px solid #cbd2d9;
-    background: #fff;
+    background: #e7e9ec;
 }
 #resource_cal_scroll { overflow: hidden; flex: 1; }
 .resource-cal-cell {
@@ -162,7 +162,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     border-right: 1px solid #eef0f3;
 }
 .resource-cal-month {
-    background: #fff;
+    background: transparent;
     color: #52606d;
     font-weight: bold;
     font-size: 12px;
@@ -1376,6 +1376,12 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 #grp_sticky_grid { cursor: pointer; }
 #grp_sticky_task { pointer-events: none; z-index: 5; }
 .grp-sticky-inner { display: flex; align-items: center; gap: 8px; height: 100%; padding-left: 4px; color: #1f2933; }
+
+/* 担当別モードのカレンダー見出し：今日の日付・曜日を紫の角丸に白文字（ほかのモードと同じ） */
+.resource-cal-cell.resource-cal-today { position: relative; isolation: isolate; background: #f1edfd; color: #fff !important; overflow: visible; }
+.resource-cal-cell.resource-cal-today::before { content: ""; position: absolute; left: 1px; right: 1px; background: #7048e8; z-index: -1; }
+.resource-cal-cell.resource-cal-today-num::before { top: 2px; bottom: 0; border-radius: 6px 6px 0 0; }
+.resource-cal-cell.resource-cal-today-dow::before { top: 0; bottom: 2px; border-radius: 0 0 6px 6px; }
 
 /* ===== 今日の列：薄い紫の背景、目盛りの日付・曜日は紫の角丸 ===== */
 .gantt_task_cell.today-col { background: #f1edfd !important; }
