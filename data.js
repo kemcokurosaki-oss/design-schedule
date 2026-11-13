@@ -168,8 +168,9 @@ async function loadData() {
     _lastGridClickId = null;
 
     gantt.clearAll();
+    // 工事番号ごとの見出し行（画面表示だけ）を付けて読み込む
     gantt.parse({
-        data: activeTasks
+        data: (typeof _withGroupRows === 'function') ? _withGroupRows(activeTasks) : activeTasks
     });
     _columnSortActive = false;
 
@@ -1382,12 +1383,19 @@ async function initialize() {
     // ＋ボタン（.custom_add_btn）は横取りせずそのまま通過させる
     document.getElementById("gantt_here").addEventListener("click", function(e) {
         if (e.target.closest(".custom_add_btn")) return;
+        // 見出し行のフィルターボタンは横取りせずそのまま通す
+        if (e.target.closest(".grp-filter")) return;
         const cell = e.target.closest(".gantt_cell");
         if (!cell) return;
         e.stopImmediatePropagation();
         const row = cell.closest("[task_id]");
         if (!row) return;
         const taskId = row.getAttribute("task_id");
+        // 工事番号の見出し行：クリックで開閉する（選択はしない）
+        if (typeof _isGroupId === 'function' && _isGroupId(taskId)) {
+            _toggleGroup(taskId);
+            return;
+        }
 
         if (e.ctrlKey || e.metaKey) {
             // Ctrl+クリック：トグル選択
@@ -1439,6 +1447,7 @@ async function initialize() {
         if (!row) return;
         const taskId = row.getAttribute("task_id");
         if (!taskId) return;
+        if (typeof _isGroupId === 'function' && _isGroupId(taskId)) return; // 見出し行は編集しない
         const cells = [...row.querySelectorAll(".gantt_cell")];
         const colIndex = cells.indexOf(cell);
         const col = gantt.config.columns[colIndex];
@@ -1468,6 +1477,7 @@ async function initialize() {
         if (!_isEditor) return;
         const row = e.target.closest("[task_id]");
         if (!row) return;
+        if (typeof _isGroupId === 'function' && _isGroupId(row.getAttribute("task_id"))) return; // 見出し行はメニューを出さない
         e.preventDefault();
         _ctxTaskId = row.getAttribute("task_id");
         // 選択件数を更新

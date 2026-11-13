@@ -16,7 +16,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .header-panel { background: #fff; padding: 0 20px; border-bottom: 1px solid #e4e7eb; display: flex; flex-direction: column; gap: 0; }
 .header-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 0; box-sizing: border-box; }
 .header-row + .header-row { border-top: 1px solid #e4e7eb; }
-#filter_btn_row { gap: 4px; border-bottom: none; padding: 10px 20px; height: 56px; box-sizing: border-box; }
+#filter_btn_row { gap: 4px; border-bottom: none; padding: 10px 0; height: 56px; box-sizing: border-box; }
 .project-info { font-size: 16px; font-weight: bold; color: #1f2933; }
 .zoom-controls { display: flex; gap: 0; border: 1px solid #cbd2d9; border-radius: 6px; overflow: hidden; }
 .zoom-controls .btn { border: none; border-radius: 0; }
@@ -1351,3 +1351,27 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .owner-legend-pop { display: none; position: absolute; top: calc(100% + 6px); right: 0; width: 300px; background: #fff; border: 1px solid #cbd2d9; border-radius: 8px; box-shadow: 0 6px 20px rgba(31,41,51,0.18); padding: 10px; flex-wrap: wrap; gap: 6px; z-index: 10000; }
 .owner-legend.open .owner-legend-pop { display: flex; }
 .owner-legend-pop .owner-legend-chip[onclick] { cursor: pointer; }
+
+/* ===== 2026/11/14 追加：工事番号の見出し行 ===== */
+.gantt_row.group-row, .gantt_task_row.group-row { background: #d5d9de !important; border-top: 2px solid #52606d !important; border-bottom: 1px solid #c6cacf !important; box-sizing: border-box; }
+.gantt_row.group-row { contain: layout; cursor: pointer; }
+.gantt_row.group-row .gantt_cell { visibility: hidden; }
+.gantt_row.group-row .gantt_cell.gantt_cell_tree { visibility: visible; position: absolute; left: 0; top: 0; bottom: 0; width: 100% !important; z-index: 1; display: flex; align-items: center; padding-left: 4px; border: none !important; }
+.gantt_row.group-row .gantt_tree_icon, .gantt_row.group-row .gantt_tree_indent { display: none !important; }
+.gantt_row.group-row .gantt_tree_content { display: flex; align-items: center; gap: 8px; width: 100%; color: #1f2933; }
+.gantt_row:not(.group-row) .gantt_tree_indent, .gantt_row:not(.group-row) .gantt_tree_icon.gantt_blank { display: none !important; }
+.gantt_task_line.group-bar { display: none !important; }
+.grp-arrow { width: 22px; text-align: center; font-size: 17px; color: #52606d; }
+.grp-pn { font-size: 14px; font-weight: bold; }
+.grp-filter { width: 22px; height: 17px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #cbd2d9; background: #fff; color: #7b8794; border-radius: 4px; box-sizing: border-box; cursor: pointer; }
+.grp-filter:hover { border-color: #7b8794; }
+.grp-filter.active { background: #1f2933; border-color: #1f2933; color: #fff; }
+.grp-count { margin-left: auto; padding-right: 14px; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #52606d; }
+
+/* ===== 2026/11/14 追加：プレビューと同じ文字にそろえる ===== */
+.gantt_container, .gantt_container *, .gantt_cal_light, .gantt_cal_light *, button, input, select, textarea {
+    font-family: "BIZ UDPGothic", "BIZ UDPゴシック", "メイリオ", Meiryo, sans-serif !important;
+}
+.gantt_grid_data .gantt_cell[data-column-name="start_date"], .gantt_grid_data .gantt_cell[data-column-name="end_date"], .gantt_grid_data .gantt_cell[data-column-name="wish_date"] { font-size: 12px !important; }
+#gantt_here .gantt_scale_line:not(:first-child) .gantt_scale_cell { font-size: 13px !important; }
+#gantt_here .gantt_scale_line:last-child .gantt_scale_cell { font-size: 10px !important; font-weight: normal !important; }

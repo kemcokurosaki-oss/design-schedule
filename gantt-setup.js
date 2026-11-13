@@ -745,11 +745,11 @@ function _getColsSum(cols) {
 }
 
 _setLayout(_visibleColsSum(_applyHiddenCols(_getDrawingColumns(), 'drawing')));
-gantt.config.min_column_width = 22; // カレンダーの列幅を22に設定
+gantt.config.min_column_width = 32; // カレンダーの列幅（新デザイン：32）
 gantt.config.inline_editors_save_on_blur = true; // フォーカスが外れたとき自動保存
 gantt.config.row_height = 36;
 gantt.config.bar_height = 24;
-gantt.config.scale_height = 60; // 3段構成（20px * 3）に合わせて調整
+gantt.config.scale_height = 64; // 3段構成
 // マーカープラグインは initialize() 内で有効化するため、ここでは行わない
 
 // ズーム設定
@@ -757,8 +757,8 @@ const zoomConfig = {
     levels: [
         {
             name: "day",
-            scale_height: 60, // 3段構成（20px * 3）
-            min_column_width: 22,
+            scale_height: 64, // 3段構成
+            min_column_width: 32,
             scales: [
                 {unit: "month", step: 1, format: "%Y/%n"},
                 {unit: "day", step: 1, format: "%j", css: function(date) {
@@ -779,7 +779,7 @@ const zoomConfig = {
         },
         {
             name: "week",
-            scale_height: 60, // 2段構成（30px * 2）
+            scale_height: 64, // 2段構成
             min_column_width: 22,
             scales: [
                 {unit: "month", step: 1, format: "%Y/%n"},
@@ -1984,6 +1984,7 @@ gantt.attachEvent("onLightboxSave", function(id, task, is_new){
 
 // ライトボックス表示前の処理（担当別モード時は非表示）
 gantt.attachEvent("onBeforeLightbox", function(id) {
+    if (_isGroupId(id)) return false;
     if (isResourceFullscreen) return false;
     const task = gantt.getTask(id);
     const taskType = task ? (task.task_type || 'drawing') : 'drawing';
@@ -2133,19 +2134,18 @@ function _applyColumnFilterButtons(cols) {
 // 図面列定義（デフォルト）
 function _getDrawingColumns() {
     return [
-        { name: "project_number",   label: "工事<br>番号",   width: 35, align: "center", editor: { type: "text",   map_to: "project_number" } },
-        { name: "machine",          label: "機械",           width: 35, align: "center", editor: { type: "text",   map_to: "machine" } },
-        { name: "unit",             label: "ユニ",           width: 45, align: "center", editor: { type: "text",   map_to: "unit" } },
-        { name: "text",             label: "組立図面名",     width: 235, tree: true,      editor: { type: "text",   map_to: "text" } },
-        { name: "model_type",       label: "機種",           width: 30, align: "center", editor: { type: "text",   map_to: "model_type" }, noFilterBtn: true },
-        { name: "unit2",            label: "ユニ<br>2",      width: 30, align: "center", editor: { type: "text",   map_to: "unit2" }, noFilterBtn: true },
-        { name: "dash",             label: "-",              width: 25, align: "center", template: (task) => _escapeGridText(task.hyphen ?? "-"), editor: { type: "text", map_to: "hyphen" }, noFilterBtn: true },
-        { name: "characteristic",   label: "特性",           width: 30, align: "center", editor: { type: "text",   map_to: "characteristic" }, noFilterBtn: true },
-        { name: "derivation",       label: "派生",           width: 30, align: "center", editor: { type: "text",   map_to: "derivation" }, noFilterBtn: true },
-        { name: "owner",            label: "担当",           width: 45, align: "center", editor: { type: "owner_select", map_to: "owner" } },
-        { name: "total_sheets",     label: "総<br>枚数",     width: 50, align: "center", template: _templateTotalSheetsCell, editor: { type: "sheet_count", map_to: "total_sheets",     min: 0 }, noFilterBtn: true },
-        { name: "completed_sheets", label: "完了<br>枚数",   width: 50, align: "center", template: _templateCompletedSheetsCell, editor: { type: "sheet_count", map_to: "completed_sheets", min: 0 }, noFilterBtn: true },
-        { name: "progress",         label: "進捗",           width: 40, align: "center", template: _progressTemplate },
+        { name: "machine",          label: "機械",           width: 40, align: "center", editor: { type: "text",   map_to: "machine" } },
+        { name: "unit",             label: "ユニ",           width: 40, align: "center", editor: { type: "text",   map_to: "unit" } },
+        { name: "text",             label: "組立図面名",     width: 258, tree: true,      editor: { type: "text",   map_to: "text" } },
+        { name: "model_type",       label: "機種",           width: 36, align: "center", editor: { type: "text",   map_to: "model_type" }, noFilterBtn: true },
+        { name: "unit2",            label: "ユニ<br>2",      width: 36, align: "center", editor: { type: "text",   map_to: "unit2" }, noFilterBtn: true },
+        { name: "dash",             label: "-",              width: 28, align: "center", template: (task) => _escapeGridText(task.hyphen ?? "-"), editor: { type: "text", map_to: "hyphen" }, noFilterBtn: true },
+        { name: "characteristic",   label: "特性",           width: 36, align: "center", editor: { type: "text",   map_to: "characteristic" }, noFilterBtn: true },
+        { name: "derivation",       label: "派生",           width: 36, align: "center", editor: { type: "text",   map_to: "derivation" }, noFilterBtn: true },
+        { name: "owner",            label: "担当",           width: 84, align: "center", editor: { type: "owner_select", map_to: "owner" } },
+        { name: "total_sheets",     label: "総<br>枚数",     width: 44, align: "center", template: _templateTotalSheetsCell, editor: { type: "sheet_count", map_to: "total_sheets",     min: 0 }, noFilterBtn: true },
+        { name: "completed_sheets", label: "完了<br>枚数",   width: 44, align: "center", template: _templateCompletedSheetsCell, editor: { type: "sheet_count", map_to: "completed_sheets", min: 0 }, noFilterBtn: true },
+        { name: "progress",         label: "進捗",           width: 56, align: "center", template: _progressTemplate },
         { name: "start_date",       label: "開始日",         width: 65, align: "center",
           template: function(task) {
             if (task.has_no_start || !task.start_date) return "";
@@ -2158,7 +2158,7 @@ function _getDrawingColumns() {
           editor: { type: "start_date_editor", map_to: "start_date" } },
         { name: "end_date",         label: "完了<br>予定日", width: 65, align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
         { name: "wish_date",        label: "出図<br>希望日", width: 65, align: "center", template: _templateWishDateCell, editor: { type: "wish_date_editor", map_to: "wish_date" } },
-        { name: "add_btn",          label: "",               width: 30, align: "center", template: (task) => _isEditor ? `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` : '' }
+        { name: "add_btn",          label: "",               width: 28, align: "center", template: (task) => _isEditor ? `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` : '' }
     ];
 }
 // 図面列合計: 35+35+45+235+30+30+25+30+30+45+50+50+40+65+65+65+30 = 905px（出図希望日を末尾に移動、幅合計は変わらず）
@@ -2166,7 +2166,6 @@ function _getDrawingColumns() {
 // 長納期品列定義
 function _getLongtermColumns() {
     return [
-        { name: "project_number", label: "工事<br>番号", width: 35,  align: "center", editor: { type: "text",   map_to: "project_number" } },
         { name: "machine",    label: "機械",           width: 32,  align: "center", editor: { type: "text",   map_to: "machine" } },
         { name: "unit",       label: "ユニ",           width: 40,  align: "center", editor: { type: "text",   map_to: "unit" } },
         { name: "text",       label: "品名",           width: 173, tree: true,      editor: { type: "text",   map_to: "text" } },
@@ -2205,7 +2204,6 @@ gantt.config._columnFilterType = 'drawing';
 // 出張列定義
 function _getTripColumns() {
     return [
-        { name: "project_number",  label: "工事番号", width: 60,  align: "center", editor: { type: "text", map_to: "project_number" } },
         { name: "machine",         label: "機械",     width: 40,  align: "center", editor: { type: "text", map_to: "machine" } },
         { name: "unit",            label: "ユニ",     width: 40,  align: "center", editor: { type: "text", map_to: "unit" } },
         { name: "text",            label: "タスク",   width: 210, tree: true,      editor: { type: "text", map_to: "text" } },
@@ -2301,6 +2299,7 @@ function _isSameSortGroup(a, b) {
 }
 
 gantt.attachEvent("onBeforeRowDragStart", function(id) {
+    if (_isGroupId(id)) return false;
     if (!_isEditor || _columnSortActive || _rowReorderSaving) return false;
     if (_pendingNewTaskLightboxId != null) return false;
     return true;
@@ -2353,6 +2352,7 @@ gantt.templates.scale_cell_class = function(date) {
 
 // フィルタリング（is_detailedのみ表示、かつ各種フィルタ）— data.js の _taskVisibleOnGantt と同期
 gantt.attachEvent("onBeforeTaskDisplay", function(id, task) {
+    if (task.$group) return _groupHasVisibleChild(task);
     if (typeof _taskVisibleOnGantt === 'function') {
         return _taskVisibleOnGantt(task);
     }
@@ -2375,3 +2375,106 @@ gantt.attachEvent("onBeforeTaskDisplay", function(id, task) {
     return true;
 });
 
+
+
+// ===== 工事番号の見出し行（画面表示だけの行。データベースには保存しない） =====
+var _GROUP_CLOSED_KEY = "kotei_group_closed_v1";
+var _GROUP_FOLDER_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#52606d" stroke-width="1.6"><path d="M1.5 4.5V13h13V5.5H8L6.5 3.5h-5z"/></svg>';
+var _GROUP_FILTER_SVG = '<svg width="9" height="9" viewBox="0 0 10 10"><path d="M0 1h10L6 5.5V9L4 10V5.5z" fill="currentColor"/></svg>';
+var _GROUP_CHECK_SVG = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5 6.5 12 13 4.5"/></svg>';
+function _isGroupId(id) { return String(id).indexOf('pj_') === 0; }
+function _pnKey(t) { return String((t && t.project_number) || '').trim(); }
+function _groupIdOf(pn) { return 'pj_' + pn; }
+function _closedGroups() { try { return new Set(JSON.parse(localStorage.getItem(_GROUP_CLOSED_KEY) || '[]')); } catch (e) { return new Set(); } }
+function _saveGroupOpen(pn, open) {
+    const s = _closedGroups();
+    if (open) s.delete(pn); else s.add(pn);
+    localStorage.setItem(_GROUP_CLOSED_KEY, JSON.stringify(Array.from(s)));
+}
+function _makeGroupRow(pn, open) {
+    const d = new Date(); d.setHours(0, 0, 0, 0);
+    return { id: _groupIdOf(pn), text: pn || '（工事番号なし）', $group: true, project_number: pn, is_detailed: false, has_no_date: true,
+             start_date: d, duration: 1, parent: 0, open: open };
+}
+/** loadData から呼ぶ：工事番号ごとの見出し行を作り、各タスクをその下に入れる */
+function _withGroupRows(tasks) {
+    const closed = _closedGroups(), pns = [];
+    tasks.forEach(t => { const pn = _pnKey(t); if (pns.indexOf(pn) < 0) pns.push(pn); t.parent = _groupIdOf(pn); });
+    return pns.map(pn => _makeGroupRow(pn, !closed.has(pn))).concat(tasks);
+}
+function _ensureGroupRow(pn) {
+    const gid = _groupIdOf(pn);
+    if (gantt.isTaskExists(gid)) return gid;
+    const roots = gantt.getChildren(0);
+    let idx = roots.findIndex(r => _isGroupId(r) && String(gantt.getTask(r).project_number).localeCompare(pn, 'ja', { numeric: true }) > 0);
+    if (idx < 0) idx = roots.length;
+    gantt.addTask(_makeGroupRow(pn, !_closedGroups().has(pn)), 0, idx);
+    return gid;
+}
+function _groupHasVisibleChild(g) {
+    return gantt.getChildren(g.id).some(cid => { const c = gantt.getTask(cid); return typeof _taskVisibleOnGantt === 'function' ? _taskVisibleOnGantt(c) : true; });
+}
+function _toggleGroup(id) {
+    if (!gantt.isTaskExists(id)) return;
+    const g = gantt.getTask(id);
+    if (g.$open) gantt.close(id); else gantt.open(id);
+}
+gantt.attachEvent("onTaskOpened", function(id) { if (_isGroupId(id)) _saveGroupOpen(gantt.getTask(id).project_number, true); return true; });
+gantt.attachEvent("onTaskClosed", function(id) { if (_isGroupId(id)) _saveGroupOpen(gantt.getTask(id).project_number, false); return true; });
+gantt.attachEvent("onBeforeTaskDrag", function(id) { return !_isGroupId(id); });
+gantt.attachEvent("onBeforeTaskAdd", function(id, t) {
+    if (t.$group) return true;
+    if (!t.parent || !_isGroupId(t.parent)) t.parent = _ensureGroupRow(_pnKey(t));
+    return true;
+});
+// 工事番号を書き換えたタスクは、その工事番号の見出し行の下へ移す（表示だけ）
+gantt.attachEvent("onAfterTaskUpdate", function(id, t) {
+    if (t.$group || !gantt.isTaskExists(id)) return;
+    const gid = _groupIdOf(_pnKey(t));
+    if (String(t.parent) === gid) return;
+    setTimeout(function() {
+        if (!gantt.isTaskExists(id)) return;
+        _ensureGroupRow(_pnKey(gantt.getTask(id)));
+        gantt.moveTask(id, -1, gid);
+    }, 0);
+});
+function _groupCellHtml(g) {
+    const kids = gantt.getChildren(g.id).map(cid => gantt.getTask(cid)).filter(c => typeof _taskVisibleOnGantt === 'function' ? _taskVisibleOnGantt(c) : true);
+    const done = kids.filter(c => typeof _isCompletedForDisplay === 'function' ? _isCompletedForDisplay(c) : false).length;
+    const active = typeof _isColumnFilterActive === 'function' && _isColumnFilterActive('project_number');
+    return '<span class="grp-arrow">' + (g.$open ? '▾' : '▸') + '</span>' + _GROUP_FOLDER_SVG +
+        '<span class="grp-pn">' + _escapeGridText(g.text) + '</span>' +
+        '<span class="grp-filter' + (active ? ' active' : '') + '" title="工事番号フィルター" onclick="event.stopPropagation(); toggleProjectFilterDropdown(event)">' + _GROUP_FILTER_SVG + '</span>' +
+        '<span class="grp-count" title="完了数／表示中のタスク数">' + _GROUP_CHECK_SVG + done + '/' + kids.length + '</span>';
+}
+function _wrapGroupColumns() {
+    (gantt.config.columns || []).forEach(function(col) {
+        if (col.name !== 'text' || col._grpWrapped) return;
+        const orig = col.template;
+        col.template = function(t) { return t.$group ? _groupCellHtml(t) : (orig ? orig(t) : t.text); };
+        col._grpWrapped = true;
+    });
+}
+gantt.attachEvent("onBeforeGanttRender", function() { _wrapGroupColumns(); return true; });
+gantt.attachEvent("onBeforeDataRender", function() { _wrapGroupColumns(); return true; });
+(function() {
+    const gr = gantt.templates.grid_row_class, tr = gantt.templates.task_row_class, tc = gantt.templates.task_class;
+    const gf = gantt.templates.grid_folder;
+    gantt.templates.grid_row_class = function(s, e, t) { return t.$group ? 'group-row' : gr(s, e, t); };
+    gantt.templates.task_row_class = function(s, e, t) { return t.$group ? 'group-row' : tr(s, e, t); };
+    gantt.templates.task_class = function(s, e, t) { return t.$group ? 'group-bar' : tc(s, e, t); };
+    gantt.templates.grid_folder = function(t) { return t.$group ? '' : gf(t); };
+    // 列見出しの並べ替えでも、見出し行どうしは工事番号順を保つ
+    const _origSort = gantt.sort.bind(gantt);
+    gantt.sort = function(fn, desc, parent, silent) {
+        if (typeof fn !== 'function') return _origSort(fn, desc, parent, silent);
+        return _origSort(function(a, b) {
+            if (a.$group && b.$group) {
+                let r = 0;
+                try { r = fn(a, b); } catch (e) { r = 0; }
+                return r || String(a.project_number).localeCompare(String(b.project_number), 'ja', { numeric: true });
+            }
+            return fn(a, b);
+        }, desc, parent, silent);
+    };
+})();
