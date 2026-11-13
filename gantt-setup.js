@@ -752,6 +752,14 @@ gantt.config.bar_height = 24;
 gantt.config.scale_height = 64; // 3段構成
 // マーカープラグインは initialize() 内で有効化するため、ここでは行わない
 
+/** 日単位の目盛りの上の段：「11/9 の週」。月の最初の週と表示範囲の最初の週だけ年を付ける（例「2026/11/2 の週」） */
+function _weekScaleLabel(date) {
+    const md = (date.getMonth() + 1) + '/' + date.getDate();
+    const minDate = gantt.getState().min_date;
+    const isFirstOfRange = minDate && date.getTime() <= gantt.date.add(minDate, 6, 'day').getTime();
+    const withYear = date.getDate() <= 7 || isFirstOfRange;
+    return (withYear ? date.getFullYear() + '/' : '') + md + ' の週';
+}
 // ズーム設定
 const zoomConfig = {
     levels: [
@@ -760,7 +768,7 @@ const zoomConfig = {
             scale_height: 64, // 3段構成
             min_column_width: 32,
             scales: [
-                {unit: "month", step: 1, format: "%Y/%n"},
+                {unit: "week", step: 1, format: _weekScaleLabel},
                 {unit: "day", step: 1, format: "%j", css: function(date) {
                     if (_isTodayDate(date)) return 'gantt-scale-today gantt-scale-today-num';
                     const dow = date.getDay();
