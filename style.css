@@ -1369,6 +1369,12 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .grp-filter.active { background: #1f2933; border-color: #1f2933; color: #fff; }
 .grp-count { margin-left: auto; padding-right: 14px; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #52606d; }
 
+/* ===== 工事番号の見出し行の固定表示（スクロールしても上端に残す） ===== */
+.grp-sticky { display: none; position: absolute; left: 0; z-index: 7; background: #d5d9de; border-top: 2px solid #52606d; border-bottom: 1px solid #c6cacf; box-sizing: border-box; box-shadow: 0 2px 4px rgba(31,41,51,0.12); }
+#grp_sticky_grid { cursor: pointer; }
+#grp_sticky_task { right: 0; pointer-events: none; z-index: 5; }
+.grp-sticky-inner { display: flex; align-items: center; gap: 8px; height: 100%; padding-left: 4px; color: #1f2933; }
+
 /* ===== 今日の列：薄い紫の背景、目盛りの日付・曜日は紫の角丸 ===== */
 .gantt_task_cell.today-col { background: #f1edfd !important; }
 #gantt_here .gantt_scale_cell.gantt-scale-today { position: relative; isolation: isolate; background: #f1edfd !important; color: #fff !important; font-weight: bold !important; }

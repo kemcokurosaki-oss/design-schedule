@@ -2486,3 +2486,82 @@ gantt.attachEvent("onBeforeDataRender", function() { _wrapGroupColumns(); return
         }, desc, parent, silent);
     };
 })();
+
+// ===== 工事番号の見出し行の固定表示 =====
+// 表は見えている行だけを描く仕組みのため CSS の sticky は使えない。
+// スクロールのたびに一番上の行が属する工事番号を調べ、表の上端に見出しを重ねて表示する。
+var _stickyGroupId = null;
+function _stickyEls() {
+    const grid = document.querySelector('#gantt_here .gantt_grid');
+    const task = document.querySelector('#gantt_here .gantt_task');
+    if (!grid || !task) return null;
+    let g = document.getElementById('grp_sticky_grid');
+    if (!g || g.parentElement !== grid.parentElement) {
+        if (g) g.remove();
+        g = document.createElement('div');
+        g.id = 'grp_sticky_grid';
+        g.className = 'grp-sticky';
+        g.addEventListener('click', function(e) {
+            if (e.target.closest('.grp-filter')) return; // フィルターボタンはそのまま動かす
+            _stickyToggle();
+        });
+        grid.parentElement.style.position = 'relative';
+        grid.parentElement.appendChild(g);
+    }
+    let t = document.getElementById('grp_sticky_task');
+    if (!t || t.parentElement !== task) {
+        if (t) t.remove();
+        t = document.createElement('div');
+        t.id = 'grp_sticky_task';
+        t.className = 'grp-sticky grp-sticky-band';
+        task.appendChild(t);
+    }
+    return { grid: grid, g: g, t: t };
+}
+function _hideStickyGroup() {
+    _stickyGroupId = null;
+    ['grp_sticky_grid', 'grp_sticky_task'].forEach(function(id) { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+}
+function _updateStickyGroup() {
+    const els = _stickyEls();
+    if (!els) return;
+    const rh = gantt.config.row_height || 36;
+    const y = gantt.getScrollState().y || 0;
+    const idx = Math.floor(y / rh);
+    let top = null;
+    try { top = gantt.getTaskByIndex(idx); } catch (e) { top = null; }
+    // 見出し行がちょうど上端にそろって全部見えているときは重ねない
+    if (!top || (top.$group && y % rh === 0)) { _hideStickyGroup(); return; }
+    const gid = top.$group ? top.id : top.parent;
+    if (!_isGroupId(gid) || !gantt.isTaskExists(gid)) { _hideStickyGroup(); return; }
+    // 次の工事番号の見出しが近づいたら押し上げる
+    let shift = 0;
+    let next = null;
+    try { next = gantt.getTaskByIndex(idx + 1); } catch (e) { next = null; }
+    if (next && next.$group) shift = Math.min(0, (idx + 1) * rh - y - rh);
+    const headerH = (els.grid.querySelector('.gantt_grid_scale') || {}).offsetHeight || gantt.config.scale_height || 64;
+    _stickyGroupId = gid;
+    els.g.innerHTML = '<div class="grp-sticky-inner">' + _groupCellHtml(gantt.getTask(gid)) + '</div>';
+    els.g.style.top = (headerH + shift) + 'px';
+    els.g.style.width = els.grid.offsetWidth + 'px';
+    els.g.style.height = rh + 'px';
+    els.g.style.clipPath = 'inset(' + (-shift) + 'px 0 0 0)'; // 押し上げた分は目盛りに重ねない
+    els.g.style.display = 'block';
+    els.t.style.top = (headerH + shift) + 'px';
+    els.t.style.height = rh + 'px';
+    els.t.style.clipPath = els.g.style.clipPath;
+    els.t.style.display = 'block';
+}
+function _stickyToggle() {
+    const gid = _stickyGroupId;
+    if (!gid || !gantt.isTaskExists(gid)) return;
+    const rh = gantt.config.row_height || 36;
+    const i = gantt.getGlobalTaskIndex(gid);
+    _toggleGroup(gid);
+    // 閉じたときは、その見出し行が上端に来るようにスクロールする
+    if (i >= 0) gantt.scrollTo(null, i * rh);
+    _updateStickyGroup();
+}
+gantt.attachEvent("onGanttScroll", function() { _updateStickyGroup(); });
+gantt.attachEvent("onGanttRender", function() { requestAnimationFrame(_updateStickyGroup); });
+gantt.attachEvent("onDataRender", function() { requestAnimationFrame(_updateStickyGroup); });
