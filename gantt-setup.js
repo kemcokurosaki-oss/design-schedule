@@ -807,29 +807,37 @@ function _measureGridText(text, font) {
     cache[key] = w;
     return w;
 }
-/** ユニットの列の幅：今のモードのタスクのユニットと列見出しを測り、いちばん広いものに合わせる（最低40px） */
+/** ユニットの列の幅：画面に表示されている行のユニットと列見出しを測り、いちばん広いものに合わせる（最低40px） */
 function _unitColWidth() {
     let max = _measureGridText('ユニ', 'bold 12px');
     try {
         const tt = (typeof currentTaskTypeFilter !== 'undefined') ? currentTaskTypeFilter : null;
+        const visible = (typeof _taskVisibleOnGantt === 'function') ? _taskVisibleOnGantt : null;
         gantt.eachTask(function(t) {
             if (t.$group || !t.unit) return;
-            if (tt && String(t.task_type || 'drawing') !== tt) return;
+            if (!tt) return; // 担当別（モード未選択）のときは測らない
+            if (visible ? !visible(t) : String(t.task_type || 'drawing') !== tt) return;
             max = Math.max(max, _measureGridText(String(t.unit).trim(), '13px'));
         });
     } catch (e) {}
     return Math.max(40, Math.ceil(max) + 16);
 }
-/** データの読み込み・ユニットの書き換えのあと、ユニットの列の幅が変わっていれば列を組み直す */
+/** 表を描き直したあと（読み込み・モード切替・絞り込み・書き換え）、ユニットの列の幅が変わっていれば列を組み直す */
+var _refitUnitPending = false;
 function _refitUnitColumn() {
+    _refitUnitPending = false;
+    if (typeof currentTaskTypeFilter === 'undefined' || !currentTaskTypeFilter) return;
     const col = (gantt.config.columns || []).find(c => c.name === 'unit');
     if (!col) return;
     const w = _unitColWidth();
     if (col.width === w) return;
     switchColumns(gantt.config._columnFilterType || 'drawing');
 }
-gantt.attachEvent("onParse", function() { setTimeout(_refitUnitColumn, 0); });
-gantt.attachEvent("onAfterTaskUpdate", function(id, t) { if (t && !t.$group) setTimeout(_refitUnitColumn, 0); });
+gantt.attachEvent("onDataRender", function() {
+    if (_refitUnitPending) return;
+    _refitUnitPending = true;
+    requestAnimationFrame(_refitUnitColumn);
+});
 // ズーム設定
 const zoomConfig = {
     levels: [
