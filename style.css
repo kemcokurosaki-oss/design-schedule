@@ -1392,8 +1392,8 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 #gantt_here .gantt_scale_cell.gantt-scale-today::before { content: ""; position: absolute; left: 4px; right: 4px; background: #7048e8; z-index: -1; }
 #gantt_here .gantt_scale_cell.gantt-scale-today-num { padding-top: 5px !important; }
 #gantt_here .gantt_scale_cell.gantt-scale-today-dow { padding-bottom: 5px !important; }
-#gantt_here .gantt_scale_cell.gantt-scale-today-num::before { top: 3px; bottom: 0; border-radius: 7px 7px 0 0; }
-#gantt_here .gantt_scale_cell.gantt-scale-today-dow::before { top: -1px; bottom: 3px; border-radius: 0 0 7px 7px; }
+#gantt_here .gantt_scale_cell.gantt-scale-today-num::before { top: 1px; bottom: 0; border-radius: 7px 7px 0 0; }
+#gantt_here .gantt_scale_cell.gantt-scale-today-dow::before { top: -1px; bottom: 1px; border-radius: 0 0 7px 7px; }
 
 /* ===== 2026/11/14 追加：プレビューと同じ文字にそろえる ===== */
 .gantt_container, .gantt_container *, .gantt_cal_light, .gantt_cal_light *, button, input, select, textarea {
