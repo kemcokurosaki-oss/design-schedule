@@ -770,20 +770,20 @@ const zoomConfig = {
             scales: [
                 {unit: "week", step: 1, format: _weekScaleLabel},
                 {unit: "day", step: 1, format: "%j", css: function(date) {
-                    if (_isTodayDate(date)) return 'gantt-scale-today gantt-scale-today-num';
+                    if (_isTodayDate(date)) return 'gantt-scale-today gantt-scale-today-num' + (date.getDay() === 1 ? ' week-start' : '');
                     const dow = date.getDay();
                     if (dow === 0) return 'gantt-scale-sun';
-                    if (_isHoliday(date)) return 'gantt-scale-holiday';
+                    if (_isHoliday(date)) return 'gantt-scale-holiday' + (dow === 1 ? ' week-start' : '');
                     if (dow === 6) return 'gantt-scale-sat';
-                    return '';
+                    return dow === 1 ? 'week-start' : '';
                 }},
                 {unit: "day", step: 1, format: (date) => ["日", "月", "火", "水", "木", "金", "土"][date.getDay()], css: function(date) {
-                    if (_isTodayDate(date)) return 'gantt-scale-today gantt-scale-today-dow';
+                    if (_isTodayDate(date)) return 'gantt-scale-today gantt-scale-today-dow' + (date.getDay() === 1 ? ' week-start' : '');
                     const dow = date.getDay();
                     if (dow === 0) return 'gantt-scale-sun';
-                    if (_isHoliday(date)) return 'gantt-scale-holiday';
+                    if (_isHoliday(date)) return 'gantt-scale-holiday' + (dow === 1 ? ' week-start' : '');
                     if (dow === 6) return 'gantt-scale-sat';
-                    return '';
+                    return dow === 1 ? 'week-start' : '';
                 }}
             ]
         },
@@ -2273,9 +2273,10 @@ function _isTodayDate(date) {
 }
 gantt.templates.timeline_cell_class = function(task, date) {
     if (gantt.getState().scale_unit !== "day") return "";
-    if (_isTodayDate(date)) return "today-col";
-    if (date.getDay() === 0 || date.getDay() === 6 || _isHoliday(date)) return "weekend";
-    return "";
+    const wk = date.getDay() === 1 ? " week-start" : ""; // 週の境目（月曜の左端）に線
+    if (_isTodayDate(date)) return "today-col" + wk;
+    if (date.getDay() === 0 || date.getDay() === 6 || _isHoliday(date)) return "weekend" + wk;
+    return wk.trim();
 };
 
 gantt.templates.grid_row_class = function(start, end, task) {
