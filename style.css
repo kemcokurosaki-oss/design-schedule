@@ -653,11 +653,9 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     max-width: 70%;
     height: 4px !important;
     border-radius: 2px;
-    background-color: #1f2933;
+    background-color: #9aa5b1; /* 進捗のバーは何％でも同じグレー */
     z-index: -1;
 }
-.progress-overdue { background-color: #c92a2a !important; }
-.progress-complete { background-color: #9aa5b1 !important; }
 .progress-text-complete { color: #9aa5b1; }
 
 /* ===== 日付の見出し（白地） ===== */

@@ -2067,17 +2067,12 @@ function _progressTemplate(obj) {
         return `<div class="progress-cell-container"></div>`;
     }
     const taskType = String(obj.task_type || "");
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
     const isDrawingComplete = (taskType === "drawing" && progress >= 100);
-    const isOverdue = (progress === 0 && obj.end_date && obj.end_date < today);
-    const fillClass = isDrawingComplete
-        ? "progress-fill progress-complete"
-        : (isOverdue ? "progress-fill progress-overdue" : "progress-fill");
     const textClass = isDrawingComplete ? "progress-text-complete" : "";
-    const fillWidth = isOverdue ? "100%" : `${progress}%`;
+    // バーは何％でも同じグレー。通り道はセル幅の70%なので、その中での割合にする
+    const fillWidth = `${Math.max(0, Math.min(100, progress)) * 0.7}%`;
     return `<div class="progress-cell-container">
-                <div class="${fillClass}" style="width:${fillWidth};"></div>
+                <div class="progress-fill" style="width:${fillWidth};"></div>
                 <span class="${textClass}" style="position:relative; z-index:2; font-weight:normal;">${progress}%</span>
             </div>`;
 }
