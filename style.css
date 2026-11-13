@@ -16,7 +16,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .header-panel { background: #fff; padding: 0 20px; border-bottom: 1px solid #e4e7eb; display: flex; flex-direction: column; gap: 0; }
 .header-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 0; box-sizing: border-box; }
 .header-row + .header-row { border-top: 1px solid #e4e7eb; }
-#filter_btn_row { gap: 4px; border-bottom: none; padding: 10px 0; height: 56px; box-sizing: border-box; }
+#filter_btn_row { gap: 4px; border-bottom: none; padding: 10px 20px; height: 56px; box-sizing: border-box; }
 .project-info { font-size: 16px; font-weight: bold; color: #1f2933; }
 .zoom-controls { display: flex; gap: 0; border: 1px solid #cbd2d9; border-radius: 6px; overflow: hidden; }
 .zoom-controls .btn { border: none; border-radius: 0; }
@@ -1356,9 +1356,10 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .gantt_row.group-row, .gantt_task_row.group-row { background: #d5d9de !important; border-top: 2px solid #52606d !important; border-bottom: 1px solid #c6cacf !important; box-sizing: border-box; }
 .gantt_row.group-row { contain: layout; cursor: pointer; }
 .gantt_row.group-row .gantt_cell { visibility: hidden; }
-.gantt_row.group-row .gantt_cell.gantt_cell_tree { visibility: visible; position: absolute; left: 0; top: 0; bottom: 0; width: 100% !important; z-index: 1; display: flex; align-items: center; padding-left: 4px; border: none !important; }
+/* 工事番号のセルは行の中に残し（行の幅が縮まないように）、中身だけを行いっぱいに重ねる */
+.gantt_row.group-row .gantt_cell.gantt_cell_tree { visibility: visible; position: static !important; border: none !important; }
 .gantt_row.group-row .gantt_tree_icon, .gantt_row.group-row .gantt_tree_indent { display: none !important; }
-.gantt_row.group-row .gantt_tree_content { display: flex; align-items: center; gap: 8px; width: 100%; color: #1f2933; }
+.gantt_row.group-row .gantt_tree_content { position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 1; display: flex; align-items: center; gap: 8px; padding-left: 4px; color: #1f2933; overflow: visible; }
 .gantt_row:not(.group-row) .gantt_tree_indent, .gantt_row:not(.group-row) .gantt_tree_icon.gantt_blank { display: none !important; }
 .gantt_task_line.group-bar { display: none !important; }
 .grp-arrow { width: 22px; text-align: center; font-size: 17px; color: #52606d; }
