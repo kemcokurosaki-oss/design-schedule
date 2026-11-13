@@ -680,6 +680,18 @@ function _myOwnerName() {
     if (!full) return '';
     return Object.keys(ownerColorMap).filter(o => o !== '田中').find(o => full.indexOf(norm(o.replace(/\(.*\)/, ''))) === 0) || '';
 }
+/** 担当列：名前の前に担当者の色の丸。複数いるときは丸を重ねて並べ、名前は「・」でつなぐ。完了はグレー */
+function _ownerCellHtml(task) {
+    const owners = String((task && task.owner) || '').split(/[,、\s]+/).map(o => o.trim()).filter(Boolean);
+    if (!owners.length) return '';
+    const done = typeof _isCompletedForDisplay === 'function' && _isCompletedForDisplay(task);
+    const map = (typeof ownerColorMap !== 'undefined') ? ownerColorMap : {};
+    const dots = owners.map((o, i) => {
+        const c = done ? '#9aa5b1' : (_OWNER_DOT[map[o] || map[o.replace(/\(.*\)/, '')] || 'owner-default'] || '#95a5a6');
+        return `<span class="owner-dot${i ? ' owner-dot-2' : ''}" style="background:${c};"></span>`;
+    }).join('');
+    return `<span class="owner-cell"><span class="owner-dots">${dots}</span><span class="owner-names">${_escapeGridText(owners.join('・'))}</span></span>`;
+}
 function toggleOwnerLegend(e) {
     if (e) e.stopPropagation();
     const el = document.getElementById('owner_legend');
@@ -2147,7 +2159,7 @@ function _getDrawingColumns() {
         { name: "dash",             label: "-",              width: 28, align: "center", template: (task) => _escapeGridText(task.hyphen ?? "-"), editor: { type: "text", map_to: "hyphen" }, noFilterBtn: true },
         { name: "characteristic",   label: "特性",           width: 36, align: "center", editor: { type: "text",   map_to: "characteristic" }, noFilterBtn: true },
         { name: "derivation",       label: "派生",           width: 36, align: "center", editor: { type: "text",   map_to: "derivation" }, noFilterBtn: true },
-        { name: "owner",            label: "担当",           width: 84, align: "center", editor: { type: "owner_select", map_to: "owner" } },
+        { name: "owner",            label: "担当",           width: 84, align: "center", template: _ownerCellHtml, editor: { type: "owner_select", map_to: "owner" } },
         { name: "total_sheets",     label: "総<br>枚数",     width: 44, align: "center", template: _templateTotalSheetsCell, editor: { type: "sheet_count", map_to: "total_sheets",     min: 0 }, noFilterBtn: true },
         { name: "completed_sheets", label: "完了<br>枚数",   width: 44, align: "center", template: _templateCompletedSheetsCell, editor: { type: "sheet_count", map_to: "completed_sheets", min: 0 }, noFilterBtn: true },
         { name: "progress",         label: "進捗",           width: 56, align: "center", template: _progressTemplate },
@@ -2177,7 +2189,7 @@ function _getLongtermColumns() {
         { name: "part_number", label: "型式・図番",     width: 115, align: "left", editor: { type: "text",   map_to: "part_number" }, noFilterBtn: true },
         { name: "quantity",   label: "個数",           width: 28,  align: "center", editor: { type: "number", map_to: "quantity", min: 0, max: 99 }, noFilterBtn: true },
         { name: "manufacturer",      label: "メーカー",       width: 70,  align: "center", editor: { type: "text",   map_to: "manufacturer" }, noFilterBtn: true },
-        { name: "owner",      label: "担当",           width: 40,  align: "center", editor: { type: "owner_select", map_to: "owner" } },
+        { name: "owner",      label: "担当",           width: 40,  align: "center", template: _ownerCellHtml, editor: { type: "owner_select", map_to: "owner" } },
         { name: "start_date", label: "開始日",         width: 60,  align: "center",
           template: function(task) {
             if (task.has_no_start || !task.start_date) return "";
@@ -2212,7 +2224,7 @@ function _getTripColumns() {
         { name: "machine",         label: "機械",     width: 40,  align: "center", editor: { type: "text", map_to: "machine" } },
         { name: "unit",            label: "ユニ",     width: 40,  align: "center", editor: { type: "text", map_to: "unit" } },
         { name: "text",            label: "タスク",   width: 210, tree: true,      editor: { type: "text", map_to: "text" } },
-        { name: "owner",           label: "担当",     width: 60,  align: "center", editor: { type: "owner_select", map_to: "owner" } },
+        { name: "owner",           label: "担当",     width: 60,  align: "center", template: _ownerCellHtml, editor: { type: "owner_select", map_to: "owner" } },
         { name: "start_date",      label: "開始日",   width: 65,  align: "center",
           template: function(task) {
             if (!task.start_date) return "";

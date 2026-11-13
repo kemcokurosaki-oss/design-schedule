@@ -1363,6 +1363,13 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .gantt_row:not(.group-row) .gantt_tree_indent, .gantt_row:not(.group-row) .gantt_tree_icon.gantt_blank { display: none !important; }
 .gantt_task_line.group-bar { display: none !important; }
 /* 見出し行はカレンダー側も同じグレーの1本の行にする（土日・今日の列の色や縦線を出さない） */
+/* 担当列：色の丸＋名前（複数は丸を重ねる） */
+.owner-cell { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; vertical-align: middle; }
+.owner-dots { display: inline-flex; align-items: center; flex-shrink: 0; }
+.owner-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.owner-dot-2 { margin-left: -3px; box-shadow: 0 0 0 1.5px #fff; }
+.owner-names { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* 日単位：週の境目（月曜の左端）に細い線。セル幅を変えないよう box-shadow で描く */
 #gantt_here .gantt_task_cell.week-start, #gantt_here .gantt_scale_cell.week-start { box-shadow: inset 1px 0 0 #8a939e; }
 .gantt_task_row.group-row .gantt_task_cell { background: transparent !important; border-right-color: transparent !important; box-shadow: none !important; }
