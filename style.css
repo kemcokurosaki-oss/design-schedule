@@ -1371,7 +1371,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .owner-names { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* 日単位：週の境目（月曜の左端）に細い線。セル幅を変えないよう box-shadow で描く */
-#gantt_here .gantt_task_cell.week-start, #gantt_here .gantt_scale_cell.week-start { box-shadow: inset 1px 0 0 #8a939e; }
+#gantt_here .gantt_task_cell.week-start, #gantt_here .gantt_scale_cell.week-start { box-shadow: inset 1px 0 0 #bcc3cb; }
 .gantt_task_row.group-row .gantt_task_cell { background: transparent !important; border-right-color: transparent !important; box-shadow: none !important; }
 .grp-arrow { width: 22px; text-align: center; font-size: 17px; color: #52606d; }
 .grp-pn { font-size: 14px; font-weight: bold; }
