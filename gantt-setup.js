@@ -602,7 +602,8 @@ var _NO_HIDE = new Set(["text", "add_btn"]);
 function _hiddenColsAll() { try { return JSON.parse(localStorage.getItem(_HIDE_KEY) || "{}") || {}; } catch (e) { return {}; } }
 function _hiddenColsFor(mode) { return new Set(_hiddenColsAll()[_colSetKeyFromFilter(mode || 'drawing')] || []); }
 function _setHiddenCols(mode, set) { const all = _hiddenColsAll(); all[_colSetKeyFromFilter(mode || 'drawing')] = Array.from(set); try { localStorage.setItem(_HIDE_KEY, JSON.stringify(all)); } catch (e) {} }
-function _applyHiddenCols(cols, mode) { const h = _hiddenColsFor(mode); return cols.map(c => (h.has(c.name) && !_NO_HIDE.has(c.name)) ? Object.assign({}, c, { hide: true }) : c); }
+// 列の hide 指定は dhtmlxGantt の有料版のみ有効なため、隠す列は列定義から取り除く
+function _applyHiddenCols(cols, mode) { const h = _hiddenColsFor(mode); return cols.filter(c => !(h.has(c.name) && !_NO_HIDE.has(c.name))); }
 function _visibleColsSum(cols) { return cols.reduce((s, c) => s + (c.hide ? 0 : (c.width || 0)), 0); }
 function _baseColsFor(mode) { return mode === 'long_lead_item' ? _getLongtermColumns() : (mode === 'business_trip' || mode === 'planning') ? _getTripColumns() : _getDrawingColumns(); }
 function setColumnHidden(name, hidden) {

@@ -1318,7 +1318,7 @@ async function initialize() {
     // 確定していることがある。ここで無条件に true を上書きするとその判定を消してしまうため、
     // 現在の _isEditor（未確定なら false）を反映する。
     gantt.config.readonly = !_isEditor;
-    gantt.config.columns = _applyColumnFilterButtons(_getDrawingColumns());
+    gantt.config.columns = _applyHiddenCols(_applyColumnFilterButtons(_getDrawingColumns()), 'drawing');
     gantt.config._columnFilterType = 'drawing';
     _setLayout(_getColsSum(gantt.config.columns));
 
