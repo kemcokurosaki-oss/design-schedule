@@ -607,7 +607,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .gantt_row.gantt-row-completed .gantt_cell { color: #9aa5b1 !important; }
 .gantt_row:hover { background-color: #f5f7fa !important; }
 .gantt_row.gantt-row-completed:hover { background-color: #f0f2f5 !important; }
-.gantt_row.gantt-row-completed:hover .progress-fill { background-color: #7b8794 !important; }
+.gantt_row.gantt-row-completed:hover .progress-fill { background-color: #52606d !important; }
 .gantt_row.gantt_selected, .gantt_task_row.gantt_selected { background-color: #f0f2f5 !important; }
 .gantt_task_row.gantt_selected .gantt_task_cell { border-right-color: #eef0f3 !important; }
 .gantt_task_cell { border-right: 1px solid #eef0f3 !important; }
@@ -655,7 +655,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     max-width: 70%;
     height: 4px !important;
     border-radius: 2px;
-    background-color: #7b8794; /* 進捗のバーは何％でも同じグレー */
+    background-color: #52606d; /* 進捗のバーは何％でも同じグレー */
     z-index: -1;
 }
 .progress-text-complete { color: #9aa5b1; }
