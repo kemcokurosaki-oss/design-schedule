@@ -427,7 +427,7 @@ function renderResourceTimeline(owners) {
 
             html += `
                 <div class="resource-item" style="display:flex;${borderTop}${borderBottom}min-height:30px;height:30px;align-items:stretch;width:${totalWidth}px;">
-                    <div class="resource-grid-container" style="width:${actualGridWidth}px;min-width:${actualGridWidth}px;flex-shrink:0;display:flex;border-right:1px solid #cbd2d9;background:#fff;position:sticky;left:0;z-index:5;">
+                    <div class="resource-grid-container" style="width:${actualGridWidth}px;min-width:${actualGridWidth}px;flex-shrink:0;display:flex;border-right:1px solid #cbd2d9;background:#fff;position:sticky;left:0;z-index:40;">
                         ${leftCellContent}
                     </div>
                     <div class="resource-timeline" style="width:${timelineWidth}px;flex-shrink:0;position:relative;background:#fff;">
@@ -554,7 +554,7 @@ function renderOwnerDetailTimeline(ownerName) {
 
         html += `
             <div class="resource-item" style="display: flex; border-bottom: 1px solid #eef0f3; min-height: 30px; height: 30px; align-items: stretch; width: ${totalWidth}px;">
-                <div class="resource-grid-container" style="width: ${actualGridWidth}px; min-width: ${actualGridWidth}px; flex-shrink: 0; display: flex; border-right: 1px solid #cbd2d9; background: #fff; position: sticky; left: 0; z-index: 5; overflow: hidden;">
+                <div class="resource-grid-container" style="width: ${actualGridWidth}px; min-width: ${actualGridWidth}px; flex-shrink: 0; display: flex; border-right: 1px solid #cbd2d9; background: #fff; position: sticky; left: 0; z-index: 40; overflow: hidden;">
                     <div style="display: flex; align-items: center; padding: 0 6px; font-size: 13px; color: #1f2933; width: 100%; overflow: hidden; white-space: nowrap; gap: 8px;">
                         <span style="flex-shrink: 0; font-size: 10px; color: ${typeClr.color}; background: ${typeClr.bg}; border-radius: 2px; padding: 1px 4px; font-weight: bold;">${typeLabel}</span>
                         <span style="flex-shrink: 0; color: #7b8794; min-width: 50px;">${t.project_number || '-'}</span>
