@@ -938,7 +938,7 @@ function _renderWishDateMarks() {
         el.className = 'wish-date-mark';
         el.style.left = x + 'px';
         el.style.top  = top + 'px';
-        if (isOverdue) { el.style.color = '#c62828'; el.style.webkitTextStroke = '3.5px #fff'; el.style.paintOrder = 'stroke fill'; }
+        if (isOverdue) { el.style.color = '#c62828'; } // 期日超過は赤（白い縁取りは付けない）
         el.title = label + ': ' + task.wish_date;
         el.textContent = '▼';
         dataArea.appendChild(el);
