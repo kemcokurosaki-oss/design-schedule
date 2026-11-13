@@ -793,6 +793,43 @@ function _dateColWidth(label) {
     cache[label] = w;
     return w;
 }
+/** 画面と同じフォントで文字の幅を測る（同じ文字は覚えておく） */
+function _measureGridText(text, font) {
+    const cache = _measureGridText._cache || (_measureGridText._cache = {});
+    const key = font + '|' + text;
+    if (cache[key] != null) return cache[key];
+    let w = 0;
+    try {
+        const ctx = (_measureGridText._c || (_measureGridText._c = document.createElement('canvas'))).getContext('2d');
+        ctx.font = font + ' "BIZ UDPGothic", "BIZ UDPゴシック", "メイリオ", Meiryo, sans-serif';
+        w = ctx.measureText(String(text)).width;
+    } catch (e) {}
+    cache[key] = w;
+    return w;
+}
+/** ユニットの列の幅：今のモードのタスクのユニットと列見出しを測り、いちばん広いものに合わせる（最低40px） */
+function _unitColWidth() {
+    let max = _measureGridText('ユニ', 'bold 12px');
+    try {
+        const tt = (typeof currentTaskTypeFilter !== 'undefined') ? currentTaskTypeFilter : null;
+        gantt.eachTask(function(t) {
+            if (t.$group || !t.unit) return;
+            if (tt && String(t.task_type || 'drawing') !== tt) return;
+            max = Math.max(max, _measureGridText(String(t.unit).trim(), '13px'));
+        });
+    } catch (e) {}
+    return Math.max(40, Math.ceil(max) + 16);
+}
+/** データの読み込み・ユニットの書き換えのあと、ユニットの列の幅が変わっていれば列を組み直す */
+function _refitUnitColumn() {
+    const col = (gantt.config.columns || []).find(c => c.name === 'unit');
+    if (!col) return;
+    const w = _unitColWidth();
+    if (col.width === w) return;
+    switchColumns(gantt.config._columnFilterType || 'drawing');
+}
+gantt.attachEvent("onParse", function() { setTimeout(_refitUnitColumn, 0); });
+gantt.attachEvent("onAfterTaskUpdate", function(id, t) { if (t && !t.$group) setTimeout(_refitUnitColumn, 0); });
 // ズーム設定
 const zoomConfig = {
     levels: [
@@ -2173,7 +2210,7 @@ function _applyColumnFilterButtons(cols) {
 function _getDrawingColumns() {
     return [
         { name: "machine",          label: "機械",           width: 40, align: "center", editor: { type: "text",   map_to: "machine" } },
-        { name: "unit",             label: "ユニ",           width: 40, align: "center", editor: { type: "text",   map_to: "unit" } },
+        { name: "unit",             label: "ユニ",           width: _unitColWidth(), align: "center", editor: { type: "text",   map_to: "unit" } },
         { name: "text",             label: "組立図面名",     width: 258, tree: true,      editor: { type: "text",   map_to: "text" } },
         { name: "model_type",       label: "機種",           width: 36, align: "center", editor: { type: "text",   map_to: "model_type" }, noFilterBtn: true },
         { name: "unit2",            label: "ユニ<br>2",      width: 36, align: "center", editor: { type: "text",   map_to: "unit2" }, noFilterBtn: true },
@@ -2205,7 +2242,7 @@ function _getDrawingColumns() {
 function _getLongtermColumns() {
     return [
         { name: "machine",    label: "機械",           width: 32,  align: "center", editor: { type: "text",   map_to: "machine" } },
-        { name: "unit",       label: "ユニ",           width: 40,  align: "center", editor: { type: "text",   map_to: "unit" } },
+        { name: "unit",       label: "ユニ",           width: _unitColWidth(),  align: "center", editor: { type: "text",   map_to: "unit" } },
         { name: "text",       label: "品名",           width: 173, tree: true,      editor: { type: "text",   map_to: "text" } },
         { name: "part_number", label: "型式・図番",     width: 115, align: "left", editor: { type: "text",   map_to: "part_number" }, noFilterBtn: true },
         { name: "quantity",   label: "個数",           width: 28,  align: "center", editor: { type: "number", map_to: "quantity", min: 0, max: 99 }, noFilterBtn: true },
@@ -2243,7 +2280,7 @@ gantt.config._columnFilterType = 'drawing';
 function _getTripColumns() {
     return [
         { name: "machine",         label: "機械",     width: 40,  align: "center", editor: { type: "text", map_to: "machine" } },
-        { name: "unit",            label: "ユニ",     width: 40,  align: "center", editor: { type: "text", map_to: "unit" } },
+        { name: "unit",            label: "ユニ",     width: _unitColWidth(),  align: "center", editor: { type: "text", map_to: "unit" } },
         { name: "text",            label: "タスク",   width: 210, tree: true,      editor: { type: "text", map_to: "text" } },
         { name: "owner",           label: "担当",     width: 60,  align: "center", template: _ownerCellHtml, editor: { type: "owner_select", map_to: "owner" } },
         { name: "start_date",      label: "開始日",   width: _dateColWidth("開始日"),  align: "center",
