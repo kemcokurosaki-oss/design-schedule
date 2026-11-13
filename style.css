@@ -700,7 +700,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     justify-content: flex-start !important;
     padding-left: 6px !important;
     border-right: 1px solid #cbd2d9 !important;
-    background: #fff !important;
+    background: transparent !important; /* 年月の行も日付の行と同じグレー */
     color: #52606d !important;
 }
 #gantt_here .gantt_scale_cell.gantt-scale-sun,
