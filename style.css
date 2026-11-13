@@ -1351,4 +1351,3 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .owner-legend-pop { display: none; position: absolute; top: calc(100% + 6px); right: 0; width: 300px; background: #fff; border: 1px solid #cbd2d9; border-radius: 8px; box-shadow: 0 6px 20px rgba(31,41,51,0.18); padding: 10px; flex-wrap: wrap; gap: 6px; z-index: 10000; }
 .owner-legend.open .owner-legend-pop { display: flex; }
 .owner-legend-pop .owner-legend-chip[onclick] { cursor: pointer; }
-.owner-legend-note { width: 100%; font-size: 11px; color: #7b8794; padding-top: 4px; }

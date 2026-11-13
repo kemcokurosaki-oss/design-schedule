@@ -670,39 +670,32 @@ function _ownerInitialsHtml(ownerStr, completed) {
         return `<span class="owner-initial${i ? ' owner-initial-2' : ''}" style="background:${c};" title="${_escapeGridText(o)}">${_escapeGridText(o.charAt(0))}</span>`;
     }).join('');
 }
-var _MY_OWNER_KEY = "kotei_my_owner_v1";
+// ログイン中のアカウントの氏名から、担当者名（名簿の名前）を自動で判定する
 function _myOwnerName() {
     if (typeof ownerColorMap === 'undefined') return '';
-    const saved = localStorage.getItem(_MY_OWNER_KEY);
-    if (saved && ownerColorMap[saved]) return saved;
-    const full = String(window._currentUserFullName || '').replace(/\s/g, '');
+    // 「﨑」と「崎」のような異体字の違いでは外れないようにそろえて比べる
+    const norm = v => String(v || '').replace(/\s/g, '').replace(/﨑/g, '崎').replace(/髙/g, '高').replace(/邉|邊/g, '辺');
+    const full = norm(window._currentUserFullName);
     if (!full) return '';
-    return Object.keys(ownerColorMap).filter(o => o !== '田中').find(o => full.indexOf(o.replace(/\(.*\)/, '')) === 0) || '';
-}
-function setMyOwner(name) {
-    localStorage.setItem(_MY_OWNER_KEY, name);
-    const el = document.getElementById('owner_legend');
-    if (el) el.classList.remove('open');
-    renderOwnerLegend();
+    return Object.keys(ownerColorMap).filter(o => o !== '田中').find(o => full.indexOf(norm(o.replace(/\(.*\)/, ''))) === 0) || '';
 }
 function toggleOwnerLegend(e) {
     if (e) e.stopPropagation();
     const el = document.getElementById('owner_legend');
     if (el) el.classList.toggle('open');
 }
-// 担当者の色：自分の色だけ表示し、全員分は「担当者の色 ▾」で開く
+// 担当者の色：ログイン中のアカウントの色だけ表示し、全員分は「担当者の色 ▾」で開く
 function renderOwnerLegend() {
     const el = document.getElementById('owner_legend');
     if (!el || typeof ownerColorMap === 'undefined') return;
-    const chip = (o, click) => `<span class="owner-legend-chip ${ownerColorMap[o]}"${click ? ` onclick="setMyOwner('${_escapeGridText(o)}')" title="押すと「自分の色」に設定"` : ' title="自分の色"'}><span class="owner-legend-dot" style="background:${_OWNER_DOT[ownerColorMap[o]]};"></span>${_escapeGridText(o)}</span>`;
+    const chip = (o, title) => `<span class="owner-legend-chip ${ownerColorMap[o]}" title="${title}"><span class="owner-legend-dot" style="background:${_OWNER_DOT[ownerColorMap[o]]};"></span>${_escapeGridText(o)}</span>`;
     const all = Object.keys(ownerColorMap).filter(o => o !== '田中');
     const loggedIn = typeof _isLoggedIn !== 'undefined' && _isLoggedIn;
     const me = loggedIn ? _myOwnerName() : '';
     const wasOpen = el.classList.contains('open');
-    el.innerHTML = (me ? chip(me, false) : '') +
+    el.innerHTML = (me ? chip(me, '自分の色') : '') +
         '<button type="button" class="btn owner-legend-btn" onclick="toggleOwnerLegend(event)">担当者の色 ▾</button>' +
-        '<div class="owner-legend-pop" onclick="event.stopPropagation()">' + all.map(o => chip(o, loggedIn)).join('') +
-        (loggedIn ? '<div class="owner-legend-note">名前を押すと「自分の色」に設定します</div>' : '') + '</div>';
+        '<div class="owner-legend-pop" onclick="event.stopPropagation()">' + all.map(o => chip(o, '')).join('') + '</div>';
     el.classList.toggle('open', wasOpen);
 }
 document.addEventListener('click', function() { const el = document.getElementById('owner_legend'); if (el) el.classList.remove('open'); });
