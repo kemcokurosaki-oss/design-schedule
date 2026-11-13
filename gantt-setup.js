@@ -595,6 +595,131 @@ gantt.attachEvent("onTaskSelected", function(id) {
     }, 0);
 });
 
+// ===== 新デザイン：担当者の頭文字・列の表示／非表示 =====
+var _OWNER_DOT = {"owner-fujiyama":"#e74c3c","owner-tanaka":"#3498db","owner-yasuoka":"#2ecc71","owner-kawabe":"#f39c12","owner-dan":"#9b59b6","owner-horii":"#1abc9c","owner-miyazaki":"#e84393","owner-tsuda":"#8fb83a","owner-komura":"#2c3e50","owner-shibata":"#d4a90a","owner-hashimoto":"#686de0","owner-matsumoto":"#22a6b3","owner-default":"#95a5a6"};
+var _HIDE_KEY = "kotei_hidden_cols_v1";
+var _NO_HIDE = new Set(["text", "add_btn"]);
+function _hiddenColsAll() { try { return JSON.parse(localStorage.getItem(_HIDE_KEY) || "{}") || {}; } catch (e) { return {}; } }
+function _hiddenColsFor(mode) { return new Set(_hiddenColsAll()[_colSetKeyFromFilter(mode || 'drawing')] || []); }
+function _setHiddenCols(mode, set) { const all = _hiddenColsAll(); all[_colSetKeyFromFilter(mode || 'drawing')] = Array.from(set); try { localStorage.setItem(_HIDE_KEY, JSON.stringify(all)); } catch (e) {} }
+function _applyHiddenCols(cols, mode) { const h = _hiddenColsFor(mode); return cols.map(c => (h.has(c.name) && !_NO_HIDE.has(c.name)) ? Object.assign({}, c, { hide: true }) : c); }
+function _visibleColsSum(cols) { return cols.reduce((s, c) => s + (c.hide ? 0 : (c.width || 0)), 0); }
+function _baseColsFor(mode) { return mode === 'long_lead_item' ? _getLongtermColumns() : (mode === 'business_trip' || mode === 'planning') ? _getTripColumns() : _getDrawingColumns(); }
+function setColumnHidden(name, hidden) {
+    const mode = gantt.config._columnFilterType || 'drawing';
+    const h = _hiddenColsFor(mode);
+    if (hidden) h.add(name); else h.delete(name);
+    _setHiddenCols(mode, h);
+    switchColumns(mode);
+    _renderColMenu();
+}
+function hideColumnFromFilter(name) {
+    const n = name || (typeof _openColFilterName !== 'undefined' ? _openColFilterName : null);
+    if (typeof _closeAllFilterDropdowns === 'function') _closeAllFilterDropdowns();
+    if (!n || _NO_HIDE.has(n)) return;
+    setColumnHidden(n, true);
+}
+function showAllColumns() { _setHiddenCols(gantt.config._columnFilterType || 'drawing', new Set()); switchColumns(gantt.config._columnFilterType || 'drawing'); _renderColMenu(); }
+function _colLabelText(c) { return String(c.label || '').replace(/<br\s*\/?>/gi, '').replace(/<[^>]*>/g, '').trim() || c.name; }
+function _renderColMenu() {
+    const list = document.getElementById('col_menu_list');
+    if (!list) return;
+    const mode = gantt.config._columnFilterType || 'drawing';
+    const h = _hiddenColsFor(mode);
+    list.innerHTML = _baseColsFor(mode).filter(c => !_NO_HIDE.has(c.name)).map(c =>
+        `<label><input type="checkbox" ${h.has(c.name) ? '' : 'checked'} onchange="setColumnHidden('${c.name}', !this.checked)"> ${_escapeGridText(_colLabelText(c))}</label>`).join('');
+}
+function toggleColMenu(e) {
+    if (e) e.stopPropagation();
+    const m = document.getElementById('col_menu');
+    if (!m) return;
+    const open = m.style.display === 'block';
+    if (typeof _closeAllFilterDropdowns === 'function') _closeAllFilterDropdowns();
+    if (open) { m.style.display = 'none'; return; }
+    _renderColMenu();
+    const r = (e.currentTarget || e.target).getBoundingClientRect();
+    m.style.position = 'fixed'; m.style.top = (r.bottom + 4) + 'px'; m.style.left = r.left + 'px';
+    m.style.display = 'block';
+}
+function _updateColMenuBtn() {
+    const b = document.getElementById('col_menu_btn');
+    if (!b) return;
+    const n = _hiddenColsFor(gantt.config._columnFilterType || 'drawing').size;
+    b.textContent = n ? `表示する列（${n}列非表示） ▾` : '表示する列 ▾';
+    b.classList.toggle('col-menu-active', n > 0);
+}
+document.addEventListener('mousedown', function(e) {
+    const m = document.getElementById('col_menu');
+    if (m && m.style.display === 'block' && !e.target.closest('#col_menu') && !e.target.closest('#col_menu_btn')) m.style.display = 'none';
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    const m = document.getElementById('col_menu');
+    if (m) m.style.display = 'none';
+    if (typeof _closeAllFilterDropdowns === 'function') _closeAllFilterDropdowns();
+});
+document.addEventListener('DOMContentLoaded', function() { _updateColMenuBtn(); });
+function scrollToToday() { gantt.showDate(new Date()); }
+function _ownerInitialsHtml(ownerStr, completed) {
+    if (!ownerStr) return '';
+    const owners = String(ownerStr).split(/[,、\s]+/).map(o => o.trim()).filter(Boolean).slice(0, 2);
+    return owners.map((o, i) => {
+        const cls = (typeof ownerColorMap !== 'undefined' && ownerColorMap[o]) || 'owner-default';
+        const c = completed ? '#adb5bd' : (_OWNER_DOT[cls] || '#95a5a6');
+        return `<span class="owner-initial${i ? ' owner-initial-2' : ''}" style="background:${c};" title="${_escapeGridText(o)}">${_escapeGridText(o.charAt(0))}</span>`;
+    }).join('');
+}
+var _MY_OWNER_KEY = "kotei_my_owner_v1";
+function _myOwnerName() {
+    if (typeof ownerColorMap === 'undefined') return '';
+    const saved = localStorage.getItem(_MY_OWNER_KEY);
+    if (saved && ownerColorMap[saved]) return saved;
+    const full = String(window._currentUserFullName || '').replace(/\s/g, '');
+    if (!full) return '';
+    return Object.keys(ownerColorMap).filter(o => o !== '田中').find(o => full.indexOf(o.replace(/\(.*\)/, '')) === 0) || '';
+}
+function setMyOwner(name) {
+    localStorage.setItem(_MY_OWNER_KEY, name);
+    const el = document.getElementById('owner_legend');
+    if (el) el.classList.remove('open');
+    renderOwnerLegend();
+}
+function toggleOwnerLegend(e) {
+    if (e) e.stopPropagation();
+    const el = document.getElementById('owner_legend');
+    if (el) el.classList.toggle('open');
+}
+// 担当者の色：自分の色だけ表示し、全員分は「担当者の色 ▾」で開く
+function renderOwnerLegend() {
+    const el = document.getElementById('owner_legend');
+    if (!el || typeof ownerColorMap === 'undefined') return;
+    const chip = (o, click) => `<span class="owner-legend-chip ${ownerColorMap[o]}"${click ? ` onclick="setMyOwner('${_escapeGridText(o)}')" title="押すと「自分の色」に設定"` : ' title="自分の色"'}><span class="owner-legend-dot" style="background:${_OWNER_DOT[ownerColorMap[o]]};"></span>${_escapeGridText(o)}</span>`;
+    const all = Object.keys(ownerColorMap).filter(o => o !== '田中');
+    const loggedIn = typeof _isLoggedIn !== 'undefined' && _isLoggedIn;
+    const me = loggedIn ? _myOwnerName() : '';
+    const wasOpen = el.classList.contains('open');
+    el.innerHTML = (me ? chip(me, false) : '') +
+        '<button type="button" class="btn owner-legend-btn" onclick="toggleOwnerLegend(event)">担当者の色 ▾</button>' +
+        '<div class="owner-legend-pop" onclick="event.stopPropagation()">' + all.map(o => chip(o, loggedIn)).join('') +
+        (loggedIn ? '<div class="owner-legend-note">名前を押すと「自分の色」に設定します</div>' : '') + '</div>';
+    el.classList.toggle('open', wasOpen);
+}
+document.addEventListener('click', function() { const el = document.getElementById('owner_legend'); if (el) el.classList.remove('open'); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { const el = document.getElementById('owner_legend'); if (el) el.classList.remove('open'); } });
+// タスク名の左に、期限切れ（警告）・期日超過（旗）のマークを表示
+function _gridMarkHtml(task) {
+    let icon = '';
+    if (typeof _resIsLate === 'function' && _resIsLate(task)) icon = '<span title="期限切れ" style="display:flex;">' + (typeof _ICON_LATE !== 'undefined' ? _ICON_LATE : '') + '</span>';
+    else if (typeof _resIsWish === 'function' && _resIsWish(task)) icon = '<span title="期日超過" style="display:flex;">' + (typeof _ICON_WISH !== 'undefined' ? _ICON_WISH : '') + '</span>';
+    return '<span class="grid-mark">' + icon + '</span>';
+}
+gantt.templates.grid_file = function(task) { return _gridMarkHtml(task); };
+gantt.templates.grid_folder = function(task) { return _gridMarkHtml(task); };
+gantt.attachEvent("onParse", function() { setTimeout(renderOwnerLegend, 0); });
+gantt.attachEvent("onAfterTaskAdd", function() { setTimeout(renderOwnerLegend, 0); });
+gantt.attachEvent("onAfterTaskUpdate", function() { setTimeout(renderOwnerLegend, 0); });
+gantt.attachEvent("onAfterTaskDelete", function() { setTimeout(renderOwnerLegend, 0); });
+
 // グリッド幅をレイアウトで固定する関数（dhtmlxGanttの自動スケーリングを防ぐ）
 function _setLayout(gridWidth) {
     gantt.config.layout = {
@@ -624,10 +749,11 @@ function _getColsSum(cols) {
     return cols.reduce((sum, c) => sum + (c.width || 0), 0);
 }
 
-_setLayout(_getColsSum(_getDrawingColumns()));
+_setLayout(_visibleColsSum(_applyHiddenCols(_getDrawingColumns(), 'drawing')));
 gantt.config.min_column_width = 22; // カレンダーの列幅を22に設定
 gantt.config.inline_editors_save_on_blur = true; // フォーカスが外れたとき自動保存
-gantt.config.row_height = 30;
+gantt.config.row_height = 36;
+gantt.config.bar_height = 24;
 gantt.config.scale_height = 60; // 3段構成（20px * 3）に合わせて調整
 // マーカープラグインは initialize() 内で有効化するため、ここでは行わない
 
@@ -2068,7 +2194,7 @@ function _getLongtermColumns() {
         { name: "status",     label: "状態",           width: 32,  align: "center",
           template: function(task) {
               const v = task.status || '';
-              if (v === '未') return `<span style="display:block;width:100%;background:#e53935;color:#000;border-radius:2px;">${v}</span>`;
+              if (v === '未') return `<span class="status-pending">${v}</span>`;
               return v;
           },
           editor: { type: "status_select", map_to: "status" } },
@@ -2078,7 +2204,7 @@ function _getLongtermColumns() {
 // 長納期品列合計: 32+42+190+85+28+70+32+60+20 = 559px
 
 // 列設定の初期化（固定初期幅）
-gantt.config.columns = _applyColumnFilterButtons(_getDrawingColumns());
+gantt.config.columns = _applyHiddenCols(_applyColumnFilterButtons(_getDrawingColumns()), 'drawing');
 gantt.config._columnFilterType = 'drawing';
 
 // 出張列定義
@@ -2117,20 +2243,20 @@ function switchColumns(filterType) {
     if (filterType === 'long_lead_item') baseCols = _getLongtermColumns();
     else if (filterType === 'business_trip' || filterType === 'planning') baseCols = _getTripColumns();
     else baseCols = _getDrawingColumns();
-    gantt.config.columns = _applyColumnFilterButtons(baseCols);
+    gantt.config.columns = _applyHiddenCols(_applyColumnFilterButtons(baseCols), filterType);
     gantt.config._columnFilterType = filterType;
-    _setLayout(_getColsSum(baseCols));
+    _setLayout(_visibleColsSum(_applyHiddenCols(baseCols, filterType)));
     gantt.render();
+    _updateColMenuBtn();
 }
 
 // スタイルとテンプレート
 gantt.templates.task_text = function(start, end, task) {
-    if (_isCompletedForDisplay(task)) {
-        return `<span style="color:#333;">${_escapeGridText(task.text)}</span>`;
-    }
-    const colorClass = getOwnerColorClass(task.owner);
-    const textColor = (["owner-tsuda", "owner-shibata", "owner-matsumoto"].includes(colorClass)) ? "#222" : "#fff";
-    return `<span style="color:${textColor};">${_escapeGridText(task.text)}</span>`;
+    // バーの中：担当者の頭文字の丸（2人まで）＋タスク名。週単位のときは頭文字だけ
+    const done = _isCompletedForDisplay(task);
+    const initials = `<span class="owner-initials">${_ownerInitialsHtml(task.owner, done)}</span>`;
+    if (gantt.getState().scale_unit === 'week') return initials;
+    return initials + `<span class="bar-text">${_escapeGridText(task.text)}</span>`;
 };
 
 gantt.templates.task_class = function(start, end, task) {

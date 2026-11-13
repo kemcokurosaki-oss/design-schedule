@@ -40,11 +40,44 @@ function getOwnerColorClass(ownerStr) {
 
 // タスクタイプ別の色定義
 const TASK_TYPE_COLORS = {
-    planning:       { bg: '#e3f2fd', color: '#1565c0' },  // 青系（計画）
-    drawing:        { bg: '#e8f5e9', color: '#2e7d32' },  // 緑系（図面）
-    long_lead_item: { bg: '#fff3e0', color: '#e65100' },  // オレンジ系（長納期品）
-    business_trip:  { bg: '#f3e5f5', color: '#6a1b9a' },  // 紫系（出張）
+    planning:       { bg: '#f0f2f5', color: '#3e4c59' },
+    drawing:        { bg: '#f0f2f5', color: '#3e4c59' },
+    long_lead_item: { bg: '#f0f2f5', color: '#3e4c59' },
+    business_trip:  { bg: '#f0f2f5', color: '#3e4c59' },
 };
+
+// ===== 新デザイン：期限切れ・期日超過 =====
+let _resourceOnly = null; // null=すべて / 'late'=期限切れのみ / 'wish'=期日超過のみ
+const _ICON_LATE = '<svg class="mark-late" width="15" height="15" viewBox="0 0 16 16"><path d="M8 1.5 15 14H1z" fill="#1f2933" stroke="#1f2933" stroke-width="1" stroke-linejoin="round"/><rect x="7.2" y="5.5" width="1.6" height="4.6" rx="0.8" fill="#fff"/><circle cx="8" cy="12" r="0.95" fill="#fff"/></svg>';
+const _ICON_WISH = '<svg class="mark-wish" width="14" height="14" viewBox="0 0 16 16"><rect x="2.5" y="1.5" width="1.6" height="13" rx="0.8" fill="#1f2933"/><path d="M4 2h9l-2.2 3.2L13 8.5H4z" fill="#1f2933"/></svg>';
+function _resTodayStart() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+function _resIsDone(t) { return typeof _isCompletedForDisplay === 'function' ? _isCompletedForDisplay(t) : false; }
+/** 期限切れ：完了予定日を過ぎて未完了（計画・出張は対象外）。end_date は完了予定日の翌日0時 */
+function _resIsLate(t) {
+    const tt = String(t.task_type);
+    if (tt === 'planning' || tt === 'business_trip') return false;
+    if (_resIsDone(t) || t.has_no_date || !t.end_date) return false;
+    return new Date(t.end_date) < _resTodayStart();
+}
+function _resWishDate(t) {
+    if (!t.wish_date) return null;
+    const p = String(t.wish_date).split('-');
+    if (p.length !== 3) return null;
+    return new Date(+p[0], +p[1] - 1, +p[2]);
+}
+/** 期日超過：出図希望日（図面）・手配期日（長納期品）を過ぎて未完了 */
+function _resIsWish(t) {
+    const tt = String(t.task_type);
+    if (tt !== 'drawing' && tt !== 'long_lead_item') return false;
+    if (_resIsDone(t)) return false;
+    const w = _resWishDate(t);
+    return !!w && w < _resTodayStart();
+}
+function _resAlertChip(ownerName, kind, n) {
+    const icon = kind === 'late' ? _ICON_LATE : _ICON_WISH;
+    const label = kind === 'late' ? '期限切れ' : '期日超過';
+    return `<span class="res-alert-chip" onclick="event.stopPropagation(); showOwnerDetail('${ownerName}', '${kind}')" title="押すと該当タスクだけ表示">${icon}<span>${label}</span><b>${n}件</b></span>`;
+}
 
 // レイアウト定義
 const mainLayout = {
@@ -242,7 +275,7 @@ window.addEventListener('pageshow', function (ev) {
 })();
 
 // リソース表示の列幅定数（担当者名 / 詳細タスク名）
-const RESOURCE_OVERVIEW_COL_WIDTH = 120;  // 担当者名列
+const RESOURCE_OVERVIEW_COL_WIDTH = 300;  // 担当者名列
 const RESOURCE_DETAIL_COL_WIDTH   = 350;  // 詳細表示（工事番号＋タスク名列）
 
 // ガントのタイムライン開始位置を取得（グリッド幅＋リサイザー幅を含む正確な値）
@@ -311,13 +344,13 @@ function renderResourceTimeline(owners) {
     const totalWidth = actualGridWidth + timelineWidth;
     const firstPos = gantt.posFromDate(scale.trace_x[0]);
 
-    const gridBackground = `repeating-linear-gradient(to right, transparent, transparent ${columnWidth - 1}px, #ebebeb ${columnWidth - 1}px, #ebebeb ${columnWidth}px), repeating-linear-gradient(to bottom, transparent, transparent 29px, #ebebeb 29px, #ebebeb 30px)`;
+    const gridBackground = `repeating-linear-gradient(to right, transparent, transparent ${columnWidth - 1}px, #eef0f3 ${columnWidth - 1}px, #eef0f3 ${columnWidth}px), repeating-linear-gradient(to bottom, transparent, transparent 29px, #eef0f3 29px, #eef0f3 30px)`;
     
     let weekendBackgroundHtml = "";
     if (gantt.getState().scale_unit === "day") {
         scale.trace_x.forEach((date, i) => {
             if (date.getDay() === 0 || date.getDay() === 6 || _isHoliday(date)) {
-                weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; background: #f4f4f4; z-index: 0;"></div>`;
+                weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; background: #eaecef; z-index: 0;"></div>`;
             }
         });
     }
@@ -353,7 +386,12 @@ function renderResourceTimeline(owners) {
         });
 
         const colorClass = getOwnerColorClass(ownerName);
-        const textColor = (["owner-tsuda", "owner-shibata", "owner-matsumoto"].includes(colorClass)) ? "#222" : "#fff";
+        const textColor = "inherit";
+
+        const _alerts = [];
+        const _nLate = allOwnerTasks.filter(_resIsLate).length, _nWish = allOwnerTasks.filter(_resIsWish).length;
+        if (_nLate) _alerts.push(['late', _nLate]);
+        if (_nWish) _alerts.push(['wish', _nWish]);
 
         // 4行（タスク種別ごと）を描画
         TASK_TYPE_ROWS.forEach((rowDef, rowIndex) => {
@@ -362,28 +400,29 @@ function renderResourceTimeline(owners) {
             const isLastRow  = rowIndex === TASK_TYPE_ROWS.length - 1;
 
             // 担当者の区切り線（先頭行の上に太線）
-            const borderTop    = isFirstRow ? 'border-top: 2px solid #aaa;' : '';
-            const borderBottom = isLastRow  ? 'border-bottom: 2px solid #aaa;' : 'border-bottom: 1px solid #eee;';
+            const borderTop    = isFirstRow ? 'border-top: 1px solid #9aa5b1;' : '';
+            const borderBottom = isLastRow  ? 'border-bottom: 1px solid #9aa5b1;' : 'border-bottom: 1px solid #eef0f3;';
 
             // 左セル：先頭行は担当者名＋ラベル、2行目以降はラベルのみ
             const typeClr = TASK_TYPE_COLORS[rowDef.type] || { bg: '#e0e0e0', color: '#555' };
             const leftCellContent = isFirstRow
                 ? (isResourceFullscreen
                     ? `<div style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:0 5px;box-sizing:border-box;">
-                           <div class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="クリックして詳細表示" style="font-weight:bold;font-size:12px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${ownerName}</div>
+                           <div class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="クリックして詳細表示" style="font-weight:bold;font-size:14px;color:#1f2933;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${ownerName}</div>
                            <div style="font-size:10px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;padding:1px 4px;margin-left:3px;white-space:nowrap;font-weight:bold;">${rowDef.label}</div>
                        </div>`
                     : `<div style="width:100%;display:flex;align-items:center;justify-content:flex-end;padding:0 8px 0 5px;box-sizing:border-box;gap:10px;">
-                           <div class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="クリックして詳細表示" style="font-weight:bold;font-size:12px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 0 110px;width:110px;text-align:left;padding:1px 2px;">${ownerName}</div>
+                           <div class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="クリックして詳細表示" style="font-weight:bold;font-size:14px;color:#1f2933;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 0 110px;width:110px;text-align:left;padding:1px 2px;">${ownerName}</div>
                            <div style="font-size:10px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;padding:1px 4px;white-space:nowrap;font-weight:bold;flex-shrink:0;">${rowDef.label}</div>
                        </div>`)
-                : `<div style="width:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:5px;">
+                : `<div style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 5px 0 ${isResourceFullscreen ? 18 : 5}px;box-sizing:border-box;">
+                       ${(isResourceFullscreen && _alerts[rowIndex - 1]) ? _resAlertChip(ownerName, _alerts[rowIndex - 1][0], _alerts[rowIndex - 1][1]) : '<span></span>'}
                        <div style="font-size:10px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;padding:1px 4px;white-space:nowrap;font-weight:bold;">${rowDef.label}</div>
                    </div>`;
 
             html += `
                 <div class="resource-item" style="display:flex;${borderTop}${borderBottom}min-height:30px;height:30px;align-items:stretch;width:${totalWidth}px;">
-                    <div class="resource-grid-container" style="width:${actualGridWidth}px;min-width:${actualGridWidth}px;flex-shrink:0;display:flex;border-right:1px solid #ddd;background:${isFirstRow ? '#efefef' : '#f9f9f9'};position:sticky;left:0;z-index:5;">
+                    <div class="resource-grid-container" style="width:${actualGridWidth}px;min-width:${actualGridWidth}px;flex-shrink:0;display:flex;border-right:1px solid #cbd2d9;background:#fff;position:sticky;left:0;z-index:5;">
                         ${leftCellContent}
                     </div>
                     <div class="resource-timeline" style="width:${timelineWidth}px;flex-shrink:0;position:relative;background:#fff;">
@@ -432,13 +471,13 @@ function renderOwnerDetailTimeline(ownerName) {
     const totalWidth = actualGridWidth + timelineWidth;
     const firstPos = gantt.posFromDate(scale.trace_x[0]);
 
-    const gridBackground = `repeating-linear-gradient(to right, transparent, transparent ${columnWidth - 1}px, #ebebeb ${columnWidth - 1}px, #ebebeb ${columnWidth}px), repeating-linear-gradient(to bottom, transparent, transparent 29px, #ebebeb 29px, #ebebeb 30px)`;
+    const gridBackground = `repeating-linear-gradient(to right, transparent, transparent ${columnWidth - 1}px, #eef0f3 ${columnWidth - 1}px, #eef0f3 ${columnWidth}px), repeating-linear-gradient(to bottom, transparent, transparent 29px, #eef0f3 29px, #eef0f3 30px)`;
 
     let weekendBackgroundHtml = "";
     if (gantt.getState().scale_unit === "day") {
         scale.trace_x.forEach((date, i) => {
             if (date.getDay() === 0 || date.getDay() === 6 || _isHoliday(date)) {
-                weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; background: #f4f4f4; z-index: 0;"></div>`;
+                weekendBackgroundHtml += `<div style="position: absolute; top: 0; bottom: 0; left: ${i * columnWidth}px; width: ${columnWidth}px; background: #eaecef; z-index: 0;"></div>`;
             }
         });
     }
@@ -462,6 +501,11 @@ function renderOwnerDetailTimeline(ownerName) {
         }
         if (isMatch) ownerTasks.push(t);
     });
+
+    if (_resourceOnly === 'late' || _resourceOnly === 'wish') {
+        const keep = ownerTasks.filter(_resourceOnly === 'late' ? _resIsLate : _resIsWish);
+        ownerTasks.length = 0; keep.forEach(t => ownerTasks.push(t));
+    }
 
     // 開始日順でソート
     const TASK_TYPE_ORDER = { planning: 0, drawing: 1, long_lead_item: 2, business_trip: 3 };
@@ -487,7 +531,7 @@ function renderOwnerDetailTimeline(ownerName) {
     };
 
     const colorClass = getOwnerColorClass(ownerName);
-    const textColor = (["owner-tsuda", "owner-shibata", "owner-matsumoto"].includes(colorClass)) ? "#222" : "#fff";
+    const textColor = "inherit";
 
     let html = `<div style="width: ${totalWidth}px; position: relative;">`;
     ownerTasks.forEach(t => {
@@ -499,12 +543,13 @@ function renderOwnerDetailTimeline(ownerName) {
         const typeClr = TASK_TYPE_COLORS[String(t.task_type)] || { bg: '#e0e0e0', color: '#555' };
 
         html += `
-            <div class="resource-item" style="display: flex; border-bottom: 1px solid #eee; min-height: 30px; height: 30px; align-items: stretch; width: ${totalWidth}px;">
-                <div class="resource-grid-container" style="width: ${actualGridWidth}px; min-width: ${actualGridWidth}px; flex-shrink: 0; display: flex; border-right: 1px solid #ddd; background: #f9f9f9; position: sticky; left: 0; z-index: 5; overflow: hidden;">
-                    <div style="display: flex; align-items: center; padding: 0 6px; font-size: 12px; color: #333; width: 100%; overflow: hidden; white-space: nowrap; gap: 6px;">
+            <div class="resource-item" style="display: flex; border-bottom: 1px solid #eef0f3; min-height: 30px; height: 30px; align-items: stretch; width: ${totalWidth}px;">
+                <div class="resource-grid-container" style="width: ${actualGridWidth}px; min-width: ${actualGridWidth}px; flex-shrink: 0; display: flex; border-right: 1px solid #cbd2d9; background: #fff; position: sticky; left: 0; z-index: 5; overflow: hidden;">
+                    <div style="display: flex; align-items: center; padding: 0 6px; font-size: 13px; color: #1f2933; width: 100%; overflow: hidden; white-space: nowrap; gap: 8px;">
                         <span style="flex-shrink: 0; font-size: 10px; color: ${typeClr.color}; background: ${typeClr.bg}; border-radius: 2px; padding: 1px 4px; font-weight: bold;">${typeLabel}</span>
-                        <span style="flex-shrink: 0; font-weight: bold; color: #546e7a; min-width: 60px;">${t.project_number || '-'}</span>
-                        <span style="overflow: hidden; text-overflow: ellipsis;">${t.text}</span>
+                        <span style="flex-shrink: 0; color: #7b8794; min-width: 50px;">${t.project_number || '-'}</span>
+                        <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;">${t.text}</span>
+                        <span style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding-right: 4px;">${_resIsLate(t) ? '<span title="期限切れ" style="display:flex;">' + _ICON_LATE + '</span>' : ''}${_resIsWish(t) ? '<span title="期日超過" style="display:flex;">' + _ICON_WISH + '</span>' : ''}</span>
                     </div>
                 </div>
                 <div class="resource-timeline" style="width: ${timelineWidth}px; flex-shrink: 0; position: relative; background: #fff; overflow: hidden; z-index: 2;">
@@ -516,6 +561,7 @@ function renderOwnerDetailTimeline(ownerName) {
                          title="${t.text} (${t.project_number})">
                          <span class="resource-bar-text" style="color:${textColor}; font-size:11px; font-weight:bold;">${t.project_number || ""} ${t.text}</span>
                     </div>` : ''}
+                    ${(() => { const tt = String(t.task_type); const w = _resWishDate(t); if (!w || (tt !== 'drawing' && tt !== 'long_lead_item')) return ''; const x = gantt.posFromDate(w) + columnWidth / 2; return `<div title="${tt === 'long_lead_item' ? '手配期日' : '出図希望日'}: ${t.wish_date}" style="position:absolute;top:0;left:${x}px;transform:translateX(-50%);font-size:12px;line-height:1;color:#3e4c59;z-index:11;">▼</div>`; })()}
                 </div>
             </div>
         `;
@@ -576,7 +622,7 @@ function renderResourceCalendarHeader() {
         const isSat = dow === 6;
         const isHol = _isHoliday(date);
         const wkCls = (isSun || isSat || isHol) ? ' resource-cal-weekend' : '';
-        const dowColor = isSun || isHol ? 'color:#ef9a9a;' : isSat ? 'color:#90caf9;' : '';
+        const dowColor = isSun || isHol ? 'color:#c62828;' : isSat ? 'color:#1565C0;' : '';
         const d = date.getDate();
 
         if (unit === 'day') {
@@ -613,9 +659,12 @@ function renderResourceCalendarHeader() {
     `;
 }
 
-function showOwnerDetail(ownerName) {
+function showOwnerDetail(ownerName, only) {
     _resourceDetailOwner = ownerName;
-    document.getElementById('resource_title').textContent = `${ownerName}さんの詳細リソース状況`;
+    _resourceOnly = only || null;
+    const suffix = _resourceOnly === 'late' ? '（期限切れ）' : _resourceOnly === 'wish' ? '（期日超過）' : '';
+    document.getElementById('resource_title').textContent = `${ownerName}さんのタスク${suffix}`;
+    const lg = document.getElementById('resource_mark_legend'); if (lg) lg.style.display = '';
     document.getElementById('resource_back_btn').style.display = '';
     document.querySelector(".resource-header-bar").style.display = '';
     renderOwnerDetailTimeline(ownerName);
@@ -623,7 +672,9 @@ function showOwnerDetail(ownerName) {
 
 function showOwnerOverview() {
     _resourceDetailOwner = null;
-    document.getElementById('resource_title').textContent = '担当者別リソース状況';
+    _resourceOnly = null;
+    const lg = document.getElementById('resource_mark_legend'); if (lg) lg.style.display = 'none';
+    document.getElementById('resource_title').textContent = '担当者別リソース';
     document.getElementById('resource_back_btn').style.display = 'none';
     document.querySelector(".resource-header-bar").style.display = 'none';
     updateResourceData();
@@ -671,13 +722,14 @@ function _enterResourceFullscreen() {
     panel.style.display = "flex";
     void panel.offsetHeight; // 強制リフロー：レイアウトを確定させる
     btn.style.display = "none";
+    const _cm = document.getElementById("col_menu_btn"); if (_cm) _cm.style.display = "none";
     document.getElementById("resource_close_btn").style.display = "none";
     document.querySelector(".resource-header-bar").style.display = "none";
     // リソースズームバーを表示して現在のズームレベルを同期
     const rZoomBar = document.getElementById('resource_zoom_bar');
     if (rZoomBar) {
         const lvl = gantt.getState ? (gantt.getState().scale_unit || 'day') : 'day';
-        rZoomBar.style.display = 'flex';
+        rZoomBar.style.display = 'none'; // 日・週は上のツールバーで切り替える
         const rdBtn = document.getElementById('resource_zoom_day_btn');
         const rwBtn = document.getElementById('resource_zoom_week_btn');
         if (rdBtn) rdBtn.classList.toggle('active', lvl === 'day');
@@ -707,8 +759,9 @@ function _exitResourceFullscreen() {
     if (ganttHost) ganttHost.style.display = "";
     ganttEl.style.display = "";
     btn.style.display = ""; // リソースボタンを復元
-    btn.innerText = "リソース表示";
+    btn.innerText = "担当者別リソース";
     document.getElementById("resource_close_btn").style.display = "";
+    const _cm = document.getElementById("col_menu_btn"); if (_cm) _cm.style.display = "";
     // リソースズームバーを非表示にしてメインのズームボタンを復元
     const rZoomBar = document.getElementById('resource_zoom_bar');
     if (rZoomBar) {
@@ -730,18 +783,19 @@ function toggleResourceView() {
     const panel = document.getElementById("resource_panel");
 
     if (isResourceView) {
-        btn.innerText = "リソース表示中 ×";
+        btn.innerText = "担当者別リソース";
         btn.classList.add('active');
         // コンテンツを描画してからパネルを表示（古い内容が一瞬見えるのを防ぐ）
         updateResourceData();
         panel.style.display = "flex";
     } else {
-        btn.innerText = "リソース表示";
+        btn.innerText = "担当者別リソース";
         btn.classList.remove('active');
         panel.style.display = "none";
         // 詳細モードをリセット
         _resourceDetailOwner = null;
-        document.getElementById('resource_title').textContent = '担当者別リソース状況';
+        document.getElementById('resource_title').textContent = '担当者別リソース';
+        _resourceOnly = null;
         document.getElementById('resource_back_btn').style.display = 'none';
     }
 

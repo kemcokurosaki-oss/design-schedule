@@ -154,12 +154,16 @@ var MODE_FILTER_TIPS = {
     'trip_filter_btn':     { title: '出張（表示中）',     text: '出張タスクのみ表示中\nクリックで解除します' },
 };
 var HELP_TIPS = [
-    { id: 'zoom_day_btn',        title: '日単位',            text: '1日単位で詳細表示（デフォルト）' },
-    { id: 'zoom_week_btn',       title: '週単位',            text: '週単位で全体スケジュールを把握' },
-    { id: 'help_btn',            title: '？使い方ガイド',      text: 'クリックで各ボタンの説明を表示\nもう一度クリックで閉じます' },
+    { id: 'zoom_day_btn',        title: '日',                text: '1日単位で詳細表示（デフォルト）' },
+    { id: 'zoom_week_btn',       title: '週',                text: '週単位で全体スケジュールを把握\nバーには担当者の頭文字だけを表示します' },
+    { id: 'today_btn',           title: '今日へ',            text: '今日の日付までスクロールします' },
+    { id: 'col_menu_btn',        title: '表示する列',        text: '表の列を表示・非表示にします\n列見出しのフィルター画面の「この列を非表示」でも隠せます' },
+    { id: 'mark_legend',         title: 'マーク',            text: '警告＝期限切れ（終了日を過ぎて未完了）\n旗＝期日超過（出図希望日・手配期日を過ぎて未完了）\n▼＝ガントの期日' },
+    { id: 'owner_legend',        title: '担当者の色',        text: '自分の色を表示します\n「担当者の色 ▾」で全員の色を表示\n一覧の名前を押すと「自分の色」に設定できます' },
+    { id: 'help_btn',            title: '使い方ガイド',      text: 'クリックで各ボタンの説明を表示\nもう一度クリックで閉じます' },
     { id: 'auth_btn',            title: 'ログイン',           text: '編集者としてログイン\nタスクの追加・編集・削除が可能になります' },
-    { id: 'resource_toggle',     title: 'リソース表示',       text: 'ガントチャート下部に\n担当者別の業務状況を並列表示' },
-    { id: 'create_task_btn',     title: '新規タスク追加',     text: '編集画面で入力してから追加します。並びは工事番号・機械・ユニットが同じ行の直後になります（要ログイン）' },
+    { id: 'resource_toggle',     title: '担当者別リソース',       text: 'ガントチャート下部に\n担当者別の業務状況を並列表示' },
+    { id: 'create_task_btn',     title: 'タスク追加',     text: '編集画面で入力してから追加します。並びは工事番号・機械・ユニットが同じ行の直後になります（要ログイン）' },
     { id: 'archive_btn_wrap',    title: 'アーカイブ',         text: '完了工事の保管・参照\n▼クリックでメニュー表示（要ログイン）' },
 ];
 var GRID_TIP = {
@@ -172,11 +176,11 @@ var TIMELINE_TIP = {
 };
 var RESOURCE_GRID_TIP = {
     title: '担当者名列',
-    text: 'クリック → その担当者の詳細ビューに切替\n詳細ビューでは担当者のタスクをタスクタイプ別に一覧表示'
+    text: 'クリック → その担当者の詳細ビューに切替\n「期限切れ」「期日超過」を押すと該当タスクだけ表示'
 };
 var RESOURCE_TIMELINE_TIP = {
     title: 'リソースタイムライン',
-    text: '各担当者の担当タスクがバーで表示されます\n左右にスクロールして期間を確認\n赤い縦線 → 本日の位置'
+    text: '各担当者の担当タスクがバーで表示されます\n左右にスクロールして期間を確認\n紫の縦線 → 本日の位置'
 };
 
 function openHelp() {
@@ -392,6 +396,9 @@ supabaseClient.auth.onAuthStateChange((_event, session) => {
         _isLoggedIn = !!session;
         _currentEditorEmail = email;
         _updateUIForAuth(!!session && EDITORS.includes(email));
+        const _md = session?.user?.user_metadata || {};
+        window._currentUserFullName = _md.full_name || _md.name || '';
+        if (typeof renderOwnerLegend === 'function') renderOwnerLegend();
         // 完全移行後は、ログインしないと閲覧できない（ログイン画面を閉じられない状態で出す）
         if (M365_ONLY && !session && (_event === 'INITIAL_SESSION' || _event === 'SIGNED_OUT')) openLoginDialog(true);
         if (_oauthError && _event === 'INITIAL_SESSION') {
