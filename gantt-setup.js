@@ -772,6 +772,27 @@ function _weekScaleLabel(date) {
     const withYear = date.getDate() <= 7 || isFirstOfRange;
     return (withYear ? date.getFullYear() + '/' : '') + md + ' の週';
 }
+/**
+ * 日付の列（開始日・完了予定日・期日など）の幅：日付の文字（yy/mm/dd）と列見出しの文字を
+ * 画面と同じフォントで測り、隠れない幅にする（フォントや文字サイズが変わっても自動で合う）
+ */
+function _dateColWidth(label) {
+    // 列の組み立てはこの関数より前の行からも呼ばれるため、覚えておく入れ物は関数の中で用意する
+    const cache = _dateColWidth._cache || (_dateColWidth._cache = {});
+    if (cache[label]) return cache[label];
+    let w = 70;
+    try {
+        const ctx = (_dateColWidth._c || (_dateColWidth._c = document.createElement('canvas'))).getContext('2d');
+        const fam = '"BIZ UDPGothic", "BIZ UDPゴシック", "メイリオ", Meiryo, sans-serif';
+        ctx.font = '12px ' + fam;
+        const textW = ctx.measureText('88/88/88').width;   // 日付のセル（12px）
+        ctx.font = 'bold 12px ' + fam;
+        const headW = Math.max.apply(null, String(label).split('<br>').map(t => ctx.measureText(t).width)); // 列見出し
+        w = Math.ceil(Math.max(textW, headW)) + 16;           // 左右の余白
+    } catch (e) {}
+    cache[label] = w;
+    return w;
+}
 // ズーム設定
 const zoomConfig = {
     levels: [
@@ -2163,7 +2184,7 @@ function _getDrawingColumns() {
         { name: "total_sheets",     label: "総<br>枚数",     width: 44, align: "center", template: _templateTotalSheetsCell, editor: { type: "sheet_count", map_to: "total_sheets",     min: 0 }, noFilterBtn: true },
         { name: "completed_sheets", label: "完了<br>枚数",   width: 44, align: "center", template: _templateCompletedSheetsCell, editor: { type: "sheet_count", map_to: "completed_sheets", min: 0 }, noFilterBtn: true },
         { name: "progress",         label: "進捗",           width: 56, align: "center", template: _progressTemplate },
-        { name: "start_date",       label: "開始日",         width: 65, align: "center",
+        { name: "start_date",       label: "開始日",         width: _dateColWidth("開始日"), align: "center",
           template: function(task) {
             if (task.has_no_start || !task.start_date) return "";
             const d = task.start_date;
@@ -2173,8 +2194,8 @@ function _getDrawingColumns() {
             return yy + '/' + mm + '/' + dd;
           },
           editor: { type: "start_date_editor", map_to: "start_date" } },
-        { name: "end_date",         label: "完了<br>予定日", width: 65, align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
-        { name: "wish_date",        label: "出図<br>希望日", width: 65, align: "center", template: _templateWishDateCell, editor: { type: "wish_date_editor", map_to: "wish_date" } },
+        { name: "end_date",         label: "完了<br>予定日", width: _dateColWidth("完了<br>予定日"), align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
+        { name: "wish_date",        label: "出図<br>希望日", width: _dateColWidth("出図<br>希望日"), align: "center", template: _templateWishDateCell, editor: { type: "wish_date_editor", map_to: "wish_date" } },
         { name: "add_btn",          label: "",               width: 28, align: "center", template: (task) => _isEditor ? `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` : '' }
     ];
 }
@@ -2190,7 +2211,7 @@ function _getLongtermColumns() {
         { name: "quantity",   label: "個数",           width: 28,  align: "center", editor: { type: "number", map_to: "quantity", min: 0, max: 99 }, noFilterBtn: true },
         { name: "manufacturer",      label: "メーカー",       width: 70,  align: "center", editor: { type: "text",   map_to: "manufacturer" }, noFilterBtn: true },
         { name: "owner",      label: "担当",           width: 40,  align: "center", template: _ownerCellHtml, editor: { type: "owner_select", map_to: "owner" } },
-        { name: "start_date", label: "開始日",         width: 60,  align: "center",
+        { name: "start_date", label: "開始日",         width: _dateColWidth("開始日"),  align: "center",
           template: function(task) {
             if (task.has_no_start || !task.start_date) return "";
             const d = task.start_date;
@@ -2200,8 +2221,8 @@ function _getLongtermColumns() {
             return yy + '/' + mm + '/' + dd;
           },
           editor: { type: "start_date_editor", map_to: "start_date" } },
-        { name: "end_date",   label: "手配<br>予定日", width: 60,  align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
-        { name: "wish_date",  label: "手配<br>期日",   width: 60,  align: "center", template: _templateWishDateCell, editor: { type: "wish_date_editor", map_to: "wish_date" } },
+        { name: "end_date",   label: "手配<br>予定日", width: _dateColWidth("手配<br>予定日"),  align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
+        { name: "wish_date",  label: "手配<br>期日",   width: _dateColWidth("手配<br>期日"),  align: "center", template: _templateWishDateCell, editor: { type: "wish_date_editor", map_to: "wish_date" } },
         { name: "status",     label: "状態",           width: 32,  align: "center",
           template: function(task) {
               const v = task.status || '';
@@ -2225,7 +2246,7 @@ function _getTripColumns() {
         { name: "unit",            label: "ユニ",     width: 40,  align: "center", editor: { type: "text", map_to: "unit" } },
         { name: "text",            label: "タスク",   width: 210, tree: true,      editor: { type: "text", map_to: "text" } },
         { name: "owner",           label: "担当",     width: 60,  align: "center", template: _ownerCellHtml, editor: { type: "owner_select", map_to: "owner" } },
-        { name: "start_date",      label: "開始日",   width: 65,  align: "center",
+        { name: "start_date",      label: "開始日",   width: _dateColWidth("開始日"),  align: "center",
           template: function(task) {
             if (!task.start_date) return "";
             const d = task.start_date;
@@ -2235,7 +2256,7 @@ function _getTripColumns() {
             return yy + '/' + mm + '/' + dd;
           },
           editor: { type: "start_date_editor", map_to: "start_date" } },
-        { name: "end_date",        label: "終了日",   width: 65,  align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
+        { name: "end_date",        label: "終了日",   width: _dateColWidth("終了日"),  align: "center", template: _fmtDate, editor: { type: "completion_date", map_to: "end_date" } },
         { name: "add_btn",         label: "",         width: 25,  align: "center", template: (task) => _isEditor ? `<div class='custom_add_btn' onclick='createTask(${task.id})'>+</div>` : '' }
     ];
 }
