@@ -16,7 +16,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .header-panel { background: #fff; padding: 0 20px; border-bottom: 1px solid #e4e7eb; display: flex; flex-direction: column; gap: 0; }
 .header-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 0; box-sizing: border-box; }
 .header-row + .header-row { border-top: 1px solid #e4e7eb; }
-#filter_btn_row { gap: 4px; border-bottom: none; padding: 10px 0; height: 56px; box-sizing: border-box; }
+#filter_btn_row { gap: 4px; border-bottom: none; padding: 10px 20px; height: 56px; box-sizing: border-box; }
 .project-info { font-size: 16px; font-weight: bold; color: #1f2933; }
 .zoom-controls { display: flex; gap: 0; border: 1px solid #cbd2d9; border-radius: 6px; overflow: hidden; }
 .zoom-controls .btn { border: none; border-radius: 0; }
