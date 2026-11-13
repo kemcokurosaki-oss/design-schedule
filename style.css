@@ -705,7 +705,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 }
 #gantt_here .gantt_scale_cell.gantt-scale-sun,
 #gantt_here .gantt_scale_cell.gantt-scale-sat,
-#gantt_here .gantt_scale_cell.gantt-scale-holiday { background: #f5f6f8 !important; }
+#gantt_here .gantt_scale_cell.gantt-scale-holiday { background: transparent !important; } /* 目盛りの土日・休日も平日と同じ背景（文字色だけ赤・青） */
 #gantt_here .gantt_scale_cell.gantt-scale-sun,
 #gantt_here .gantt_scale_cell.gantt-scale-holiday { color: #c62828 !important; }
 #gantt_here .gantt_scale_cell.gantt-scale-sat { color: #1565C0 !important; }
