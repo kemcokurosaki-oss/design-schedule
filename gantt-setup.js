@@ -762,6 +762,7 @@ const zoomConfig = {
             scales: [
                 {unit: "month", step: 1, format: "%Y/%n"},
                 {unit: "day", step: 1, format: "%j", css: function(date) {
+                    if (_isTodayDate(date)) return 'gantt-scale-today gantt-scale-today-num';
                     const dow = date.getDay();
                     if (dow === 0) return 'gantt-scale-sun';
                     if (_isHoliday(date)) return 'gantt-scale-holiday';
@@ -769,6 +770,7 @@ const zoomConfig = {
                     return '';
                 }},
                 {unit: "day", step: 1, format: (date) => ["日", "月", "火", "水", "木", "金", "土"][date.getDay()], css: function(date) {
+                    if (_isTodayDate(date)) return 'gantt-scale-today gantt-scale-today-dow';
                     const dow = date.getDay();
                     if (dow === 0) return 'gantt-scale-sun';
                     if (_isHoliday(date)) return 'gantt-scale-holiday';
@@ -2259,9 +2261,15 @@ gantt.templates.task_class = function(start, end, task) {
     css += _flashRowClass(task);
     return css;
 };
+/** 今日の日付か（年月日だけで比べる） */
+function _isTodayDate(date) {
+    const t = new Date();
+    return date.getFullYear() === t.getFullYear() && date.getMonth() === t.getMonth() && date.getDate() === t.getDate();
+}
 gantt.templates.timeline_cell_class = function(task, date) {
-    if (gantt.getState().scale_unit === "day" &&
-        (date.getDay() === 0 || date.getDay() === 6 || _isHoliday(date))) return "weekend";
+    if (gantt.getState().scale_unit !== "day") return "";
+    if (_isTodayDate(date)) return "today-col";
+    if (date.getDay() === 0 || date.getDay() === 6 || _isHoliday(date)) return "weekend";
     return "";
 };
 

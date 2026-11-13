@@ -814,13 +814,15 @@ function _drawMainTodayLine() {
     if (!line) {
         line = document.createElement('div');
         line.id = 'main_today_line';
-        line.style.cssText = 'position:absolute;bottom:0;width:2px;background:#ff4d4d;z-index:6;pointer-events:none;';
+        line.style.cssText = 'position:absolute;bottom:0;width:2px;background:#7048e8;z-index:6;pointer-events:none;';
         taskEl.appendChild(line);
     }
     // dataArea.offsetLeft = −スクロール量（DHTMLX がスクロール時に left を負に設定）
     // posFromDate(today) = タイムライン絶対座標
     // 合計 = .gantt_task 内でのビュー座標（正しい表示位置）
-    line.style.left = (dataArea.offsetLeft + gantt.posFromDate(new Date())) + 'px';
+    // 今日のセルの左端（今日の 0:00）に引く
+    const today0 = new Date(); today0.setHours(0, 0, 0, 0);
+    line.style.left = (dataArea.offsetLeft + gantt.posFromDate(today0)) + 'px';
     line.style.top = (gantt.config.scale_height || 60) + 'px';
 }
 gantt.attachEvent("onGanttRender", _drawMainTodayLine);
