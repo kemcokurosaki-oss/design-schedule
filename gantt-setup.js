@@ -2557,6 +2557,10 @@ function _updateStickyGroup() {
     els.g.style.height = rh + 'px';
     els.g.style.clipPath = 'inset(' + (-shift) + 'px 0 0 0)'; // 押し上げた分は目盛りに重ねない
     els.g.style.display = 'block';
+    // カレンダーは中身を横にスクロールさせる作りのため、スクロール量だけずらして見えている範囲に置く
+    const taskEl = els.t.parentElement;
+    els.t.style.left = taskEl.scrollLeft + 'px';
+    els.t.style.width = taskEl.clientWidth + 'px';
     els.t.style.top = (headerH + shift) + 'px';
     els.t.style.height = rh + 'px';
     els.t.style.clipPath = els.g.style.clipPath;
