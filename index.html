@@ -54,7 +54,7 @@
                 </div>
                 <button class="btn" id="today_btn" onclick="scrollToToday()"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="1.8" fill="currentColor"/></svg>今日へ</button>
                 <button class="btn btn-info" id="resource_toggle" onclick="toggleResourceView()">担当者別リソース</button>
-                <button class="btn" id="col_menu_btn" onclick="toggleColMenu(event)">表示する列 ▾</button>
+                <button class="btn" id="col_menu_btn" onclick="toggleColMenu(event)"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M6.5 3v10M9.5 3v10"/></svg>表示する列 ▾</button>
                 <button class="btn btn-primary" id="create_task_btn" onclick="createTask()" style="display:none;"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>タスク追加</button>
                 <button class="btn" id="multi_delete_btn" onclick="deleteSelectedTasks()" style="display:none;">選択削除 (<span id="multi_delete_count">0</span>件)</button>
                 <div class="mark-legend" id="mark_legend"><span><svg width="15" height="15" viewBox="0 0 16 16"><path d="M8 1.5 15 14H1z" fill="#1f2933" stroke="#1f2933" stroke-width="1" stroke-linejoin="round"/><rect x="7.2" y="5.5" width="1.6" height="4.6" rx="0.8" fill="#fff"/><circle cx="8" cy="12" r="0.95" fill="#fff"/></svg>期限切れ</span><span><svg width="14" height="14" viewBox="0 0 16 16"><rect x="2.5" y="1.5" width="1.6" height="13" rx="0.8" fill="#1f2933"/><path d="M4 2h9l-2.2 3.2L13 8.5H4z" fill="#1f2933"/></svg>期日超過</span><span><i class="due-tri"></i>期日</span></div>
@@ -284,7 +284,7 @@
     <script src="resource.js?v=20261113"></script>
     <script src="m365-login.js?v=20261016b"></script>
     <script src="auth.js?v=20261113b"></script>
-    <script src="gantt-setup.js?v=20261113c"></script>
+    <script src="gantt-setup.js?v=20261113d"></script>
     <script src="data.js?v=20261113b"></script>
     <script src="archive.js"></script>
 </body>

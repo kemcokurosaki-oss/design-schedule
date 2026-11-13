@@ -642,11 +642,12 @@ function toggleColMenu(e) {
     m.style.position = 'fixed'; m.style.top = (r.bottom + 4) + 'px'; m.style.left = r.left + 'px';
     m.style.display = 'block';
 }
+var _COL_MENU_ICON = '<svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M6.5 3v10M9.5 3v10"/></svg>';
 function _updateColMenuBtn() {
     const b = document.getElementById('col_menu_btn');
     if (!b) return;
     const n = _hiddenColsFor(gantt.config._columnFilterType || 'drawing').size;
-    b.textContent = n ? `表示する列（${n}列非表示） ▾` : '表示する列 ▾';
+    b.innerHTML = _COL_MENU_ICON + (n ? `表示する列（${n}列非表示） ▾` : '表示する列 ▾');
     b.classList.toggle('col-menu-active', n > 0);
 }
 document.addEventListener('mousedown', function(e) {
