@@ -355,8 +355,10 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .hidden_bar { display: none !important; }
 
 /* ===== バー ===== */
-.gantt_task_line { border-radius: 6px; box-shadow: none; }
+.gantt_task_line { border-radius: 6px; box-shadow: none; border-width: 1px !important; border-style: solid !important; box-sizing: border-box; } /* 枠の色は担当者ごとの色（owner-○○）で指定 */
 .gantt_task_content { font-size: 12px; font-weight: bold; font-family: inherit; text-align: left; padding: 0 6px; }
+/* バー内の文字は担当者ごとの濃い同系色（owner-○○ の color）にする */
+.gantt_task_line .gantt_task_content, .gantt_task_line .bar-text { color: inherit !important; }
 .gantt_task_progress { background: transparent !important; }
 .gantt_task_progress_drag { display: none !important; }
 
