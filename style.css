@@ -140,7 +140,7 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 }
 #resource_calendar_header .cal-row { display: flex; overflow: hidden; }
 #resource_calendar_header .cal-row:first-child #resource_cal_scroll { border-bottom: 1px solid #eef0f3; }
-#resource_calendar_header .cal-row:nth-child(2):not(:last-child) #resource_cal_scroll2 { border-bottom: 1px solid #eef0f3; }
+/* 日付と曜日の間の区切り線は引かない（今日の紫の囲みが上下に割れないように） */
 #resource_calendar_header .cal-spacer {
     flex-shrink: 0;
     border-right: 1px solid #cbd2d9;
@@ -1379,16 +1379,21 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 
 /* 担当別モードのカレンダー見出し：今日の日付・曜日を紫の角丸に白文字（ほかのモードと同じ） */
 .resource-cal-cell.resource-cal-today { position: relative; isolation: isolate; background: #f1edfd; color: #fff !important; overflow: visible; }
-.resource-cal-cell.resource-cal-today::before { content: ""; position: absolute; left: 1px; right: 1px; background: #7048e8; z-index: -1; }
-.resource-cal-cell.resource-cal-today-num::before { top: 2px; bottom: 0; border-radius: 6px 6px 0 0; }
-.resource-cal-cell.resource-cal-today-dow::before { top: 0; bottom: 2px; border-radius: 0 0 6px 6px; }
+.resource-cal-cell.resource-cal-today::before { content: ""; position: absolute; left: 4px; right: 4px; background: #7048e8; z-index: -1; }
+.resource-cal-cell.resource-cal-today-num { padding-top: 2px; }
+.resource-cal-cell.resource-cal-today-dow { padding-bottom: 2px; }
+.resource-cal-cell.resource-cal-today-num::before { top: 1px; bottom: 0; border-radius: 6px 6px 0 0; }
+.resource-cal-cell.resource-cal-today-dow::before { top: 0; bottom: 1px; border-radius: 0 0 6px 6px; }
 
 /* ===== 今日の列：薄い紫の背景、目盛りの日付・曜日は紫の角丸 ===== */
 .gantt_task_cell.today-col { background: #f1edfd !important; }
-#gantt_here .gantt_scale_cell.gantt-scale-today { position: relative; isolation: isolate; background: #f1edfd !important; color: #fff !important; font-weight: bold !important; }
-#gantt_here .gantt_scale_cell.gantt-scale-today::before { content: ""; position: absolute; left: 1px; right: 1px; background: #7048e8; z-index: -1; }
-#gantt_here .gantt_scale_cell.gantt-scale-today-num::before { top: 4px; bottom: 0; border-radius: 6px 6px 0 0; }
-#gantt_here .gantt_scale_cell.gantt-scale-today-dow::before { top: 0; bottom: 4px; border-radius: 0 0 6px 6px; }
+#gantt_here .gantt_scale_cell.gantt-scale-today { position: relative; isolation: isolate; overflow: visible !important; background: #f1edfd !important; color: #fff !important; font-weight: bold !important; }
+/* セルの内側に余白を取り、日付と曜日を1つの角丸にまとめる（数字は少し下・曜日は少し上に寄せて中央にそろえる） */
+#gantt_here .gantt_scale_cell.gantt-scale-today::before { content: ""; position: absolute; left: 4px; right: 4px; background: #7048e8; z-index: -1; }
+#gantt_here .gantt_scale_cell.gantt-scale-today-num { padding-top: 5px !important; }
+#gantt_here .gantt_scale_cell.gantt-scale-today-dow { padding-bottom: 5px !important; }
+#gantt_here .gantt_scale_cell.gantt-scale-today-num::before { top: 3px; bottom: 0; border-radius: 7px 7px 0 0; }
+#gantt_here .gantt_scale_cell.gantt-scale-today-dow::before { top: -1px; bottom: 3px; border-radius: 0 0 7px 7px; }
 
 /* ===== 2026/11/14 追加：プレビューと同じ文字にそろえる ===== */
 .gantt_container, .gantt_container *, .gantt_cal_light, .gantt_cal_light *, button, input, select, textarea {
