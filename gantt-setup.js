@@ -824,13 +824,16 @@ function _unitColWidth() {
 }
 /** 表を描き直したあと（読み込み・モード切替・絞り込み・書き換え）、ユニットの列の幅が変わっていれば列を組み直す */
 var _refitUnitPending = false;
+var _unitColAppliedWidth = null; // 最後に列を組んだときのユニット列の幅（_unitColWidth の値）
 function _refitUnitColumn() {
     _refitUnitPending = false;
     if (typeof currentTaskTypeFilter === 'undefined' || !currentTaskTypeFilter) return;
     const col = (gantt.config.columns || []).find(c => c.name === 'unit');
     if (!col) return;
     const w = _unitColWidth();
-    if (col.width === w) return;
+    // gantt は表の幅に合わせて col.width を書き換えるので、col.width ではなく自分で決めた幅と比べる
+    //（col.width と比べると図面以外のモードで毎回「違う」となり、見出しを描き直し続けて▼ボタンが押せなくなる）
+    if (_unitColAppliedWidth === w) return;
     switchColumns(gantt.config._columnFilterType || 'drawing');
 }
 gantt.attachEvent("onDataRender", function() {
@@ -2319,6 +2322,8 @@ function switchColumns(filterType) {
     if (filterType === 'long_lead_item') baseCols = _getLongtermColumns();
     else if (filterType === 'business_trip' || filterType === 'planning') baseCols = _getTripColumns();
     else baseCols = _getDrawingColumns();
+    const unitDef = baseCols.find(c => c.name === 'unit');
+    if (unitDef) _unitColAppliedWidth = unitDef.width;
     gantt.config.columns = _applyHiddenCols(_applyColumnFilterButtons(baseCols), filterType);
     gantt.config._columnFilterType = filterType;
     _setLayout(_visibleColsSum(_applyHiddenCols(baseCols, filterType)));
