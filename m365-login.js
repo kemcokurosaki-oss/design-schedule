@@ -56,7 +56,7 @@
 #m365_user_btn { height: 28px; max-width: 200px; border: none; background: transparent; color: inherit;
     display: inline-flex; align-items: center; gap: 6px; cursor: pointer; padding: 0 4px 0 0; font-size: 12px; font-family: inherit; }
 #m365_user_btn .m365-user-icon { width: 26px; height: 26px; border-radius: 50%; border: 1px solid #c8cfda; background: #fff;
-    color: #2f6fb0; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    color: #6b7280; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 #m365_user_btn:hover .m365-user-icon { background: #f3f6fa; }
 #m365_user_btn .m365-user-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #m365_user_menu { display: none; position: fixed; z-index: 2147482001; min-width: 220px; max-width: 320px;
