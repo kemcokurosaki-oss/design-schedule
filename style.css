@@ -1413,3 +1413,23 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .gantt_grid_data .gantt_cell[data-column-name="start_date"], .gantt_grid_data .gantt_cell[data-column-name="end_date"], .gantt_grid_data .gantt_cell[data-column-name="wish_date"] { font-size: 12px !important; }
 #gantt_here .gantt_scale_line:not(:first-child) .gantt_scale_cell { font-size: 13px !important; }
 #gantt_here .gantt_scale_line:last-child .gantt_scale_cell { font-size: 10px !important; font-weight: normal !important; }
+
+/* 列幅のドラッグ変更：見出しの右端のつまみと、ドラッグ中の縦線 */
+.gantt_grid_head_cell .col-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 7px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 3;
+}
+.gantt_grid_head_cell .col-resize-handle:hover { background: rgba(37, 99, 235, 0.25); }
+.col-resize-guide {
+    position: fixed;
+    width: 0;
+    border-left: 2px dashed #2563eb;
+    z-index: 10000;
+    pointer-events: none;
+}
+body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-select: none !important; }

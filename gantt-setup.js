@@ -605,6 +605,80 @@ function _setHiddenCols(mode, set) { const all = _hiddenColsAll(); all[_colSetKe
 // 列の hide 指定は dhtmlxGantt の有料版のみ有効なため、隠す列は列定義から取り除く
 function _applyHiddenCols(cols, mode) { const h = _hiddenColsFor(mode); return cols.filter(c => !(h.has(c.name) && !_NO_HIDE.has(c.name))); }
 function _visibleColsSum(cols) { return cols.reduce((s, c) => s + (c.hide ? 0 : (c.width || 0)), 0); }
+// ===== 列幅のドラッグ変更（組立図面名・品名・タスクの列） =====
+// 見出しの右端をドラッグすると列が広がり、広げた分だけ表とカレンダーの境界が右へずれる（表の中で他の列を縮めない）
+// 幅はモードごとにこの PC（ブラウザー）に覚えておく。見出しの右端をダブルクリックすると元の幅に戻る
+var _COL_WIDTH_STORE = "kotei_col_widths_v1";
+var _RESIZABLE_COLS = new Set(["text"]);
+function _colWidthsAll() { try { return JSON.parse(localStorage.getItem(_COL_WIDTH_STORE) || "{}") || {}; } catch (e) { return {}; } }
+function _setColWidth(mode, name, width) {
+    const all = _colWidthsAll();
+    const key = _colSetKeyFromFilter(mode || 'drawing');
+    const cur = all[key] || {};
+    if (width == null) delete cur[name]; else cur[name] = width;
+    all[key] = cur;
+    try { localStorage.setItem(_COL_WIDTH_STORE, JSON.stringify(all)); } catch (e) {}
+}
+/** 覚えておいた列幅を当て、ドラッグ用のつまみを見出しに付ける */
+function _applyColWidths(cols, mode) {
+    const saved = _colWidthsAll()[_colSetKeyFromFilter(mode || 'drawing')] || {};
+    return cols.map(c => {
+        if (!_RESIZABLE_COLS.has(c.name)) return c;
+        const w = Number(saved[c.name]);
+        return Object.assign({}, c, {
+            width: (w > 0) ? w : c.width,
+            label: (c.label || "") + `<span class="col-resize-handle" data-col="${c.name}" title="ドラッグで列幅を変更（ダブルクリックで元の幅）"></span>`
+        });
+    });
+}
+document.addEventListener('mousedown', function(e) {
+    const h = e.target.closest && e.target.closest('.col-resize-handle');
+    if (!h || e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const name = h.getAttribute('data-col');
+    const cell = h.closest('.gantt_grid_head_cell');
+    const area = document.getElementById('gantt_here');
+    if (!cell || !area) return;
+    const startX = e.clientX;
+    const startW = cell.getBoundingClientRect().width;
+    const ar = area.getBoundingClientRect();
+    const guide = document.createElement('div');
+    guide.className = 'col-resize-guide';
+    guide.style.top = ar.top + 'px';
+    guide.style.height = ar.height + 'px';
+    guide.style.left = e.clientX + 'px';
+    document.body.appendChild(guide);
+    document.body.classList.add('col-resizing');
+    const MIN_W = 80;
+    const MAX_W = Math.max(MIN_W, ar.width - 200); // カレンダーが少しは残るようにする
+    let newW = startW;
+    function onMove(ev) {
+        newW = Math.round(Math.min(MAX_W, Math.max(MIN_W, startW + ev.clientX - startX)));
+        guide.style.left = (startX + newW - startW) + 'px';
+    }
+    function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        guide.remove();
+        document.body.classList.remove('col-resizing');
+        if (Math.abs(newW - startW) < 2) return;
+        const mode = gantt.config._columnFilterType || 'drawing';
+        _setColWidth(mode, name, newW);
+        switchColumns(mode);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}, true);
+document.addEventListener('dblclick', function(e) {
+    const h = e.target.closest && e.target.closest('.col-resize-handle');
+    if (!h) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const mode = gantt.config._columnFilterType || 'drawing';
+    _setColWidth(mode, h.getAttribute('data-col'), null);
+    switchColumns(mode);
+}, true);
 function _baseColsFor(mode) { return mode === 'long_lead_item' ? _getLongtermColumns() : (mode === 'business_trip' || mode === 'planning') ? _getTripColumns() : _getDrawingColumns(); }
 function setColumnHidden(name, hidden) {
     const mode = gantt.config._columnFilterType || 'drawing';
@@ -756,7 +830,7 @@ function _getColsSum(cols) {
     return cols.reduce((sum, c) => sum + (c.width || 0), 0);
 }
 
-_setLayout(_visibleColsSum(_applyHiddenCols(_getDrawingColumns(), 'drawing')));
+_setLayout(_visibleColsSum(_applyHiddenCols(_applyColWidths(_getDrawingColumns(), 'drawing'), 'drawing')));
 gantt.config.min_column_width = 32; // カレンダーの列幅（新デザイン：32）
 gantt.config.inline_editors_save_on_blur = true; // フォーカスが外れたとき自動保存
 gantt.config.row_height = 36;
@@ -2284,7 +2358,7 @@ function _getLongtermColumns() {
 // 長納期品列合計: 32+42+190+85+28+70+32+60+20 = 559px
 
 // 列設定の初期化（固定初期幅）
-gantt.config.columns = _applyHiddenCols(_applyColumnFilterButtons(_getDrawingColumns()), 'drawing');
+gantt.config.columns = _applyHiddenCols(_applyColumnFilterButtons(_applyColWidths(_getDrawingColumns(), 'drawing')), 'drawing');
 gantt.config._columnFilterType = 'drawing';
 
 // 出張列定義
@@ -2322,6 +2396,7 @@ function switchColumns(filterType) {
     if (filterType === 'long_lead_item') baseCols = _getLongtermColumns();
     else if (filterType === 'business_trip' || filterType === 'planning') baseCols = _getTripColumns();
     else baseCols = _getDrawingColumns();
+    baseCols = _applyColWidths(baseCols, filterType);
     const unitDef = baseCols.find(c => c.name === 'unit');
     if (unitDef) _unitColAppliedWidth = unitDef.width;
     gantt.config.columns = _applyHiddenCols(_applyColumnFilterButtons(baseCols), filterType);
