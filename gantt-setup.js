@@ -597,11 +597,11 @@ gantt.attachEvent("onTaskSelected", function(id) {
 
 // ===== 新デザイン：担当者の頭文字・列の表示／非表示 =====
 var _OWNER_DOT = {"owner-fujiyama":"#e74c3c","owner-tanaka":"#3498db","owner-yasuoka":"#2ecc71","owner-kawabe":"#f39c12","owner-dan":"#9b59b6","owner-horii":"#1abc9c","owner-miyazaki":"#e84393","owner-tsuda":"#8fb83a","owner-komura":"#2c3e50","owner-shibata":"#d4a90a","owner-hashimoto":"#686de0","owner-matsumoto":"#22a6b3","owner-default":"#95a5a6"};
-var _HIDE_KEY = "kotei_hidden_cols_v1";
+var _HIDE_STORE = "kotei_hidden_cols_v1";
 var _NO_HIDE = new Set(["text", "add_btn"]);
-function _hiddenColsAll() { try { return JSON.parse(localStorage.getItem(_HIDE_KEY) || "{}") || {}; } catch (e) { return {}; } }
+function _hiddenColsAll() { try { return JSON.parse(localStorage.getItem(_HIDE_STORE) || "{}") || {}; } catch (e) { return {}; } }
 function _hiddenColsFor(mode) { return new Set(_hiddenColsAll()[_colSetKeyFromFilter(mode || 'drawing')] || []); }
-function _setHiddenCols(mode, set) { const all = _hiddenColsAll(); all[_colSetKeyFromFilter(mode || 'drawing')] = Array.from(set); try { localStorage.setItem(_HIDE_KEY, JSON.stringify(all)); } catch (e) {} }
+function _setHiddenCols(mode, set) { const all = _hiddenColsAll(); all[_colSetKeyFromFilter(mode || 'drawing')] = Array.from(set); try { localStorage.setItem(_HIDE_STORE, JSON.stringify(all)); } catch (e) {} }
 // 列の hide 指定は dhtmlxGantt の有料版のみ有効なため、隠す列は列定義から取り除く
 function _applyHiddenCols(cols, mode) { const h = _hiddenColsFor(mode); return cols.filter(c => !(h.has(c.name) && !_NO_HIDE.has(c.name))); }
 function _visibleColsSum(cols) { return cols.reduce((s, c) => s + (c.hide ? 0 : (c.width || 0)), 0); }

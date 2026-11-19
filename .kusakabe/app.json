@@ -1,0 +1,22 @@
+{
+  "app_id": "app-design-schedule",
+  "category": "app",
+  "target": "dev",
+  "source_dir": ".",
+  "auth": "m365",
+  "cloudrun": {
+    "memory": "512Mi",
+    "cpu": "1",
+    "concurrency": 40,
+    "max_instances": 2,
+    "timeout": 120
+  },
+  "env": {},
+  "secrets": {},
+  "probe": {
+    "redirect": [
+      "/"
+    ],
+    "unauthorized": []
+  }
+}

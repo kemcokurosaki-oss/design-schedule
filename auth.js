@@ -42,7 +42,9 @@ const supabaseClient = supabase.createClient(S_URL, S_KEY, {
 const M365_ONLY = true;
 const _authQs = new URLSearchParams(window.location.search);
 const SHOW_MS_LOGIN       = M365_ONLY || _authQs.has('ms');
-const SHOW_PASSWORD_LOGIN = !M365_ONLY || _authQs.has('pw');
+// Cloud Run 版（GitHub Pages 以外）では、社内アカウント以外も通ってしまう非常用パスワードログインは出さない
+const _ON_GITHUB_PAGES = /(^|\.)github\.io$/.test(location.hostname) || location.protocol === 'file:';
+const SHOW_PASSWORD_LOGIN = (!M365_ONLY || _authQs.has('pw')) && _ON_GITHUB_PAGES;
 let _isLoggedIn    = false;
 let _loginRequired = false; // ログインしないと閲覧できない状態でログイン画面を出しているか
 
@@ -388,6 +390,15 @@ async function doSetPassword() {
 
 // 認証状態の変化を監視（ページロード時・ログイン・ログアウト時に自動で呼ばれる）
 supabaseClient.auth.onAuthStateChange((_event, session) => {
+    // Cloud Run 版向け：サーバーも確認できるよう、ログイン状態を Cookie にも反映する（他のドメインでは無害）
+    try {
+        if (session && session.access_token) {
+            const maxAge = Math.max(0, (session.expires_at || 0) - Math.floor(Date.now() / 1000));
+            document.cookie = `sb_at=${session.access_token}; path=/; max-age=${maxAge}; secure; samesite=lax`;
+        } else {
+            document.cookie = 'sb_at=; path=/; max-age=0';
+        }
+    } catch (_) { /* Cookie が使えない環境では何もしない */ }
     if (_event === 'PASSWORD_RECOVERY' || (_event === 'SIGNED_IN' && (_pageInitType === 'invite' || _pageInitType === 'recovery'))) {
         // 招待メール・パスワードリセットのリンクからのアクセス
         openSetPasswordDialog();
