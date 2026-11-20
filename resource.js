@@ -277,6 +277,29 @@ window.addEventListener('pageshow', function (ev) {
 // リソース表示の列幅定数（担当者名 / 詳細タスク名）
 const RESOURCE_OVERVIEW_COL_WIDTH = 300;  // 担当者名列
 const RESOURCE_DETAIL_COL_WIDTH   = 350;  // 詳細表示（工事番号＋タスク名列）
+/** バーを描くか：日付なし、または開始日なしで完了予定日が過ぎている（終わりが始まりより前の）タスクは描かない。
+ *  開始日なしのタスクは開始日が「今日」で読み込まれるため、描くと今日の列に細い縦線が出てしまう */
+function _resHasBar(t) {
+    return !t.has_no_date && !!t.start_date && !!t.end_date && t.end_date > t.start_date;
+}
+let _resDetailColWidth = RESOURCE_DETAIL_COL_WIDTH; // 担当別（全画面）の詳細表示で、タスク名が全部見える幅
+
+/** 担当別（全画面）の詳細表示：タスク名が全部見えるグリッド幅を計算する（下限350・画面幅−200pxで頭打ち） */
+function _calcResDetailColWidth(tasks) {
+    try {
+        const cv = _calcResDetailColWidth._cv || (_calcResDetailColWidth._cv = document.createElement('canvas'));
+        const ctx = cv.getContext('2d');
+        ctx.font = '13px ' + getComputedStyle(document.body).fontFamily;
+        let maxPj = 50, maxText = 0;
+        tasks.forEach(t => {
+            maxPj = Math.max(maxPj, ctx.measureText(String(t.project_number || '-')).width);
+            maxText = Math.max(maxText, ctx.measureText(String(t.text || '')).width);
+        });
+        // 左右余白12 + バッジ52 + 工番 + マーク34 + 間隔8×3 + 名前 + 余裕16
+        const need = Math.ceil(12 + 52 + maxPj + 34 + 24 + maxText + 16);
+        return Math.max(RESOURCE_DETAIL_COL_WIDTH, Math.min(need, window.innerWidth - 200));
+    } catch (e) { return RESOURCE_DETAIL_COL_WIDTH; }
+}
 
 // ガントのタイムライン開始位置を取得（グリッド幅＋リサイザー幅を含む正確な値）
 function _getRenderedGanttGridWidth() {
@@ -441,6 +464,7 @@ function renderResourceTimeline(owners) {
             `;
 
             rowTasks.forEach(t => {
+                if (!_resHasBar(t)) return; // メインの表と同じく、日付なし・幅0のバーは描かない
                 const left  = gantt.posFromDate(t.start_date);
                 const right = gantt.posFromDate(t.end_date);
                 const width = Math.max(2, right - left);
@@ -476,8 +500,8 @@ function renderOwnerDetailTimeline(ownerName) {
     const timelineWidth = scale.full_width;
     const columnWidth = scale.col_width;
     // 全画面時は専用幅、ボトムパネル時はガントのグリッド幅に合わせる
-    const actualGridWidth = isResourceFullscreen ? RESOURCE_DETAIL_COL_WIDTH : (_getRenderedGanttGridWidth());
-    const totalWidth = actualGridWidth + timelineWidth;
+    let actualGridWidth = isResourceFullscreen ? RESOURCE_DETAIL_COL_WIDTH : (_getRenderedGanttGridWidth());
+    let totalWidth = actualGridWidth + timelineWidth;
     const firstPos = gantt.posFromDate(scale.trace_x[0]);
 
     const gridBackground = `repeating-linear-gradient(to right, transparent, transparent ${columnWidth - 1}px, #eef0f3 ${columnWidth - 1}px, #eef0f3 ${columnWidth}px), repeating-linear-gradient(to bottom, transparent, transparent 29px, #eef0f3 29px, #eef0f3 30px)`;
@@ -502,7 +526,7 @@ function renderOwnerDetailTimeline(ownerName) {
     const backgroundStyle = `background-image: ${gridBackground}; background-position: ${-firstPos}px 0; background-size: ${columnWidth}px 30px;`;
     const _today0 = new Date(); _today0.setHours(0, 0, 0, 0);
     const todayPos = gantt.posFromDate(_today0); // 今日のセルの左端
-    const todayLineLeft = actualGridWidth + todayPos;
+    let todayLineLeft = actualGridWidth + todayPos;
 
     // 担当者のタスクを収集
     const ownerTasks = [];
@@ -541,6 +565,14 @@ function renderOwnerDetailTimeline(ownerName) {
         return;
     }
 
+    // 担当別（全画面）ではタスク名が全部見える幅まで広げる
+    if (isResourceFullscreen) {
+        _resDetailColWidth = _calcResDetailColWidth(ownerTasks);
+        actualGridWidth = _resDetailColWidth;
+        totalWidth = actualGridWidth + timelineWidth;
+        todayLineLeft = actualGridWidth + todayPos;
+    }
+
     const TASK_TYPE_LABEL = {
         planning:       '計画',
         drawing:        '図面',
@@ -553,7 +585,7 @@ function renderOwnerDetailTimeline(ownerName) {
 
     let html = `<div style="width: ${totalWidth}px; position: relative;">`;
     ownerTasks.forEach(t => {
-        const hasDate = !t.has_no_date && t.start_date && t.end_date;
+        const hasDate = _resHasBar(t);
         const left = hasDate ? gantt.posFromDate(t.start_date) : 0;
         const right = hasDate ? gantt.posFromDate(t.end_date) : 0;
         const barWidth = hasDate ? Math.max(2, right - left) : 0;
@@ -564,10 +596,10 @@ function renderOwnerDetailTimeline(ownerName) {
             <div class="resource-item" style="display: flex; border-bottom: 1px solid #eef0f3; min-height: 30px; height: 30px; align-items: stretch; width: ${totalWidth}px;">
                 <div class="resource-grid-container" style="width: ${actualGridWidth}px; min-width: ${actualGridWidth}px; flex-shrink: 0; display: flex; border-right: 1px solid #cbd2d9; background: #fff; position: sticky; left: 0; z-index: 40; overflow: hidden;">
                     <div style="display: flex; align-items: center; padding: 0 6px; font-size: 13px; color: #1f2933; width: 100%; overflow: hidden; white-space: nowrap; gap: 8px;">
-                        <span style="flex-shrink: 0; font-size: 10px; color: ${typeClr.color}; background: ${typeClr.bg}; border-radius: 2px; padding: 1px 4px; font-weight: bold;">${typeLabel}</span>
+                        <span style="flex-shrink: 0; box-sizing: border-box; width: 52px; text-align: center; font-size: 10px; color: ${typeClr.color}; background: ${typeClr.bg}; border-radius: 2px; padding: 1px 0; font-weight: bold;">${typeLabel}</span>
                         <span style="flex-shrink: 0; color: #7b8794; min-width: 50px;">${t.project_number || '-'}</span>
+                        <span style="flex-shrink: 0; display: flex; align-items: center; gap: 2px;"><span title="${_resIsLate(t) ? '期限切れ' : ''}" style="display:flex; justify-content:center; width:16px;">${_resIsLate(t) ? _ICON_LATE : ''}</span><span title="${_resIsWish(t) ? '期日超過' : ''}" style="display:flex; justify-content:center; width:16px;">${_resIsWish(t) ? _ICON_WISH : ''}</span></span>
                         <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;">${t.text}</span>
-                        <span style="flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding-right: 4px;">${_resIsLate(t) ? '<span title="期限切れ" style="display:flex;">' + _ICON_LATE + '</span>' : ''}${_resIsWish(t) ? '<span title="期日超過" style="display:flex;">' + _ICON_WISH + '</span>' : ''}</span>
                     </div>
                 </div>
                 <div class="resource-timeline" style="width: ${timelineWidth}px; flex-shrink: 0; position: relative; background: #fff; overflow: hidden; z-index: 2;">
@@ -607,7 +639,7 @@ function renderResourceCalendarHeader() {
     const columnWidth = scale.col_width;
     // 全画面時は専用幅、ボトムパネル時はガントのグリッド幅に合わせる
     const actualGridWidth = isResourceFullscreen
-        ? (_resourceDetailOwner ? RESOURCE_DETAIL_COL_WIDTH : RESOURCE_OVERVIEW_COL_WIDTH)
+        ? (_resourceDetailOwner ? _resDetailColWidth : RESOURCE_OVERVIEW_COL_WIDTH)
         : (_getRenderedGanttGridWidth());
     const dates = scale.trace_x;
     const unit = gantt.getState().scale_unit;
@@ -690,6 +722,28 @@ function renderResourceCalendarHeader() {
     `;
 }
 
+// 担当別モード（全画面）と、ほかのモードの下に出るリソースで、開いている担当者を別々に覚える
+let _resStateFull  = { owner: null, only: null }; // 担当別モード
+let _resStatePanel = { owner: null, only: null }; // ほかのモードの下のリソース
+
+/** 見出し（担当者名・←・マーク凡例）を、いま開いている担当者に合わせて表示する */
+function _applyResourceHeaderUI() {
+    const lg = document.getElementById('resource_mark_legend');
+    const bar = document.querySelector(".resource-header-bar");
+    if (_resourceDetailOwner) {
+        const suffix = _resourceOnly === 'late' ? '（期限切れ）' : _resourceOnly === 'wish' ? '（期日超過）' : '';
+        document.getElementById('resource_title').textContent = `${_resourceDetailOwner}さんのタスク${suffix}`;
+        if (lg) lg.style.display = '';
+        document.getElementById('resource_back_btn').style.display = '';
+        bar.style.display = '';
+    } else {
+        document.getElementById('resource_title').textContent = '担当者別リソース';
+        if (lg) lg.style.display = 'none';
+        document.getElementById('resource_back_btn').style.display = 'none';
+        bar.style.display = 'none';
+    }
+}
+
 function showOwnerDetail(ownerName, only) {
     _resourceDetailOwner = ownerName;
     _resourceOnly = only || null;
@@ -729,6 +783,12 @@ function _syncCalendarHeaderScroll(left) {
 
 // リソース全画面モードに入る（フィルターなし初期表示用）
 function _enterResourceFullscreen() {
+    if (!isResourceFullscreen) {
+        // 下のリソースで開いていた担当者を退避し、担当別モードで開いていた担当者に戻す
+        _resStatePanel = { owner: _resourceDetailOwner, only: _resourceOnly };
+        _resourceDetailOwner = _resStateFull.owner;
+        _resourceOnly = _resStateFull.only;
+    }
     isResourceFullscreen = true;
     isResourceView = true;
     // 担当者・機械フィルターをリセット
@@ -755,7 +815,8 @@ function _enterResourceFullscreen() {
     btn.style.display = "none";
     const _cm = document.getElementById("col_menu_btn"); if (_cm) _cm.style.display = "none";
     document.getElementById("resource_close_btn").style.display = "none";
-    document.querySelector(".resource-header-bar").style.display = "none";
+    // 個人の詳細を開いたまま別モードから戻ってきたときは、担当者名と←を表示したままにする
+    _applyResourceHeaderUI();
     // リソースズームバーを表示して現在のズームレベルを同期
     const rZoomBar = document.getElementById('resource_zoom_bar');
     if (rZoomBar) {
@@ -779,6 +840,13 @@ function _enterResourceFullscreen() {
 
 // リソース全画面モードを抜けてガントビューへ
 function _exitResourceFullscreen() {
+    if (isResourceFullscreen) {
+        // 担当別モードで開いていた担当者を退避し、下のリソースで開いていた担当者に戻す
+        _resStateFull = { owner: _resourceDetailOwner, only: _resourceOnly };
+        _resourceDetailOwner = _resStatePanel.owner;
+        _resourceOnly = _resStatePanel.only;
+        _applyResourceHeaderUI();
+    }
     isResourceFullscreen = false;
     isResourceView = false;
     const panel = document.getElementById("resource_panel");
@@ -791,6 +859,7 @@ function _exitResourceFullscreen() {
     ganttEl.style.display = "";
     btn.style.display = ""; // リソースボタンを復元
     btn.innerText = "担当者別リソース";
+    btn.classList.remove('active'); // 下のリソースは閉じた状態で戻るので、ボタンも押していない表示にそろえる
     document.getElementById("resource_close_btn").style.display = "";
     const _cm = document.getElementById("col_menu_btn"); if (_cm) _cm.style.display = "";
     // リソースズームバーを非表示にしてメインのズームボタンを復元
