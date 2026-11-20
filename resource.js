@@ -76,7 +76,8 @@ function _resIsWish(t) {
 function _resAlertChip(ownerName, kind, n) {
     const icon = kind === 'late' ? _ICON_LATE : _ICON_WISH;
     const label = kind === 'late' ? '期限切れ' : '期日超過';
-    return `<span class="res-alert-chip" onclick="event.stopPropagation(); showOwnerDetail('${ownerName}', '${kind}')" title="押すと該当タスクだけ表示">${icon}<span>${label}</span><b>${n}件</b></span>`;
+    // 名前の横に並べるので、文字は省いてマーク＋件数だけ（意味はマウスを乗せると出る）
+    return `<span class="res-alert-chip" onclick="event.stopPropagation(); showOwnerDetail('${ownerName}', '${kind}')" title="${label} ${n}件（押すと該当タスクだけ表示）">${icon}<b>${n}</b></span>`;
 }
 
 // レイアウト定義
@@ -275,7 +276,38 @@ window.addEventListener('pageshow', function (ev) {
 })();
 
 // リソース表示の列幅定数（担当者名 / 詳細タスク名）
-const RESOURCE_OVERVIEW_COL_WIDTH = 300;  // 担当者名列
+const RESOURCE_OVERVIEW_COL_WIDTH = 300;  // 担当者名列（計算できないときの幅）
+let _resOverviewColWidth = RESOURCE_OVERVIEW_COL_WIDTH; // 担当別の一覧の左の表の幅（中身に合わせて計算）
+
+/** 担当別の一覧：左の表の幅を、いちばん幅を取る担当者の行（名前＋›＋期限切れ・期日超過＋種別バッジ）が入る幅にする */
+function _calcResOverviewColWidth(owners) {
+    try {
+        const cv = _calcResOverviewColWidth._cv || (_calcResOverviewColWidth._cv = document.createElement('canvas'));
+        const ctx = cv.getContext('2d');
+        const font = getComputedStyle(document.body).fontFamily;
+        const w = (txt, px) => { ctx.font = `bold ${px}px ${font}`; return ctx.measureText(String(txt)).width; };
+        const badgeW = Math.max(...['計画', '図面', '長納期品', '出張'].map(s => w(s, 12))) + 8; // バッジ（左右余白4px）
+        const chipW = n => 13 + 4 + w(n, 12) + 12 + 2;  // マーク＋間隔＋件数＋左右余白＋枠
+        let maxRow = 0;
+        owners.forEach(name => {
+            const tasks = [];
+            gantt.eachTask(t => {
+                const isDetailed = (t.is_detailed === true || String(t.is_detailed).toLowerCase() === "true" || String(t.is_detailed).toLowerCase() === "t" || String(t.is_detailed) === "1");
+                if (!isDetailed || !t.owner) return;
+                const os = String(t.owner).split(/[,、\s]+/).map(o => o.trim());
+                if (name === "田中(善)" ? (os.includes("田中(善)") || os.includes("田中")) : os.includes(name)) tasks.push(t);
+            });
+            const nLate = tasks.filter(_resIsLate).length, nWish = tasks.filter(_resIsWish).length;
+            // 左右余白10 + 名前ボタン(左2+名前+間隔6+›12+右6) + 期限切れ/期日超過(それぞれ前に間隔8) + 間隔6 + バッジ
+            let row = 10 + (2 + w(name, 14) + 6 + 12 + 6) + 6 + badgeW;
+            if (nLate) row += 8 + chipW(nLate);
+            if (nWish) row += 8 + chipW(nWish);
+            maxRow = Math.max(maxRow, row);
+        });
+        // 余裕を少し足す。下限は種別バッジと名前が窮屈にならない幅
+        return Math.max(180, Math.ceil(maxRow + 12));
+    } catch (e) { return RESOURCE_OVERVIEW_COL_WIDTH; }
+}
 // 担当別モード（全画面）で、期間が重なるバーを段に分けて表示する（false にすると元の1行表示に戻る）
 const RESOURCE_STACK_LANES = true;
 const RESOURCE_LANE_HEIGHT = 24; // 1段の高さ（バー22px＋すき間2px）
@@ -577,8 +609,9 @@ function renderResourceTimeline(owners) {
     const scale = gantt.getScale();
     const timelineWidth = scale.full_width;
     const columnWidth = scale.col_width;
-    // 全画面時は専用幅、ボトムパネル時はガントのグリッド幅に合わせる
-    const actualGridWidth = isResourceFullscreen ? RESOURCE_OVERVIEW_COL_WIDTH : (_getRenderedGanttGridWidth());
+    // 全画面時は中身が入る幅（_calcResOverviewColWidth）、ボトムパネル時はガントのグリッド幅に合わせる
+    if (isResourceFullscreen) _resOverviewColWidth = _calcResOverviewColWidth(owners);
+    const actualGridWidth = isResourceFullscreen ? _resOverviewColWidth : (_getRenderedGanttGridWidth());
     const totalWidth = actualGridWidth + timelineWidth;
     const firstPos = gantt.posFromDate(scale.trace_x[0]);
 
@@ -654,25 +687,33 @@ function renderResourceTimeline(owners) {
             const borderTop    = isFirstRow ? 'border-top: 1px solid #9aa5b1;' : '';
             const borderBottom = isLastRow  ? 'border-bottom: 1px solid #9aa5b1;' : 'border-bottom: 1px solid #eef0f3;';
 
-            // 左セル：先頭行は担当者名＋ラベル、2行目以降はラベルのみ
+            // 左セル：先頭行は担当者名＋期限切れ・期日超過（担当者全体の件数）＋ラベル、2行目以降はラベルのみ。
+            // 段の上限で入りきらない件数（その種別の件数）は、種別ラベルのすぐ下に「+N件」で出す
             const typeClr = TASK_TYPE_COLORS[rowDef.type] || { bg: '#e0e0e0', color: '#555' };
+            const moreHtml = (stack && laneInfo.hidden.length)
+                ? `<span class="res-more-chip" onclick="event.stopPropagation(); showOwnerDetail('${ownerName}', null, '${rowDef.type}')" title="${RESOURCE_MAX_LANES}段に入りきらない${rowDef.label}タスクが${laneInfo.hidden.length}件あります。押すと${rowDef.label}だけを詳細表示">+${laneInfo.hidden.length}件</span>`
+                : '';
             const leftCellContent = isFirstRow
                 ? (isResourceFullscreen
-                    ? `<div style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:0 5px;box-sizing:border-box;">
-                           <div style="flex:1;min-width:0;display:flex;align-items:center;">
+                    ? `<div style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 5px;box-sizing:border-box;">
+                           <div style="flex:1;min-width:0;display:flex;align-items:center;gap:8px;">
+                               <div class="res-owner-open" onclick="showOwnerDetail('${ownerName}')" title="${ownerName}さんのタスクを一覧で表示">
+                                   <span class="res-owner-open-name">${ownerName}</span><svg class="res-owner-open-arrow" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>
+                               </div>
+                               ${_alerts.map(a => _resAlertChip(ownerName, a[0], a[1])).join('')}
+                           </div>
+                           <div style="font-size:12px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;height:16px;line-height:16px;padding:0 4px;white-space:nowrap;font-weight:bold;flex-shrink:0;">${rowDef.label}</div>
+                       </div>`
+                    : `<div style="width:100%;display:flex;align-items:center;justify-content:flex-end;padding:0 8px 0 5px;box-sizing:border-box;gap:10px;">
+                           <div style="flex:0 0 110px;width:110px;min-width:0;display:flex;align-items:center;">
                                <div class="res-owner-open" onclick="showOwnerDetail('${ownerName}')" title="${ownerName}さんのタスクを一覧で表示">
                                    <span class="res-owner-open-name">${ownerName}</span><svg class="res-owner-open-arrow" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>
                                </div>
                            </div>
-                           <div style="font-size:12px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;height:16px;line-height:16px;padding:0 4px;margin-left:3px;white-space:nowrap;font-weight:bold;">${rowDef.label}</div>
-                       </div>`
-                    : `<div style="width:100%;display:flex;align-items:center;justify-content:flex-end;padding:0 8px 0 5px;box-sizing:border-box;gap:10px;">
-                           <div class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="クリックして詳細表示" style="font-weight:bold;font-size:14px;color:#1f2933;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 0 110px;width:110px;text-align:left;padding:1px 2px;">${ownerName}</div>
                            <div style="font-size:12px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;height:16px;line-height:16px;padding:0 4px;white-space:nowrap;font-weight:bold;flex-shrink:0;">${rowDef.label}</div>
                        </div>`)
-                : `<div style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 5px 0 ${isResourceFullscreen ? 18 : 5}px;box-sizing:border-box;">
-                       ${(isResourceFullscreen && _alerts[rowIndex - 1]) ? _resAlertChip(ownerName, _alerts[rowIndex - 1][0], _alerts[rowIndex - 1][1]) : '<span></span>'}
-                       <div style="font-size:12px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;height:16px;line-height:16px;padding:0 4px;white-space:nowrap;font-weight:bold;">${rowDef.label}</div>
+                : `<div style="width:100%;display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:0 5px;box-sizing:border-box;">
+                       <div style="font-size:12px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;height:16px;line-height:16px;padding:0 4px;white-space:nowrap;font-weight:bold;flex-shrink:0;">${rowDef.label}</div>
                    </div>`;
 
             html += `
@@ -680,7 +721,7 @@ function renderResourceTimeline(owners) {
                     <div class="resource-grid-container" style="width:${actualGridWidth}px;min-width:${actualGridWidth}px;flex-shrink:0;display:flex;${stack ? 'align-items:flex-start;' : ''}border-right:1px solid #cbd2d9;background:#fff;position:sticky;left:0;z-index:40;">
                         ${stack ? `<div style="width:100%;display:flex;flex-direction:column;">
                             <div style="height:30px;width:100%;display:flex;">${leftCellContent}</div>
-                            ${laneInfo.hidden.length ? `<div style="display:flex;justify-content:flex-end;padding:0 5px;"><span class="resource-owner-link" onclick="showOwnerDetail('${ownerName}', null, '${rowDef.type}')" title="${RESOURCE_MAX_LANES}段に入りきらない${rowDef.label}タスクがあります。クリックで${rowDef.label}だけを詳細表示" style="font-size:11px;font-weight:bold;color:#b42318;background:#fef3f2;border:1px solid #fecdca;border-radius:3px;padding:1px 6px;cursor:pointer;">ほか ${laneInfo.hidden.length}件 ›</span></div>` : ''}
+                            ${moreHtml ? `<div style="display:flex;justify-content:flex-end;padding:0 5px;">${moreHtml}</div>` : ''}
                         </div>` : leftCellContent}
                     </div>
                     <div class="resource-timeline" style="width:${timelineWidth}px;flex-shrink:0;position:relative;background:#fff;">
@@ -889,7 +930,7 @@ function renderResourceCalendarHeader() {
     const columnWidth = scale.col_width;
     // 全画面時は専用幅、ボトムパネル時はガントのグリッド幅に合わせる
     const actualGridWidth = isResourceFullscreen
-        ? (_resourceDetailOwner ? _resDetailColWidth : RESOURCE_OVERVIEW_COL_WIDTH)
+        ? (_resourceDetailOwner ? _resDetailColWidth : _resOverviewColWidth)
         : (_getRenderedGanttGridWidth());
     const dates = scale.trace_x;
     const unit = gantt.getState().scale_unit;

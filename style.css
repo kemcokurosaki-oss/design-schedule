@@ -1324,9 +1324,13 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 #resource_back_btn:hover { background: #f0f2f5; }
 .resource-mark-legend { display: inline-flex; align-items: center; gap: 14px; margin-left: 12px; font-size: 12px; font-weight: normal; color: #52606d; }
 .resource-mark-legend > span { display: inline-flex; align-items: center; gap: 5px; }
-.res-alert-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 6px; background: #fff; border: 1px solid #cbd2d9; color: #1f2933; font-size: 12px; white-space: nowrap; cursor: pointer; }
+.res-alert-chip { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; height: 20px; padding: 0 6px; box-sizing: border-box; border-radius: 5px; background: #fff; border: 1px solid #cbd2d9; color: #1f2933; font-size: 12px; white-space: nowrap; cursor: pointer; }
 .res-alert-chip:hover { background: #f0f2f5; }
-.res-alert-chip b { margin-left: 4px; font-size: 13px; }
+.res-alert-chip svg { width: 13px; height: 13px; }
+.res-alert-chip b { font-size: 12px; }
+/* 段の上限で入りきらない件数（種別ラベルの下）。警告ではないのでグレーで控えめに */
+.res-more-chip { flex-shrink: 0; line-height: 18px; padding: 0 1px; color: #52606d; font-size: 12px; font-weight: bold; white-space: nowrap; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.res-more-chip:hover { color: #1f2933; }
 .multi-edit-note { margin-top: 10px; font-size: 13px; color: #52606d; background: #f5f7fa; border-radius: 6px; padding: 8px 12px; }
 #multi_edit_count_label { margin-bottom: 12px !important; font-size: 13px !important; color: #52606d !important; }
 #archive_copy_src { display: inline-block; padding: 2px 8px; background: #f0f2f5; border-radius: 4px; color: #1f2933; font-weight: bold; }
