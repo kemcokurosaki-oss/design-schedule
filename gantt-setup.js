@@ -631,6 +631,43 @@ function _applyColWidths(cols, mode) {
         });
     });
 }
+/**
+ * 列の文字が全部見える幅：表示中のモード・絞り込みで見えている行（工事番号の見出し行は除く）のうち
+ * 文字がいちばん長いものを選び、そのセルを画面の外に複製して、文字が収まる幅を実際に測る
+ *（左のマークや字下げは列が狭いと縮むため、表示中のセルから余白を測ると狭い幅のときにずれる）
+ */
+function _textColFullWidth(name) {
+    const cell = document.querySelector(`#gantt_here .gantt_row:not(.group-row) .gantt_cell[data-column-name="${name}"]`);
+    const content = cell && cell.querySelector('.gantt_tree_content');
+    let font = '13px';
+    try { if (content) { const cs = getComputedStyle(content); font = `${cs.fontWeight} ${cs.fontSize}`; } } catch (e) {}
+    let longest = '', max = -1;
+    try {
+        const tt = (typeof currentTaskTypeFilter !== 'undefined') ? currentTaskTypeFilter : null;
+        const visible = (typeof _taskVisibleOnGantt === 'function') ? _taskVisibleOnGantt : null;
+        gantt.eachTask(function(t) {
+            if (t.$group || t[name] == null || t[name] === '') return;
+            if (visible ? !visible(t) : (tt && String(t.task_type || 'drawing') !== tt)) return;
+            const w = _measureGridText(String(t[name]), font);
+            if (w > max) { max = w; longest = String(t[name]); }
+        });
+    } catch (e) {}
+    if (!longest) return 0;
+    if (!cell || !content) return Math.ceil(max + 40);
+    let w = Math.ceil(max + 40);
+    try {
+        const clone = cell.cloneNode(true);
+        clone.style.cssText = 'position:absolute;left:-99999px;top:0;width:max-content;visibility:hidden;';
+        const cc = clone.querySelector('.gantt_tree_content');
+        cc.textContent = longest;
+        cc.style.overflow = 'visible';
+        cc.style.flexShrink = '0';
+        cell.parentElement.appendChild(clone);
+        w = Math.ceil(clone.getBoundingClientRect().width) + 8; // 右の余白
+        clone.remove();
+    } catch (e) {}
+    return w;
+}
 document.addEventListener('mousedown', function(e) {
     const h = e.target.closest && e.target.closest('.col-resize-handle');
     if (!h || e.button !== 0) return;
@@ -650,8 +687,13 @@ document.addEventListener('mousedown', function(e) {
     guide.style.left = e.clientX + 'px';
     document.body.appendChild(guide);
     document.body.classList.add('col-resizing');
-    const MIN_W = 80;
-    const MAX_W = Math.max(MIN_W, ar.width - 200); // カレンダーが少しは残るようにする
+    const MIN_W = 160;
+    // 上限：表示中の行の文字がいちばん長いものまで全部見える幅。
+    // ただし表全体が「画面の幅 − 200px」を超えないようにする（カレンダーが少しは残るようにする）
+    const gridEl = area.querySelector('.gantt_grid');
+    const gridW = gridEl ? gridEl.getBoundingClientRect().width : startW;
+    const screenMax = startW + (ar.width - 200 - gridW);
+    const MAX_W = Math.max(MIN_W, Math.min(_textColFullWidth(name), screenMax));
     let newW = startW;
     function onMove(ev) {
         newW = Math.round(Math.min(MAX_W, Math.max(MIN_W, startW + ev.clientX - startX)));
@@ -679,6 +721,26 @@ document.addEventListener('dblclick', function(e) {
     _setColWidth(mode, h.getAttribute('data-col'), null);
     switchColumns(mode);
 }, true);
+/**
+ * 表の枠（表とカレンダーの境界）を gantt.config.grid_width に合わせる。
+ * gantt.config.layout を書き換えて render しただけでは、表の枠は前の幅のまま残り、
+ * はみ出した分を他の列を縮めて吸収してしまうため、描き直す前に枠の幅を直接書き換える
+ */
+function _fitGridCellToColumns() {
+    try {
+        const grid = gantt.$ui && gantt.$ui.getView('grid');
+        const timeline = gantt.$ui && gantt.$ui.getView('timeline');
+        if (!grid || !grid.$parent) return false;
+        // 表は「列の箱 > 行の箱 > 表」と入れ子になっている。カレンダーと並ぶ箱まで、外側へ順に幅を書き換える
+        //（内側だけ書き換えると、外側の箱の幅に合わせて描き直され、元の幅に戻ってしまう）
+        const timelineAncestors = new Set();
+        for (let c = timeline; c; c = c.$parent) timelineAncestors.add(c);
+        const w = gantt.config.grid_width;
+        grid.$config.width = w - 1;
+        for (let c = grid.$parent; c && !timelineAncestors.has(c); c = c.$parent) c.$config.width = w;
+        return true;
+    } catch (e) { console.warn('表の幅の調整に失敗しました', e); return false; }
+}
 function _baseColsFor(mode) { return mode === 'long_lead_item' ? _getLongtermColumns() : (mode === 'business_trip' || mode === 'planning') ? _getTripColumns() : _getDrawingColumns(); }
 function setColumnHidden(name, hidden) {
     const mode = gantt.config._columnFilterType || 'drawing';
@@ -2402,9 +2464,35 @@ function switchColumns(filterType) {
     gantt.config.columns = _applyHiddenCols(_applyColumnFilterButtons(baseCols), filterType);
     gantt.config._columnFilterType = filterType;
     _setLayout(_visibleColsSum(_applyHiddenCols(baseCols, filterType)));
+    // 表の枠（表とカレンダーの境界）を列の合計幅に合わせる。モード切替・列幅のドラッグ・列の表示切替で
+    // 境界が動き、他の列は縮めない
+    const fitGrid = _fitGridCellToColumns();
     gantt.render();
+    if (fitGrid) gantt.setSizes();
     _updateColMenuBtn();
+    _queueResourceResync();
 }
+
+/**
+ * 下の「担当者別リソース」は、描いた時点の表の幅に合わせて自前で描いているため、
+ * 表とカレンダーの境界が動いたら描き直して、カレンダーの位置をそろえる（まとめて 1 回だけ）
+ */
+var _resourceResyncPending = false;
+function _queueResourceResync() {
+    if (_resourceResyncPending) return;
+    _resourceResyncPending = true;
+    requestAnimationFrame(function() {
+        _resourceResyncPending = false;
+        try {
+            if (typeof isResourceView === 'undefined' || !isResourceView) return;
+            if (typeof isResourceFullscreen !== 'undefined' && isResourceFullscreen) return;
+            if (typeof updateResourceData === 'function') updateResourceData();
+            if (typeof syncResourceScroll === 'function') syncResourceScroll();
+        } catch (e) { console.warn('リソース表示の描き直しに失敗しました', e); }
+    });
+}
+// 表とカレンダーの境界（縦の区切り線）を直接ドラッグしたときも、リソースをそろえる
+gantt.attachEvent("onGridResizeEnd", function() { setTimeout(_queueResourceResync, 0); return true; });
 
 // スタイルとテンプレート
 gantt.templates.task_text = function(start, end, task) {
