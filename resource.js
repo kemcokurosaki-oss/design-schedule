@@ -438,14 +438,15 @@ function _resDetailHeaderHtml(gridWidth) {
     if (!c) return '';
     const cell = (key, width, extra) => {
         const col = _RES_DETAIL_COLS[key];
+        // Excel のように、並び替え・絞り込みの状態はボタンのマークで表す（メイン画面の .col-filter-btn と同じクラス）
         const sorted = _resDetailView.sortKey === key;
-        const arrow = sorted ? (_resDetailView.sortDir === 1 ? '▲' : '▼') : '';
+        const sortCls = sorted ? (_resDetailView.sortDir === 1 ? ' col-sort-asc' : ' col-sort-desc') : '';
         const filtered = !!_resDetailView.filters[key];
         const tip = col.noFilter ? '並び替え' : '並び替え・絞り込み';
         return `<div class="res-dh-cell" style="${width ? `width:${width}px;flex-shrink:0;` : 'flex:1;min-width:0;'}${extra || ''}"
                      title="${tip}" onclick="openResDetailFilter('${key}', this.querySelector('.res-dh-btn'))">
-                    <span class="res-dh-label">${col.title}</span><span class="res-dh-arrow">${arrow}</span>
-                    <button type="button" class="res-dh-btn${filtered ? ' active' : ''}" onclick="event.stopPropagation();openResDetailFilter('${key}', this)"></button>
+                    <span class="res-dh-label">${col.title}</span>
+                    <button type="button" class="res-dh-btn${filtered ? ' col-filter-active' : ''}${sortCls}" onclick="event.stopPropagation();openResDetailFilter('${key}', this)"></button>
                 </div>`;
     };
     // 種別・工番・機械・ユニは中央寄せ（下の行の値も中央寄せ）。タスク名は並び替え・絞り込みなし

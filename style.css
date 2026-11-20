@@ -1460,8 +1460,6 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
 }
 .res-dh-cell { display: flex; align-items: center; gap: 4px; height: 26px; cursor: pointer; overflow: hidden; }
 .res-dh-cell.res-dh-plain { cursor: default; }
-.res-dh-arrow { font-size: 9px; color: #1f2933; }
-.res-dh-arrow:empty { display: none; }
 /* 漏斗ボタン（ほかのモードの .col-filter-btn と同じ見た目） */
 .res-dh-btn {
     flex-shrink: 0; width: 22px; height: 17px; padding: 0; margin: 0;
@@ -1470,10 +1468,31 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath d='M0 1h10L6 5.5V9L4 10V5.5z' fill='%237b8794'/%3E%3C/svg%3E");
 }
 .res-dh-btn:hover { border-color: #7b8794; }
-.res-dh-btn.active {
+.res-dh-btn.col-filter-active {
     background-color: #1f2933; border-color: #1f2933;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath d='M0 1h10L6 5.5V9L4 10V5.5z' fill='%23ffffff'/%3E%3C/svg%3E");
 }
+
+/* ===== 列見出しのボタン：Excel のように並び替えの状態をマークで表す（メイン画面・担当別の詳細画面で共通） =====
+   並び替えだけ：白地に矢印 ／ 絞り込み＋並び替え：黒地に白の漏斗と矢印 */
+.col-filter-btn.col-sort-asc, .res-dh-btn.col-sort-asc {
+    background-size: 10px 10px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath d='M5 9V1.5M2 4.5 5 1.5 8 4.5' fill='none' stroke='%231f2933' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.col-filter-btn.col-sort-desc, .res-dh-btn.col-sort-desc {
+    background-size: 10px 10px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath d='M5 1v7.5M2 5.5 5 8.5 8 5.5' fill='none' stroke='%231f2933' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.col-filter-btn.col-filter-active.col-sort-asc, .res-dh-btn.col-filter-active.col-sort-asc {
+    background-size: 16px 9px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='10' viewBox='0 0 18 10'%3E%3Cpath d='M0 1h10L6 5.5V9L4 10V5.5z' fill='%23ffffff'/%3E%3Cpath d='M15 9V1.5M12.8 3.8 15 1.5 17.2 3.8' fill='none' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.col-filter-btn.col-filter-active.col-sort-desc, .res-dh-btn.col-filter-active.col-sort-desc {
+    background-size: 16px 9px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='10' viewBox='0 0 18 10'%3E%3Cpath d='M0 1h10L6 5.5V9L4 10V5.5z' fill='%23ffffff'/%3E%3Cpath d='M15 1v7.5M12.8 6.2 15 8.5 17.2 6.2' fill='none' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+/* メイン画面の列メニュー：いま並べ替えている向きに ✓ */
+.col-filter-sort-row.col-sort-current::after { content: "✓"; margin-left: auto; padding-left: 12px; font-weight: bold; color: #1f2933; }
 /* 個人の詳細画面：行クリックで終了日へ移動。クリックした行はメイン画面の選択行と同じグレー（#f0f2f5） */
 .res-detail-cell { cursor: pointer; }
 .res-detail-row:hover .res-detail-cell { background: #f8f9fb !important; }

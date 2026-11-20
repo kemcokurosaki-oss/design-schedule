@@ -2540,6 +2540,7 @@ gantt.templates.task_row_class = function(start, end, task) {
 gantt.config.order_branch = true;
 // 列見出しの昇順・降順で一時的に並べ替えている間は true（data.js の applyColumnSort / loadData で切り替え）
 let _columnSortActive = false;
+let _columnSortState = null; // { name: 列名, dir: 'asc' | 'desc' }。並べ替え中の列をボタンとメニューに表示する（loadData で解除）
 let _rowReorderSaving = false;
 
 /** 画面に表示されている並びで、指定行の直前・直後の行を返す */

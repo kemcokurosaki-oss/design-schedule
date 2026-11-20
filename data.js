@@ -173,6 +173,7 @@ async function loadData() {
         data: (typeof _withGroupRows === 'function') ? _withGroupRows(activeTasks) : activeTasks
     });
     _columnSortActive = false;
+    _columnSortState = null; // 読み込み直すと元の並びに戻るので、並び替えの表示も消す
 
     _rebuildMachineFilterFromRows(data);
     _rebuildUnitFilterFromRows(data);
@@ -910,6 +911,7 @@ function applyColumnSort(direction, colName) {
         return desc ? -cmp : cmp;
     });
     _columnSortActive = true; // 一時的な並べ替え中は行ドラッグを無効にする（loadData で解除）
+    _columnSortState = { name, dir: desc ? 'desc' : 'asc' }; // どの列で並べ替えたかを、列見出しのボタンとメニューの ✓ に出す
     gantt.render();
     _closeAllFilterDropdowns();
 }
@@ -1128,8 +1130,25 @@ function _refreshColumnFilterBtnStyles() {
     document.querySelectorAll('.col-filter-btn').forEach(btn => {
         const colName = btn.getAttribute('data-col');
         btn.classList.toggle('col-filter-active', _isColumnFilterActive(colName));
+        // Excel のように、並べ替え中の列はボタンのマークを矢印にする（絞り込み中なら漏斗＋矢印）
+        const s = _columnSortState && _columnSortState.name === colName ? _columnSortState.dir : null;
+        btn.classList.toggle('col-sort-asc', s === 'asc');
+        btn.classList.toggle('col-sort-desc', s === 'desc');
     });
 }
+
+/** 列のメニューを開いたとき、いま並べ替えている向き（昇順・降順）の行に ✓ を付ける */
+function _refreshSortMenuMarks() {
+    document.querySelectorAll('.col-filter-sort-row').forEach(row => {
+        const m = /applyColumnSort\('(asc|desc)'(?:,\s*'([^']+)')?\)/.exec(row.getAttribute('onclick') || '');
+        if (!m) return;
+        const col = m[2] || _openColFilterName;
+        row.classList.toggle('col-sort-current', !!(_columnSortState && _columnSortState.name === col && _columnSortState.dir === m[1]));
+    });
+}
+document.addEventListener('click', e => {
+    if (e.target.closest && e.target.closest('.col-filter-btn')) setTimeout(_refreshSortMenuMarks, 0);
+}, true);
 gantt.attachEvent('onGanttRender', _refreshColumnFilterBtnStyles);
 
 function updateFilterButtons() {
