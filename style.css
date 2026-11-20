@@ -1470,6 +1470,14 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
     background-color: #1f2933; border-color: #1f2933;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath d='M0 1h10L6 5.5V9L4 10V5.5z' fill='%23ffffff'/%3E%3C/svg%3E");
 }
+/* 個人の詳細画面：行クリックで終了日へ移動。クリックした行はメイン画面の選択行と同じグレー（#f0f2f5） */
+.res-detail-cell { cursor: pointer; }
+.res-detail-row:hover .res-detail-cell { background: #f8f9fb !important; }
+.res-detail-row.res-row-selected .res-detail-cell { background: #f0f2f5 !important; }
+.res-detail-row.res-row-selected .resource-timeline::after {
+    content: ""; position: absolute; inset: 0; background: rgba(31, 41, 51, 0.06); z-index: 3; pointer-events: none;
+}
+
 /* 担当別の一覧：名前の横の「詳細を開く ›」 */
 .res-open-detail { flex-shrink: 0; font-size: 12px; color: #52606d; cursor: pointer; white-space: nowrap; padding: 1px 6px; border: 1px solid #cbd2d9; border-radius: 4px; background: #fff; }
 .res-open-detail:hover { color: #1f2933; border-color: #7b8794; background: #f5f7fa; }

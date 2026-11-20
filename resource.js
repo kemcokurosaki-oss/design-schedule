@@ -350,7 +350,7 @@ function _resCompareStart(a, b) {
 // 並び替え（sortKey=null は開始日順、sortDir 1=昇順 -1=降順）と絞り込み（列ごとに選んだ値の Set。null は絞り込みなし）
 let _resDetailView = { owner: null, sortKey: null, sortDir: 1, filters: {}, options: {}, cols: null };
 function _resetResDetailView(owner) {
-    _resDetailView = { owner, sortKey: null, sortDir: 1, filters: {}, options: {}, cols: null };
+    _resDetailView = { owner, sortKey: null, sortDir: 1, filters: {}, options: {}, cols: null, selectedId: null };
 }
 
 /** 絞り込みの選択肢（列ごとの値の一覧） */
@@ -364,6 +364,30 @@ function _resDetailOptions(tasks) {
         opts[k] = vals;
     });
     return opts;
+}
+
+/** 詳細画面の行（左の表）をクリック：その行を色付けし、終了日が画面の左寄り（見えている範囲の左から1/4の位置）に来るよう横スクロール。
+ *  終了日がなければ開始日、日付がなければ動かさない（メイン画面の行クリックと同じ考え方） */
+function resDetailRowClick(cellEl) {
+    const row = cellEl.closest('.res-detail-row');
+    if (!row) return;
+    const id = row.dataset.taskId;
+    _resDetailView.selectedId = id;
+    document.querySelectorAll('.res-detail-row.res-row-selected').forEach(r => r.classList.remove('res-row-selected'));
+    row.classList.add('res-row-selected');
+
+    const task = gantt.isTaskExists(id) ? gantt.getTask(id) : null;
+    if (!task) return;
+    let x = null;
+    if (!task.has_no_date && task.end_date) x = gantt.posFromDate(task.end_date);          // 終了日の右端（end_date は翌日0時）
+    else if (!task.has_no_start && task.start_date) x = gantt.posFromDate(task.start_date);
+    if (x == null || isNaN(x)) return;
+    const rc = document.querySelector('.resource-content');
+    if (!rc) return;
+    const gridW = cellEl.offsetWidth;                        // 左の表（スクロールしても左に固定）の幅
+    const visW = Math.max(100, rc.clientWidth - gridW);       // カレンダーが見えている幅
+    const left = Math.max(0, Math.round(x - visW * 0.25));
+    rc.scrollTo({ left, behavior: 'smooth' });                // スクロールに合わせて見出し・メイン画面も動く（scroll イベントで同期）
 }
 
 /** 並び替えを決める（key=null は開始日順に戻す、dir 1=昇順 -1=降順） */
@@ -816,8 +840,8 @@ function renderOwnerDetailTimeline(ownerName) {
         const typeClr = TASK_TYPE_COLORS[String(t.task_type)] || { bg: '#e0e0e0', color: '#555' };
 
         html += `
-            <div class="resource-item" style="display: flex; border-bottom: 1px solid #eef0f3; min-height: 30px; height: 30px; align-items: stretch; width: ${totalWidth}px;">
-                <div class="resource-grid-container" style="width: ${actualGridWidth}px; min-width: ${actualGridWidth}px; flex-shrink: 0; display: flex; border-right: 1px solid #cbd2d9; background: #fff; position: sticky; left: 0; z-index: 40; overflow: hidden;">
+            <div class="resource-item res-detail-row${String(_resDetailView.selectedId) === String(t.id) ? ' res-row-selected' : ''}" data-task-id="${t.id}" style="display: flex; border-bottom: 1px solid #eef0f3; min-height: 30px; height: 30px; align-items: stretch; width: ${totalWidth}px;">
+                <div class="resource-grid-container res-detail-cell" onclick="resDetailRowClick(this)" title="クリックで終了日の位置へ移動" style="width: ${actualGridWidth}px; min-width: ${actualGridWidth}px; flex-shrink: 0; display: flex; border-right: 1px solid #cbd2d9; background: #fff; position: sticky; left: 0; z-index: 40; overflow: hidden;">
                     <div style="display: flex; align-items: center; padding: 0 6px; font-size: 13px; color: #1f2933; width: 100%; overflow: hidden; white-space: nowrap; gap: 8px;">
                         <span style="flex-shrink: 0; box-sizing: border-box; width: ${RES_DETAIL_TYPE_W}px; text-align: center; font-size: 12px; color: ${typeClr.color}; background: ${typeClr.bg}; border-radius: 2px; height: 16px; line-height: 16px; padding: 0; font-weight: bold;">${typeLabel}</span>
                         <span style="flex-shrink: 0; color: #1f2933; width: ${dCols.pj}px; text-align: center;">${t.project_number || '-'}</span>
