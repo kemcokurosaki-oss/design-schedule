@@ -38,12 +38,12 @@ function getOwnerColorClass(ownerStr) {
     return "owner-default";
 }
 
-// タスクタイプ別の色定義
+// タスクタイプ別のバッジの色（担当者のバーよりさらに薄い地の色。文字はどれも同じ濃いグレー）
 const TASK_TYPE_COLORS = {
-    planning:       { bg: '#f0f2f5', color: '#3e4c59' },
-    drawing:        { bg: '#f0f2f5', color: '#3e4c59' },
-    long_lead_item: { bg: '#f0f2f5', color: '#3e4c59' },
-    business_trip:  { bg: '#f0f2f5', color: '#3e4c59' },
+    planning:       { bg: '#e9f0fa', color: '#3e4c59' }, // 計画：青
+    drawing:        { bg: '#e7f5ec', color: '#3e4c59' }, // 図面：緑
+    long_lead_item: { bg: '#fdf0e2', color: '#3e4c59' }, // 長納期品：オレンジ
+    business_trip:  { bg: '#f1ebf8', color: '#3e4c59' }, // 出張：紫
 };
 
 // ===== 新デザイン：期限切れ・期日超過 =====
@@ -281,8 +281,9 @@ const RESOURCE_STACK_LANES = true;
 const RESOURCE_LANE_HEIGHT = 24; // 1段の高さ（バー22px＋すき間2px）
 const RESOURCE_MAX_LANES = 10;   // 種別ごとの段数の上限（入りきらないバーは描かず「+N件」で知らせる）
 
-/** 段の上限があるときの優先順位：0=開始日が今日以降、1=今日をまたいで進行中、2=終わったもの */
+/** 段の上限があるときの優先順位：0=開始日が今日以降、1=今日をまたいで進行中、2=終わったもの、3=完了済み（日付に関係なく一番後回し） */
 function _resLanePriority(t, today) {
+    if (_resIsDone(t)) return 3;
     if (t.start_date >= today) return 0;
     if (t.end_date > today) return 1;
     return 2;
@@ -318,21 +319,177 @@ function _resHasBar(t) {
 }
 let _resDetailColWidth = RESOURCE_DETAIL_COL_WIDTH; // 担当別（全画面）の詳細表示で、タスク名が全部見える幅
 
-/** 担当別（全画面）の詳細表示：タスク名が全部見えるグリッド幅を計算する（下限350・画面幅−200pxで頭打ち） */
-function _calcResDetailColWidth(tasks) {
+// ===== 個人の詳細表示：並び替え・絞り込み =====
+const _RES_TYPE_ORDER = { planning: 0, drawing: 1, long_lead_item: 2, business_trip: 3 };
+const _RES_TYPE_LABEL = { planning: '計画', drawing: '図面', long_lead_item: '長納期品', business_trip: '出張' };
+const _resNumCmp = (a, b) => a.localeCompare(b, 'ja', { numeric: true });
+/** 空欄は並び替えで常に最後（昇順・降順どちらでも下）にしたいので、ここでは最大扱い */
+const _resBlankLast = (va, vb, cmp) => (va === '' && vb === '') ? 0 : va === '' ? 1 : vb === '' ? -1 : cmp(va, vb);
+
+/** 列の定義：value=絞り込みに使う値、label=選択肢の表示、compare=並び替え */
+const _RES_DETAIL_COLS = {
+    type: { title: '種別', value: t => String(t.task_type || ''), label: v => _RES_TYPE_LABEL[v] || v || '（空欄）',
+            compare: (a, b) => (_RES_TYPE_ORDER[a.task_type] ?? 99) - (_RES_TYPE_ORDER[b.task_type] ?? 99),
+            optOrder: (a, b) => (_RES_TYPE_ORDER[a] ?? 99) - (_RES_TYPE_ORDER[b] ?? 99) },
+    pj:   { title: '工番', value: t => String(t.project_number || '').trim(), label: v => v || '（空欄）',
+            compare: (a, b) => _resBlankLast(String(a.project_number || '').trim(), String(b.project_number || '').trim(), _resNumCmp) },
+    mach: { title: '機械', value: t => String(t.machine || '').trim(), label: v => v || '（空欄）',
+            compare: (a, b) => _resBlankLast(String(a.machine || '').trim(), String(b.machine || '').trim(), _resNumCmp) },
+    unit: { title: 'ユニ', value: t => String(t.unit || '').trim(), label: v => v || '（空欄）',
+            compare: (a, b) => _resBlankLast(String(a.unit || '').trim(), String(b.unit || '').trim(), _resNumCmp) },
+};
+
+/** 開始日順（同じ開始日は終了日順、開始日のない・バーを描かないタスクは一番下） */
+function _resCompareStart(a, b) {
+    const ha = _resHasBar(a), hb = _resHasBar(b);
+    if (ha !== hb) return ha ? -1 : 1;
+    if (!ha) return 0;
+    return (a.start_date - b.start_date) || (a.end_date - b.end_date);
+}
+
+// 並び替え（sortKey=null は開始日順、sortDir 1=昇順 -1=降順）と絞り込み（列ごとに選んだ値の Set。null は絞り込みなし）
+let _resDetailView = { owner: null, sortKey: null, sortDir: 1, filters: {}, options: {}, cols: null };
+function _resetResDetailView(owner) {
+    _resDetailView = { owner, sortKey: null, sortDir: 1, filters: {}, options: {}, cols: null };
+}
+
+/** 絞り込みの選択肢（列ごとの値の一覧） */
+function _resDetailOptions(tasks) {
+    const opts = {};
+    Object.keys(_RES_DETAIL_COLS).forEach(k => {
+        const col = _RES_DETAIL_COLS[k];
+        if (col.noFilter) return;
+        const vals = [...new Set(tasks.map(col.value))];
+        vals.sort(col.optOrder || ((a, b) => _resBlankLast(a, b, _resNumCmp)));
+        opts[k] = vals;
+    });
+    return opts;
+}
+
+/** 並び替えを決める（key=null は開始日順に戻す、dir 1=昇順 -1=降順） */
+function setResDetailSort(key, dir) {
+    _resDetailView.sortKey = key;
+    _resDetailView.sortDir = dir || 1;
+    closeResDetailFilter();
+    if (_resourceDetailOwner) renderOwnerDetailTimeline(_resourceDetailOwner);
+}
+
+const RES_DETAIL_TYPE_W = 72; // 種別の列幅（見出し「種別」＋並び替えの矢印＋ボタンが入る幅）
+
+/** 担当別の詳細表示の見出し（カレンダーの左上に重ねる）。見出しのボタンで、並び替え・絞り込みのメニューを開く */
+function _resDetailHeaderHtml(gridWidth) {
+    const c = _resDetailView.cols;
+    if (!c) return '';
+    const cell = (key, width, extra) => {
+        const col = _RES_DETAIL_COLS[key];
+        const sorted = _resDetailView.sortKey === key;
+        const arrow = sorted ? (_resDetailView.sortDir === 1 ? '▲' : '▼') : '';
+        const filtered = !!_resDetailView.filters[key];
+        const tip = col.noFilter ? '並び替え' : '並び替え・絞り込み';
+        return `<div class="res-dh-cell" style="${width ? `width:${width}px;flex-shrink:0;` : 'flex:1;min-width:0;'}${extra || ''}"
+                     title="${tip}" onclick="openResDetailFilter('${key}', this.querySelector('.res-dh-btn'))">
+                    <span class="res-dh-label">${col.title}</span><span class="res-dh-arrow">${arrow}</span>
+                    <button type="button" class="res-dh-btn${filtered ? ' active' : ''}" onclick="event.stopPropagation();openResDetailFilter('${key}', this)"></button>
+                </div>`;
+    };
+    // 種別・工番・機械・ユニは中央寄せ（下の行の値も中央寄せ）。タスク名は並び替え・絞り込みなし
+    return `<div class="res-detail-head" style="width:${gridWidth}px;">
+        ${cell('type', RES_DETAIL_TYPE_W)}
+        ${cell('pj', c.pj, 'justify-content:center;')}
+        ${cell('mach', c.mach, 'justify-content:center;')}
+        ${cell('unit', c.unit, 'justify-content:center;')}
+        <div style="width:34px;flex-shrink:0;"></div>
+        <div class="res-dh-cell res-dh-plain" style="flex:1;min-width:0;"><span class="res-dh-label">タスク名</span></div>
+    </div>`;
+}
+
+/** 並び替え・絞り込みのメニューを開く（図面モードなどの列フィルターと同じ形：上に昇順・降順、下にチェックボックス） */
+function openResDetailFilter(key, anchor) {
+    const open = document.getElementById('res_detail_filter_pop');
+    if (open && open.dataset.key === key) { closeResDetailFilter(); return; } // 同じボタンをもう一度押したら閉じる
+    closeResDetailFilter();
+    const col = _RES_DETAIL_COLS[key];
+    const v = _resDetailView;
+    const vals = v.options[key] || [];
+    const sel = v.filters[key];
+    const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    const mark = dir => (v.sortKey === key && v.sortDir === dir) ? '<span class="res-dfp-check">✓</span>' : '';
+    const pop = document.createElement('div');
+    pop.id = 'res_detail_filter_pop';
+    pop.dataset.key = key;
+    pop.className = 'col-filter-dropdown';
+    pop.innerHTML = `
+        <div class="col-filter-sort-row" onclick="setResDetailSort('${key}', 1)"><span class="col-filter-sort-icon">A↓</span>昇順${mark(1)}</div>
+        <div class="col-filter-sort-row" onclick="setResDetailSort('${key}', -1)"><span class="col-filter-sort-icon">Z↓</span>降順${mark(-1)}</div>
+        ${v.sortKey === key ? `<div class="col-filter-sort-row" onclick="setResDetailSort(null)"><span class="col-filter-sort-icon">⟲</span>開始日順に戻す</div>` : ''}
+        ${col.noFilter ? '' : `
+        <div class="col-filter-dropdown-sep"></div>
+        <label><input type="checkbox" data-all="1" ${!sel ? 'checked' : ''}> 全選択</label>
+        <div class="col-filter-dropdown-sep"></div>
+        <div class="col-filter-dropdown-list">
+            ${vals.map((val, i) => `<label><input type="checkbox" data-i="${i}" ${!sel || sel.has(val) ? 'checked' : ''}> ${esc(col.label(val))}</label>`).join('')}
+        </div>`}`;
+    document.body.appendChild(pop);
+    const r = anchor.getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pop.offsetWidth - 8)) + 'px';
+    pop.style.top = (r.bottom + 4) + 'px';
+
+    if (!col.noFilter) {
+        const items = [...pop.querySelectorAll('input[data-i]')];
+        const allChk = pop.querySelector('input[data-all]');
+        pop.addEventListener('change', e => {
+            if (e.target === allChk) items.forEach(x => { x.checked = allChk.checked; });
+            else allChk.checked = items.every(x => x.checked);
+            const checked = items.filter(x => x.checked).map(x => vals[+x.dataset.i]);
+            v.filters[key] = checked.length === vals.length ? null : new Set(checked);
+            if (_resourceDetailOwner) renderOwnerDetailTimeline(_resourceDetailOwner);
+        });
+    }
+    setTimeout(() => document.addEventListener('mousedown', _resDetailFilterOutside), 0);
+    document.addEventListener('keydown', _resDetailFilterEsc);
+}
+/** Esc キーでメニューを閉じる */
+function _resDetailFilterEsc(e) {
+    if (e.key === 'Escape') closeResDetailFilter();
+}
+function _resDetailFilterOutside(e) {
+    const pop = document.getElementById('res_detail_filter_pop');
+    if (!pop || pop.contains(e.target)) return;
+    if (e.target.closest && e.target.closest('.res-dh-cell')) return; // 見出しのボタンは openResDetailFilter 側で開閉する
+    closeResDetailFilter();
+}
+function closeResDetailFilter() {
+    const pop = document.getElementById('res_detail_filter_pop');
+    if (pop) pop.remove();
+    document.removeEventListener('mousedown', _resDetailFilterOutside);
+    document.removeEventListener('keydown', _resDetailFilterEsc);
+}
+
+/** 詳細表示の列幅（工事番号・機械・ユニット）を、中身の文字が全部見える幅で測る。行ごとに列の位置がそろうよう固定幅にする。
+ *  見出し（工番・機械・ユニ＋並び替えの矢印＋絞り込みの▾）が入る幅を下限にする */
+function _calcResDetailCols(tasks) {
+    const cols = { pj: 72, mach: 72, unit: 72, text: 0 };
     try {
-        const cv = _calcResDetailColWidth._cv || (_calcResDetailColWidth._cv = document.createElement('canvas'));
+        const cv = _calcResDetailCols._cv || (_calcResDetailCols._cv = document.createElement('canvas'));
         const ctx = cv.getContext('2d');
         ctx.font = '13px ' + getComputedStyle(document.body).fontFamily;
-        let maxPj = 50, maxText = 0;
         tasks.forEach(t => {
-            maxPj = Math.max(maxPj, ctx.measureText(String(t.project_number || '-')).width);
-            maxText = Math.max(maxText, ctx.measureText(String(t.text || '')).width);
+            cols.pj   = Math.max(cols.pj,   ctx.measureText(String(t.project_number || '-')).width);
+            cols.mach = Math.max(cols.mach, ctx.measureText(String(t.machine || '').trim()).width);
+            cols.unit = Math.max(cols.unit, ctx.measureText(String(t.unit || '').trim()).width);
+            cols.text = Math.max(cols.text, ctx.measureText(String(t.text || '')).width);
         });
-        // 左右余白12 + バッジ52 + 工番 + マーク34 + 間隔8×3 + 名前 + 余裕16
-        const need = Math.ceil(12 + 52 + maxPj + 34 + 24 + maxText + 16);
-        return Math.max(RESOURCE_DETAIL_COL_WIDTH, Math.min(need, window.innerWidth - 200));
-    } catch (e) { return RESOURCE_DETAIL_COL_WIDTH; }
+    } catch (e) { /* 測れないときは最小幅のまま */ }
+    cols.pj = Math.ceil(cols.pj); cols.mach = Math.ceil(cols.mach); cols.unit = Math.ceil(cols.unit); cols.text = Math.ceil(cols.text);
+    return cols;
+}
+
+/** 担当別（全画面）の詳細表示：タスク名が全部見えるグリッド幅を計算する（下限350・画面幅−200pxで頭打ち） */
+function _calcResDetailColWidth(tasks) {
+    const c = _calcResDetailCols(tasks);
+    // 左右余白12 + バッジ52 + 工番 + 機械 + ユニット + マーク34 + 間隔8×5 + 名前 + 余裕16
+    const need = 12 + RES_DETAIL_TYPE_W + c.pj + c.mach + c.unit + 34 + 40 + c.text + 16;
+    return Math.max(RESOURCE_DETAIL_COL_WIDTH, Math.min(need, window.innerWidth - 200));
 }
 
 // ガントのタイムライン開始位置を取得（グリッド幅＋リサイザー幅を含む正確な値）
@@ -478,16 +635,19 @@ function renderResourceTimeline(owners) {
             const leftCellContent = isFirstRow
                 ? (isResourceFullscreen
                     ? `<div style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:0 5px;box-sizing:border-box;">
-                           <div class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="クリックして詳細表示" style="font-weight:bold;font-size:14px;color:#1f2933;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${ownerName}</div>
-                           <div style="font-size:10px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;padding:1px 4px;margin-left:3px;white-space:nowrap;font-weight:bold;">${rowDef.label}</div>
+                           <div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;">
+                               <div style="font-weight:bold;font-size:14px;color:#1f2933;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${ownerName}</div>
+                               <span class="res-open-detail" onclick="showOwnerDetail('${ownerName}')" title="${ownerName}さんのタスクを一覧で表示">詳細を開く ›</span>
+                           </div>
+                           <div style="font-size:12px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;height:16px;line-height:16px;padding:0 4px;margin-left:3px;white-space:nowrap;font-weight:bold;">${rowDef.label}</div>
                        </div>`
                     : `<div style="width:100%;display:flex;align-items:center;justify-content:flex-end;padding:0 8px 0 5px;box-sizing:border-box;gap:10px;">
                            <div class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="クリックして詳細表示" style="font-weight:bold;font-size:14px;color:#1f2933;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 0 110px;width:110px;text-align:left;padding:1px 2px;">${ownerName}</div>
-                           <div style="font-size:10px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;padding:1px 4px;white-space:nowrap;font-weight:bold;flex-shrink:0;">${rowDef.label}</div>
+                           <div style="font-size:12px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;height:16px;line-height:16px;padding:0 4px;white-space:nowrap;font-weight:bold;flex-shrink:0;">${rowDef.label}</div>
                        </div>`)
                 : `<div style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 5px 0 ${isResourceFullscreen ? 18 : 5}px;box-sizing:border-box;">
                        ${(isResourceFullscreen && _alerts[rowIndex - 1]) ? _resAlertChip(ownerName, _alerts[rowIndex - 1][0], _alerts[rowIndex - 1][1]) : '<span></span>'}
-                       <div style="font-size:10px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;padding:1px 4px;white-space:nowrap;font-weight:bold;">${rowDef.label}</div>
+                       <div style="font-size:12px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;height:16px;line-height:16px;padding:0 4px;white-space:nowrap;font-weight:bold;">${rowDef.label}</div>
                    </div>`;
 
             html += `
@@ -495,7 +655,7 @@ function renderResourceTimeline(owners) {
                     <div class="resource-grid-container" style="width:${actualGridWidth}px;min-width:${actualGridWidth}px;flex-shrink:0;display:flex;${stack ? 'align-items:flex-start;' : ''}border-right:1px solid #cbd2d9;background:#fff;position:sticky;left:0;z-index:40;">
                         ${stack ? `<div style="width:100%;display:flex;flex-direction:column;">
                             <div style="height:30px;width:100%;display:flex;">${leftCellContent}</div>
-                            ${laneInfo.hidden.length ? `<div style="display:flex;justify-content:flex-end;padding:0 5px;"><span class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="${RESOURCE_MAX_LANES}段に入りきらないタスクがあります。クリックで詳細表示" style="font-size:11px;font-weight:bold;color:#b42318;background:#fef3f2;border:1px solid #fecdca;border-radius:3px;padding:1px 6px;cursor:pointer;">ほか ${laneInfo.hidden.length}件 ›</span></div>` : ''}
+                            ${laneInfo.hidden.length ? `<div style="display:flex;justify-content:flex-end;padding:0 5px;"><span class="resource-owner-link" onclick="showOwnerDetail('${ownerName}', null, '${rowDef.type}')" title="${RESOURCE_MAX_LANES}段に入りきらない${rowDef.label}タスクがあります。クリックで${rowDef.label}だけを詳細表示" style="font-size:11px;font-weight:bold;color:#b42318;background:#fef3f2;border:1px solid #fecdca;border-radius:3px;padding:1px 6px;cursor:pointer;">ほか ${laneInfo.hidden.length}件 ›</span></div>` : ''}
                         </div>` : leftCellContent}
                     </div>
                     <div class="resource-timeline" style="width:${timelineWidth}px;flex-shrink:0;position:relative;background:#fff;">
@@ -592,25 +752,40 @@ function renderOwnerDetailTimeline(ownerName) {
         ownerTasks.length = 0; keep.forEach(t => ownerTasks.push(t));
     }
 
-    // 開始日順でソート
-    const TASK_TYPE_ORDER = { planning: 0, drawing: 1, long_lead_item: 2, business_trip: 3 };
-    ownerTasks.sort((a, b) => {
-        const ta = TASK_TYPE_ORDER[a.task_type] ?? 99;
-        const tb = TASK_TYPE_ORDER[b.task_type] ?? 99;
-        if (ta !== tb) return ta - tb;
-        const pa = String(a.project_number || '');
-        const pb = String(b.project_number || '');
-        return pa.localeCompare(pb, undefined, { numeric: true });
-    });
-
     if (ownerTasks.length === 0) {
         container.innerHTML = `<div style="padding:20px; text-align:center; color:#999;">タスクがありません</div>`;
         return;
     }
 
+    // 担当者を替えたら、並び替え・絞り込みを解除して開始日順に戻す
+    if (_resDetailView.owner !== ownerName) _resetResDetailView(ownerName);
+    const allTasksForWidth = ownerTasks.slice(); // 絞り込んでも列幅が変わらないよう、絞り込み前で測る
+    _resDetailView.options = _resDetailOptions(ownerTasks); // 絞り込みの選択肢（絞り込み前のタスクから作る）
+
+    // 絞り込み（担当別モードのみ。見出しは担当別モードにしか出ないため）
+    if (isResourceFullscreen) {
+        const keep = ownerTasks.filter(t => Object.keys(_RES_DETAIL_COLS).every(k => {
+            const sel = _resDetailView.filters[k];
+            return !sel || sel.has(_RES_DETAIL_COLS[k].value(t));
+        }));
+        ownerTasks.length = 0; keep.forEach(t => ownerTasks.push(t));
+    }
+
+    // 並び順：既定は開始日順（同じ開始日は終了日順、開始日のないタスクは一番下）。
+    // 見出しをクリックした列があれば、その列の昇順・降順（同じ値の中は開始日順）
+    const sortKey = isResourceFullscreen ? _resDetailView.sortKey : null;
+    const sortDir = _resDetailView.sortDir;
+    ownerTasks.sort((a, b) => {
+        if (sortKey) {
+            const c = _RES_DETAIL_COLS[sortKey].compare(a, b);
+            if (c !== 0) return c * sortDir;
+        }
+        return _resCompareStart(a, b);
+    });
+
     // 担当別（全画面）ではタスク名が全部見える幅まで広げる
     if (isResourceFullscreen) {
-        _resDetailColWidth = _calcResDetailColWidth(ownerTasks);
+        _resDetailColWidth = _calcResDetailColWidth(allTasksForWidth);
         actualGridWidth = _resDetailColWidth;
         totalWidth = actualGridWidth + timelineWidth;
         todayLineLeft = actualGridWidth + todayPos;
@@ -625,8 +800,13 @@ function renderOwnerDetailTimeline(ownerName) {
 
     const colorClass = getOwnerColorClass(ownerName);
     const textColor = "inherit";
+    const dCols = _calcResDetailCols(allTasksForWidth); // 工事番号・機械・ユニットの列幅
+    _resDetailView.cols = dCols; // 見出し（カレンダーの左上）を同じ幅で描くため
 
     let html = `<div style="width: ${totalWidth}px; position: relative;">`;
+    if (ownerTasks.length === 0) {
+        html += `<div style="position:sticky;left:0;width:${actualGridWidth}px;padding:20px;box-sizing:border-box;text-align:center;color:#999;">絞り込みに合うタスクがありません</div>`;
+    }
     ownerTasks.forEach(t => {
         const hasDate = _resHasBar(t);
         const left = hasDate ? gantt.posFromDate(t.start_date) : 0;
@@ -639,8 +819,10 @@ function renderOwnerDetailTimeline(ownerName) {
             <div class="resource-item" style="display: flex; border-bottom: 1px solid #eef0f3; min-height: 30px; height: 30px; align-items: stretch; width: ${totalWidth}px;">
                 <div class="resource-grid-container" style="width: ${actualGridWidth}px; min-width: ${actualGridWidth}px; flex-shrink: 0; display: flex; border-right: 1px solid #cbd2d9; background: #fff; position: sticky; left: 0; z-index: 40; overflow: hidden;">
                     <div style="display: flex; align-items: center; padding: 0 6px; font-size: 13px; color: #1f2933; width: 100%; overflow: hidden; white-space: nowrap; gap: 8px;">
-                        <span style="flex-shrink: 0; box-sizing: border-box; width: 52px; text-align: center; font-size: 10px; color: ${typeClr.color}; background: ${typeClr.bg}; border-radius: 2px; padding: 1px 0; font-weight: bold;">${typeLabel}</span>
-                        <span style="flex-shrink: 0; color: #7b8794; min-width: 50px;">${t.project_number || '-'}</span>
+                        <span style="flex-shrink: 0; box-sizing: border-box; width: ${RES_DETAIL_TYPE_W}px; text-align: center; font-size: 12px; color: ${typeClr.color}; background: ${typeClr.bg}; border-radius: 2px; height: 16px; line-height: 16px; padding: 0; font-weight: bold;">${typeLabel}</span>
+                        <span style="flex-shrink: 0; color: #1f2933; width: ${dCols.pj}px; text-align: center;">${t.project_number || '-'}</span>
+                        <span title="機械" style="flex-shrink: 0; color: #1f2933; width: ${dCols.mach}px; text-align: center;">${String(t.machine || '').trim()}</span>
+                        <span title="ユニット" style="flex-shrink: 0; color: #1f2933; width: ${dCols.unit}px; text-align: center;">${String(t.unit || '').trim()}</span>
                         <span style="flex-shrink: 0; display: flex; align-items: center; gap: 2px;"><span title="${_resIsLate(t) ? '期限切れ' : ''}" style="display:flex; justify-content:center; width:16px;">${_resIsLate(t) ? _ICON_LATE : ''}</span><span title="${_resIsWish(t) ? '期日超過' : ''}" style="display:flex; justify-content:center; width:16px;">${_resIsWish(t) ? _ICON_WISH : ''}</span></span>
                         <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;">${t.text}</span>
                     </div>
@@ -762,6 +944,7 @@ function renderResourceCalendarHeader() {
             </div>
         </div>
         ${dowRow}
+        ${_resourceDetailOwner ? _resDetailHeaderHtml(actualGridWidth) : ''}
     `;
 }
 
@@ -787,7 +970,12 @@ function _applyResourceHeaderUI() {
     }
 }
 
-function showOwnerDetail(ownerName, only) {
+function showOwnerDetail(ownerName, only, taskType) {
+    // 一覧から開き直したときは、並び替え・絞り込みを解除して開始日順に戻す
+    closeResDetailFilter();
+    _resetResDetailView(ownerName);
+    // 「ほか N件」から開いたときは、その種別だけに絞り込んだ状態で開く（種別の漏斗ボタンで解除できる）
+    if (taskType) _resDetailView.filters.type = new Set([taskType]);
     _resourceDetailOwner = ownerName;
     _resourceOnly = only || null;
     const suffix = _resourceOnly === 'late' ? '（期限切れ）' : _resourceOnly === 'wish' ? '（期日超過）' : '';
@@ -799,6 +987,7 @@ function showOwnerDetail(ownerName, only) {
 }
 
 function showOwnerOverview() {
+    closeResDetailFilter();
     _resourceDetailOwner = null;
     _resourceOnly = null;
     const lg = document.getElementById('resource_mark_legend'); if (lg) lg.style.display = 'none';
