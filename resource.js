@@ -96,7 +96,7 @@ const mainLayout = {
 };
 
 function _getActiveGanttZoomLevel() {
-    return document.querySelector('.zoom-btn.active')?.textContent === '週単位' ? 'week' : 'day';
+    return document.getElementById('zoom_week_btn')?.classList.contains('active') ? 'week' : 'day';
 }
 
 /**
@@ -276,6 +276,40 @@ window.addEventListener('pageshow', function (ev) {
 
 // リソース表示の列幅定数（担当者名 / 詳細タスク名）
 const RESOURCE_OVERVIEW_COL_WIDTH = 300;  // 担当者名列
+// 担当別モード（全画面）で、期間が重なるバーを段に分けて表示する（false にすると元の1行表示に戻る）
+const RESOURCE_STACK_LANES = true;
+const RESOURCE_LANE_HEIGHT = 24; // 1段の高さ（バー22px＋すき間2px）
+const RESOURCE_MAX_LANES = 10;   // 種別ごとの段数の上限（入りきらないバーは描かず「+N件」で知らせる）
+
+/** 段の上限があるときの優先順位：0=開始日が今日以降、1=今日をまたいで進行中、2=終わったもの */
+function _resLanePriority(t, today) {
+    if (t.start_date >= today) return 0;
+    if (t.end_date > today) return 1;
+    return 2;
+}
+
+/** 重ならないように段を割り当てる：優先順位の高い順（同じ順位の中は開始日順）に、上の段から空いている所に入れる。
+ *  上限の段数に入りきらないのは優先順位の低いタスク（＝先に終わったもの）になる。
+ *  戻り値 { lanes: 段数, laneOf: Map(task→段番号), hidden: 上限で入りきらなかったタスク } */
+function _resAssignLanes(tasks) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const sorted = tasks.slice().sort((a, b) =>
+        _resLanePriority(a, today) - _resLanePriority(b, today) || a.start_date - b.start_date || b.end_date - a.end_date);
+    const lanes = []; // 各段に置いたバーの期間 [{s, e}]
+    const laneOf = new Map();
+    const hidden = [];
+    const fits = (lane, t) => lane.every(r => r.e <= t.start_date || t.end_date <= r.s);
+    sorted.forEach(t => {
+        let idx = lanes.findIndex(lane => fits(lane, t));
+        if (idx === -1) {
+            if (lanes.length >= RESOURCE_MAX_LANES) { hidden.push(t); return; }
+            idx = lanes.length; lanes.push([]);
+        }
+        lanes[idx].push({ s: t.start_date, e: t.end_date });
+        laneOf.set(t, idx);
+    });
+    return { lanes: Math.max(1, lanes.length), laneOf, hidden };
+}
 const RESOURCE_DETAIL_COL_WIDTH   = 350;  // 詳細表示（工事番号＋タスク名列）
 /** バーを描くか：日付なし、または開始日なしで完了予定日が過ぎている（終わりが始まりより前の）タスクは描かない。
  *  開始日なしのタスクは開始日が「今日」で読み込まれるため、描くと今日の列に細い縦線が出てしまう */
@@ -428,6 +462,10 @@ function renderResourceTimeline(owners) {
         // 4行（タスク種別ごと）を描画
         TASK_TYPE_ROWS.forEach((rowDef, rowIndex) => {
             const rowTasks = allOwnerTasks.filter(t => String(t.task_type) === rowDef.type);
+            // 段分け（担当別モードのみ）
+            const stack = RESOURCE_STACK_LANES && isResourceFullscreen;
+            const laneInfo = stack ? _resAssignLanes(rowTasks.filter(_resHasBar)) : null;
+            const rowHeight = stack ? Math.max(30, laneInfo.lanes * RESOURCE_LANE_HEIGHT + 6) : 30;
             const isFirstRow = rowIndex === 0;
             const isLastRow  = rowIndex === TASK_TYPE_ROWS.length - 1;
 
@@ -453,24 +491,29 @@ function renderResourceTimeline(owners) {
                    </div>`;
 
             html += `
-                <div class="resource-item" style="display:flex;${borderTop}${borderBottom}min-height:30px;height:30px;align-items:stretch;width:${totalWidth}px;">
-                    <div class="resource-grid-container" style="width:${actualGridWidth}px;min-width:${actualGridWidth}px;flex-shrink:0;display:flex;border-right:1px solid #cbd2d9;background:#fff;position:sticky;left:0;z-index:40;">
-                        ${leftCellContent}
+                <div class="resource-item" style="display:flex;${borderTop}${borderBottom}min-height:30px;height:${rowHeight}px;align-items:stretch;width:${totalWidth}px;">
+                    <div class="resource-grid-container" style="width:${actualGridWidth}px;min-width:${actualGridWidth}px;flex-shrink:0;display:flex;${stack ? 'align-items:flex-start;' : ''}border-right:1px solid #cbd2d9;background:#fff;position:sticky;left:0;z-index:40;">
+                        ${stack ? `<div style="width:100%;display:flex;flex-direction:column;">
+                            <div style="height:30px;width:100%;display:flex;">${leftCellContent}</div>
+                            ${laneInfo.hidden.length ? `<div style="display:flex;justify-content:flex-end;padding:0 5px;"><span class="resource-owner-link" onclick="showOwnerDetail('${ownerName}')" title="${RESOURCE_MAX_LANES}段に入りきらないタスクがあります。クリックで詳細表示" style="font-size:11px;font-weight:bold;color:#b42318;background:#fef3f2;border:1px solid #fecdca;border-radius:3px;padding:1px 6px;cursor:pointer;">ほか ${laneInfo.hidden.length}件 ›</span></div>` : ''}
+                        </div>` : leftCellContent}
                     </div>
                     <div class="resource-timeline" style="width:${timelineWidth}px;flex-shrink:0;position:relative;background:#fff;">
                         <div style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:0;">${weekendBackgroundHtml}</div>
-                        <div style="position:absolute;top:0;left:0;right:0;bottom:0;${backgroundStyle}z-index:1;"></div>
+                        <div style="position:absolute;top:0;left:0;right:0;bottom:0;${backgroundStyle}${stack ? 'background-size:' + columnWidth + 'px ' + rowHeight + 'px;' : ''}z-index:1;"></div>
                         <div style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:2;">
             `;
 
             rowTasks.forEach(t => {
                 if (!_resHasBar(t)) return; // メインの表と同じく、日付なし・幅0のバーは描かない
+                if (stack && !laneInfo.laneOf.has(t)) return; // 段の上限で入りきらないバー
                 const left  = gantt.posFromDate(t.start_date);
                 const right = gantt.posFromDate(t.end_date);
                 const width = Math.max(2, right - left);
+                const top = stack ? 4 + laneInfo.laneOf.get(t) * RESOURCE_LANE_HEIGHT : 4;
                 html += `
-                    <div class="resource-cell-bar ${colorClass}"
-                         style="position:absolute;top:4px;height:22px;left:${left}px;width:${width}px;z-index:10;"
+                    <div class="resource-cell-bar ${colorClass}${_resIsDone(t) ? ' res-bar-completed' : ''}"
+                         style="position:absolute;top:${top}px;height:22px;left:${left}px;width:${width}px;z-index:10;"
                          title="${t.text} (${t.project_number})">
                          <span class="resource-bar-text" style="color:${textColor};font-size:11px;font-weight:bold;">${t.project_number || ""} ${t.text}</span>
                     </div>
@@ -606,7 +649,7 @@ function renderOwnerDetailTimeline(ownerName) {
                     <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 0;">${weekendBackgroundHtml}</div>
                     <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; ${backgroundStyle} z-index: 1;"></div>
                     ${hasDate ? `
-                    <div class="resource-cell-bar ${colorClass}"
+                    <div class="resource-cell-bar ${colorClass}${_resIsDone(t) ? ' res-bar-completed' : ''}"
                          style="position: absolute; top: 4px; height: 22px; left: ${left}px; width: ${barWidth}px; z-index: 10;"
                          title="${t.text} (${t.project_number})">
                          <span class="resource-bar-text" style="color:${textColor}; font-size:11px; font-weight:bold;">${t.project_number || ""} ${t.text}</span>
@@ -821,7 +864,7 @@ function _enterResourceFullscreen() {
     const rZoomBar = document.getElementById('resource_zoom_bar');
     if (rZoomBar) {
         const lvl = gantt.getState ? (gantt.getState().scale_unit || 'day') : 'day';
-        rZoomBar.style.display = 'none'; // 日・週は上のツールバーで切り替える
+        rZoomBar.style.display = 'flex'; // 上のツールバー（日・週・今日へ）は隠れるので、ここに出す
         const rdBtn = document.getElementById('resource_zoom_day_btn');
         const rwBtn = document.getElementById('resource_zoom_week_btn');
         if (rdBtn) rdBtn.classList.toggle('active', lvl === 'day');
@@ -829,13 +872,42 @@ function _enterResourceFullscreen() {
     }
     updateFilterButtons();
     // レイアウト確定後にスクロール位置を設定
-    setTimeout(() => {
-        const todayX = gantt.posFromDate(new Date());
-        const scrollX = Math.max(0, todayX - 300);
-        const resourceContent = document.querySelector('.resource-content');
-        if (resourceContent) resourceContent.scrollLeft = scrollX;
-        _syncCalendarHeaderScroll(scrollX);
-    }, 50);
+    setTimeout(resourceScrollToToday, 50);
+}
+
+/** 担当別モード：今日の日付までスクロールする（今日が左から300pxの位置に来るように） */
+function resourceScrollToToday() {
+    const _t = new Date(); _t.setHours(0, 0, 0, 0);
+    const scrollX = Math.max(0, gantt.posFromDate(_t) - 300);
+    const resourceContent = document.querySelector('.resource-content');
+    if (resourceContent) resourceContent.scrollLeft = scrollX;
+    _syncCalendarHeaderScroll(scrollX);
+}
+
+/** 担当別モード：日・週を切り替える。表示していた位置（左端の日付）はそのまま保つ */
+function setResourceZoom(level) {
+    const rc = document.querySelector('.resource-content');
+    const leftDate = rc ? gantt.dateFromPos(rc.scrollLeft) : null;
+    // ガントが非表示のままだと目盛りが計算し直されないので、見えない状態で一時的に表示して切り替える
+    const ganttEl = document.getElementById('gantt_here');
+    const ganttHost = document.getElementById('gantt_host');
+    if (ganttHost) ganttHost.style.display = '';
+    ganttEl.style.visibility = 'hidden';
+    ganttEl.style.display = '';
+    gantt.ext.zoom.setLevel(level);
+    gantt.setSizes();
+    ganttEl.style.display = 'none';
+    ganttEl.style.visibility = '';
+    if (ganttHost) ganttHost.style.display = 'none';
+    // ボタンの選択状態（担当別のボタンと上のツールバーのボタンの両方）
+    [['resource_zoom_day_btn', 'day'], ['resource_zoom_week_btn', 'week'], ['zoom_day_btn', 'day'], ['zoom_week_btn', 'week']]
+        .forEach(([id, lv]) => { const b = document.getElementById(id); if (b) b.classList.toggle('active', lv === level); });
+    updateResourceData();
+    if (rc && leftDate) {
+        const x = Math.max(0, gantt.posFromDate(leftDate));
+        rc.scrollLeft = x;
+        _syncCalendarHeaderScroll(x);
+    }
 }
 
 // リソース全画面モードを抜けてガントビューへ

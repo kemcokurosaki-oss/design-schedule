@@ -1316,6 +1316,10 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
 .new-project-add { padding: 4px 12px; border: 1px solid #1f2933; border-radius: 5px; background: #fff; color: #1f2933; font-weight: bold; font-size: 13px; font-family: inherit; cursor: pointer; }
 /* リソース */
 #resource_zoom_bar { display: none !important; }
+/* 担当別モード（全画面）だけ、日・週と今日へのバーを出す */
+#resource_panel.resource-fullscreen #resource_zoom_bar { display: flex !important; }
+/* ほかのモードの日・週の行（#project_info_row）と同じ見た目 */
+#resource_zoom_bar { flex-shrink: 0; align-items: center; gap: 8px; padding: 10px 20px; box-sizing: border-box; background: #eff0f2; border-top: 1px solid #c6cacf; border-bottom: 1px solid #c6cacf; }
 #resource_back_btn { width: 30px; height: 30px; padding: 0; border: none; border-radius: 6px; font-size: 18px; color: #3e4c59; background: transparent; }
 #resource_back_btn:hover { background: #f0f2f5; }
 .resource-mark-legend { display: inline-flex; align-items: center; gap: 14px; margin-left: 12px; font-size: 12px; font-weight: normal; color: #52606d; }
@@ -1433,3 +1437,10 @@ html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family:
     pointer-events: none;
 }
 body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-select: none !important; }
+
+/* 担当別モード・リソース画面：完了タスクのバーはグレー（メインの .task-bar-completed と同じ色） */
+.resource-cell-bar.res-bar-completed {
+    background-color: #e9ecef !important;
+    border-color: #cbd2d9 !important;
+    color: #7b8794 !important;
+}
