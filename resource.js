@@ -311,7 +311,7 @@ function _calcResOverviewColWidth(owners) {
 // 担当別モード（全画面）で、期間が重なるバーを段に分けて表示する（false にすると元の1行表示に戻る）
 const RESOURCE_STACK_LANES = true;
 const RESOURCE_LANE_HEIGHT = 24; // 1段の高さ（バー22px＋すき間2px）
-const RESOURCE_MAX_LANES = 10;   // 種別ごとの段数の上限（入りきらないバーは描かず「+N件」で知らせる）
+const RESOURCE_MAX_LANES = 12;   // 種別ごとの段数の上限（入りきらないバーは描かず「+N件」で知らせる）
 
 /** 段の上限があるときの優先順位：0=開始日が今日以降、1=今日をまたいで進行中、2=終わったもの、3=完了済み（日付に関係なく一番後回し） */
 function _resLanePriority(t, today) {
