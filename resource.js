@@ -902,7 +902,7 @@ function renderOwnerDetailTimeline(ownerName) {
                          title="${t.text} (${t.project_number})">
                          <span class="resource-bar-text" style="color:${textColor}; font-size:11px; font-weight:bold;">${t.project_number || ""} ${t.text}</span>
                     </div>` : ''}
-                    ${(() => { const tt = String(t.task_type); const w = _resWishDate(t); if (!w || (tt !== 'drawing' && tt !== 'long_lead_item')) return ''; const x = gantt.posFromDate(w) + columnWidth / 2; return `<div title="${tt === 'long_lead_item' ? '手配期日' : '出図希望日'}: ${t.wish_date}" style="position:absolute;top:0;left:${x}px;transform:translateX(-50%);font-size:12px;line-height:1;color:#3e4c59;z-index:11;">▼</div>`; })()}
+                    ${(() => { const tt = String(t.task_type); const w = _resWishDate(t); if (!w || (tt !== 'drawing' && tt !== 'long_lead_item')) return ''; const x = gantt.posFromDate(gantt.date.add(w, 1, 'day')); /* メイン画面の▼と同じく、その日の列の右端 */ return `<div title="${tt === 'long_lead_item' ? '手配期日' : '出図希望日'}: ${t.wish_date}" style="position:absolute;top:1px;left:${x}px;transform:translateX(-50%);font-size:13px;line-height:1;color:#3e4c59;z-index:11;">▼</div>`; })()}
                 </div>
             </div>
         `;
