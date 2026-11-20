@@ -659,9 +659,10 @@ function renderResourceTimeline(owners) {
             const leftCellContent = isFirstRow
                 ? (isResourceFullscreen
                     ? `<div style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:0 5px;box-sizing:border-box;">
-                           <div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;">
-                               <div style="font-weight:bold;font-size:14px;color:#1f2933;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${ownerName}</div>
-                               <span class="res-open-detail" onclick="showOwnerDetail('${ownerName}')" title="${ownerName}さんのタスクを一覧で表示">詳細を開く ›</span>
+                           <div style="flex:1;min-width:0;display:flex;align-items:center;">
+                               <div class="res-owner-open" onclick="showOwnerDetail('${ownerName}')" title="${ownerName}さんのタスクを一覧で表示">
+                                   <span class="res-owner-open-name">${ownerName}</span><svg class="res-owner-open-arrow" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>
+                               </div>
                            </div>
                            <div style="font-size:12px;color:${typeClr.color};background:${typeClr.bg};border-radius:2px;height:16px;line-height:16px;padding:0 4px;margin-left:3px;white-space:nowrap;font-weight:bold;">${rowDef.label}</div>
                        </div>`
